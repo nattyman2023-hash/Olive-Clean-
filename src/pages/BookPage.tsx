@@ -258,9 +258,11 @@ export default function BookPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={!canNext}
+                disabled={!canNext || loading}
                 className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-8 active:scale-[0.97] transition-transform"
               >
-                Submit Request
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {loading ? "Submitting..." : "Submit Request"}
               </Button>
             )}
           </div>
