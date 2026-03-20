@@ -346,6 +346,35 @@ export default function ClientsTab() {
                   <p className="text-sm text-foreground">{selected.notes}</p>
                 </div>
               )}
+              {!selected.client_user_id && selected.email && (
+                <div className="border-t border-border pt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={inviting}
+                    className="w-full rounded-lg active:scale-[0.97]"
+                    onClick={async () => {
+                      setInviting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("invite-client", {
+                          body: { email: selected.email, name: selected.name, client_id: selected.id },
+                        });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast.success(`Setup email sent to ${selected.email}`);
+                        fetchClients();
+                      } catch (err: any) {
+                        toast.error(err.message || "Failed to send invitation.");
+                      } finally {
+                        setInviting(false);
+                      }
+                    }}
+                  >
+                    {inviting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+                    Send Account Setup Email
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
