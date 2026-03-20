@@ -1,63 +1,40 @@
 
-# Olive Clean — Customer-Facing Website
+
+# CRM Phase Implementation
 
 ## Overview
-Build a stunning, mobile-first marketing website for Olive Clean, a premium residential cleaning service in Nashville, TN. The site will embody the "calm luxury" brand identity and guide visitors through a conversion-optimized journey from awareness to booking.
+Add three new database tables (clients, jobs, perks_members), refactor the admin dashboard with tabbed navigation, and add a Staff Login link to the footer.
 
-## Brand System Setup
-- Configure Tailwind with Olive Clean's color palette: Olive Moss (#7F8151), Sage Leaf (#6B775C), Coral Sunset (#F28C7E), Charcoal (#2E2E2E), Harvest Gold (#C29F5D)
-- Import Poppins font family (Google Fonts)
-- Establish consistent spacing, border-radius, and shadow tokens for the "sanctuary" aesthetic
+## 1. Database Migration
 
-## Website Sections (Single-Page Landing)
+Create `clients`, `jobs`, and `perks_members` tables with RLS policies allowing admin/staff access.
 
-### 1. Hero Section
-- Full-width hero with warm lifestyle imagery placeholder and headline: "Reclaim Your Weekends"
-- Subtext emphasizing family time and peace of mind
-- Primary CTA button: "Get Your Free Estimate"
+**clients** — name, email, phone, address, neighborhood, preferences (jsonb), notes, created_by (uuid)
+**jobs** — client_id (FK→clients), service, status (scheduled/in_progress/completed/cancelled), scheduled_at, completed_at, assigned_to, duration_minutes, actual_duration_minutes, price, notes
+**perks_members** — client_id (FK→clients), status (active/paused/cancelled), discount_percent (default 40), flexibility_zone, joined_at, notes
 
-### 2. Services & Pricing Tiers
-- Four beautifully designed cards for Essential, General, Signature Deep Clean, and Makeover Deep Clean
-- Each card lists key inclusions, starting price, and a "Book Now" CTA
-- Visual hierarchy using brand greens and coral accents
+RLS: Admin and staff can SELECT/INSERT/UPDATE on clients and jobs. Admin-only on perks_members.
 
-### 3. "Why Olive Clean" / Trust Section
-- Bonded & insured, background-checked teams, eco-friendly products
-- Nashville neighborhood focus (Belle Meade, Brentwood, etc.)
-- Icon-driven layout with brief, impactful copy
+## 2. Footer Update
+Add "Staff Login" link to the bottom bar of `src/components/Footer.tsx`, linking to `/admin/login`.
 
-### 4. Time Saved Calculator
-- Simple interactive widget: select home size + frequency → shows hours saved per month
-- Reinforces "Reclaim Your Time" value proposition
+## 3. Admin Dashboard Refactor
 
-### 5. Olive Perks Club Teaser
-- Brief explainer of the flexibility-based savings program (up to 60% off)
-- CTA to learn more or join the waitlist
+Refactor `AdminDashboard.tsx` to use a tabbed layout with four tabs: **Bookings | Clients | Jobs | Perks**.
 
-### 6. Social Proof
-- Testimonial cards with star ratings (placeholder content)
-- Trust badges and review platform logos
+Extract existing bookings logic into `src/components/admin/BookingsTab.tsx` and create three new tab components:
 
-### 7. Booking / Contact Flow
-- Multi-step form: select service tier → home details → preferred schedule → contact info
-- Form submissions stored in Supabase (basic backend)
-- Success confirmation with next-steps messaging
+- **BookingsTab** — current bookings list/detail (extracted from AdminDashboard)
+- **ClientsTab** — list clients with search/filter by neighborhood, add/edit client form with JSONB preferences editor, view job history
+- **JobsTab** — list jobs with status/client/date filters, create job (select client, service, date, assign tech), update status and log duration
+- **PerksTab** — list Perks members with status badges, enroll client, simple "Gap Filler" view showing nearby members when a job cancels
 
-### 8. Footer
-- Contact info, service areas, social links
-- Quick links to services, about, and booking
+## Files to Create/Edit
+- **Migration**: New SQL migration for 3 tables + RLS
+- **Edit**: `src/components/Footer.tsx` — add Staff Login link
+- **Edit**: `src/pages/AdminDashboard.tsx` — tabbed navigation shell
+- **Create**: `src/components/admin/BookingsTab.tsx`
+- **Create**: `src/components/admin/ClientsTab.tsx`
+- **Create**: `src/components/admin/JobsTab.tsx`
+- **Create**: `src/components/admin/PerksTab.tsx`
 
-## Basic Backend (Supabase)
-- Set up Supabase project with Lovable Cloud
-- Create a `booking_requests` table to capture form submissions
-- Basic RLS so only admins can read submissions
-- No auth required for customers at this stage
-
-## Mobile Responsiveness
-- All sections fully responsive with mobile-first design
-- Hamburger navigation on mobile
-- Touch-friendly CTAs and form inputs
-
-## Pages
-- **/** — Main landing page (all sections above)
-- **/book** — Dedicated booking page (the multi-step form, also accessible from CTAs)
