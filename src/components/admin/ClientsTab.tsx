@@ -40,6 +40,7 @@ export default function ClientsTab() {
   const [search, setSearch] = useState("");
   const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
   const [selected, setSelected] = useState<Client | null>(null);
+  const [inviting, setInviting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
