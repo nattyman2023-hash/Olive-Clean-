@@ -140,7 +140,6 @@ export default function TeamTab() {
     setFormName("");
     setFormPhone("");
     setFormEmail("");
-    setFormUserId("");
     setFormStatus("onboarding");
     setFormNotes("");
     setFormCerts("");
