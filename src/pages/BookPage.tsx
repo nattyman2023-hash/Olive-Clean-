@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -20,6 +22,7 @@ const frequencies = ["One-Time", "Weekly", "Bi-Weekly", "Monthly"];
 export default function BookPage() {
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     service: "",
     homeType: "",
@@ -44,9 +47,25 @@ export default function BookPage() {
       ? !!form.frequency
       : !!form.name && !!form.email && !!form.phone;
 
-  const handleSubmit = () => {
-    // TODO: Send to Supabase
-    console.log("Booking submitted:", form);
+  const handleSubmit = async () => {
+    setLoading(true);
+    const { error } = await supabase.from("booking_requests").insert({
+      service: form.service,
+      home_type: form.homeType,
+      bedrooms: parseInt(form.bedrooms),
+      bathrooms: parseInt(form.bathrooms),
+      frequency: form.frequency,
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      address: form.address || null,
+      notes: form.notes || null,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Something went wrong. Please try again.");
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -238,10 +257,11 @@ export default function BookPage() {
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={!canNext}
+                disabled={!canNext || loading}
                 className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-8 active:scale-[0.97] transition-transform"
               >
-                Submit Request
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {loading ? "Submitting..." : "Submit Request"}
               </Button>
             )}
           </div>
