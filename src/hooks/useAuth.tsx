@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isStaff: boolean;
   isClient: boolean;
   signOut: () => Promise<void>;
 }
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   isAdmin: false,
+  isStaff: false,
   isClient: false,
   signOut: async () => {},
 });
@@ -25,22 +27,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  const checkRoles = async (userId: string) => {
+  const checkRoles = async (userId: string, attempt = 0) => {
     try {
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), 5000)
       );
       const roleCheck = Promise.all([
         supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
         supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
       ]);
-      const [adminRes, clientRes] = (await Promise.race([roleCheck, timeout])) as any;
+      const [adminRes, staffRes, clientRes] = (await Promise.race([roleCheck, timeout])) as any;
       setIsAdmin(!!adminRes.data);
+      setIsStaff(!!staffRes.data);
       setIsClient(!!clientRes.data);
     } catch {
-      // On timeout/error, preserve existing role state
+      if (attempt < 1) {
+        await new Promise((r) => setTimeout(r, 1000));
+        return checkRoles(userId, attempt + 1);
+      }
     }
   };
 
@@ -57,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else {
           setIsAdmin(false);
+          setIsStaff(false);
           setIsClient(false);
         }
         initialized = true;
@@ -84,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, isClient, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, isStaff, isClient, signOut }}>
       {children}
     </AuthContext.Provider>
   );

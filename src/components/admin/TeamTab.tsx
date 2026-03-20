@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2 } from "lucide-react";
+import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -132,6 +132,22 @@ export default function TeamTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       toast.success("Checklist updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: async (emp: Employee) => {
+      if (!emp.email) throw new Error("Employee needs an email address first");
+      const { data, error } = await supabase.functions.invoke("invite-employee", {
+        body: { email: emp.email, name: emp.name, employee_id: emp.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      toast.success("Login invite sent!");
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -416,6 +432,18 @@ export default function TeamTab() {
                           <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => openEdit(emp)}>
                             Edit
                           </Button>
+                          {emp.email && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Send login invite"
+                              disabled={inviteMutation.isPending}
+                              onClick={() => inviteMutation.mutate(emp)}
+                            >
+                              <Mail className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
