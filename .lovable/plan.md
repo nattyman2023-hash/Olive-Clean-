@@ -1,59 +1,48 @@
 
 
-# Plan: Branded Auth Emails + Admin Nav Fix + Employee Profile Builder
+# Plan: Enhanced Routes Tab + Supply Tracking + Admin Nav Stability
 
-## 1. Branded Auth Email Templates
+## 1. Enhanced Routes Tab — Geographic Clustering and Predictive Routing
 
-The email domain `notify.wubhairstudio.co.uk` is configured (pending DNS). I will:
+Upgrade `src/components/admin/RoutesTab.tsx` with:
 
-- Scaffold auth email templates using the managed flow
-- Apply Olive Clean branding to all 6 templates:
-  - Primary button: `hsl(62, 24%, 41%)` (olive green)
-  - Foreground: `hsl(0, 0%, 18%)`
-  - Muted text: `hsl(0, 0%, 45%)`
-  - Font: Poppins with Arial fallback
-  - Border radius: `0.75rem`
-  - White email background
-  - Warm, professional tone matching the app's "calm luxury" voice
-- Deploy `auth-email-hook` edge function
+- **Skill-based constraint badges**: Show technician certifications on each tech group header (pulled from `employees.certifications`), flag mismatches when a job requires a cert the tech doesn't have
+- **Route efficiency metrics per technician**: Utilization percentage (work time vs total time including drive), idle gap detection between jobs
+- **Neighborhood clustering view**: Toggle between "by technician" and "by zone" grouping — zone view clusters all jobs in a neighborhood regardless of tech assignment, helping admins spot rebalancing opportunities
+- **Priority client indicator**: Badge on job cards for clients with a `priority` flag in their `preferences` JSONB (for "Emergency Request" high-priority clients)
+- **Drag-and-drop reorder**: Allow reordering jobs within a technician's route, saving the new sequence by updating `scheduled_at` timestamps
 
-DNS verification is still pending — emails will start sending once DNS completes. You can monitor progress in Cloud settings.
+## 2. New: Supply & Equipment Tracking
 
-## 2. Fix Admin Dashboard Tab Visibility
+### Database Migration
+- New `supply_items` table:
+  - `id`, `name`, `category` (cleaning_supply, equipment), `current_stock`, `reorder_threshold`, `unit`, `last_restocked_at`, `notes`, `created_at`
+- New `supply_usage_logs` table:
+  - `id`, `supply_item_id` (FK), `employee_id` (FK nullable), `quantity_used`, `logged_at`, `job_id` (FK nullable)
+- RLS: Admin full access, staff can insert usage logs and view items
 
-**Root cause**: Tabs 4-8 (Perks, Analytics, Team, Hiring, Routes) are gated behind `isAdmin`, which defaults to `false` and can remain `false` if the role check times out or races.
+### Admin UI — New "Supplies" Tab
+- `src/components/admin/SuppliesTab.tsx`:
+  - Inventory list with stock levels and color-coded status (green/amber/red based on threshold)
+  - "Low Stock" alert banner when any item falls below threshold
+  - Usage trend sparklines per item (last 30 days from `supply_usage_logs`)
+  - Add/edit supply items dialog
+  - Log usage form (select item, quantity, optional employee/job)
+- Add tab to `AdminDashboard.tsx`
 
-**Fix in `AdminDashboard.tsx`**:
-- Add a `rolesLoading` state to `useAuth` that is `true` until `checkRoles` resolves
-- While `rolesLoading` is true, show a skeleton placeholder for tabs
-- Show all 8 tabs once roles resolve (keeping content gated if not admin)
-- Ensure `ScrollArea` works correctly for horizontal scrolling on mobile
+## 3. Admin Nav Stability (final fix)
 
-**Fix in `useAuth.tsx`**:
-- Add `rolesLoading` boolean to context — starts `true`, set `false` after `checkRoles` completes or fails
-- Increase retry attempts from 1 to 2
+The current implementation already has `rolesLoading` and skeleton loaders. The remaining issue is that all 8 tabs show in the `TabsList` but the `ScrollArea` may clip on narrow viewports. Fix:
 
-## 3. Employee Profile Builder in Admin Dashboard
-
-Enhance `TeamTab.tsx` with an expanded employee profile view accessible from the admin:
-
-- **Profile detail panel**: When clicking an employee row, show a full profile view with:
-  - Personal info (name, email, phone, status)
-  - Certifications management (add/remove individual certs)
-  - Onboarding checklist with toggle controls
-  - Performance history table
-  - Notes/internal comments
-  - "Send Login Invite" button prominently placed
-- **Edit inline**: Allow editing employee fields directly in the profile view instead of a separate dialog
-- This consolidates the current scattered checklist/performance/edit flows into one unified profile builder
+- Ensure `TabsList` uses `w-max min-w-full` so it never wraps/clips
+- Add `overflow-x-auto` fallback styling
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/hooks/useAuth.tsx` | Add `rolesLoading` state |
-| `src/pages/AdminDashboard.tsx` | Show skeleton while roles load, then all tabs |
-| `src/components/admin/TeamTab.tsx` | Add unified employee profile builder view |
-| `supabase/functions/_shared/email-templates/*` | 6 branded templates (scaffolded) |
-| `supabase/functions/auth-email-hook/*` | Auth email hook (scaffolded + deployed) |
+| `src/components/admin/RoutesTab.tsx` | Skill badges, zone grouping toggle, drag-reorder, priority indicators, efficiency metrics |
+| `src/components/admin/SuppliesTab.tsx` | New — inventory management + usage tracking |
+| `src/pages/AdminDashboard.tsx` | Add Supplies tab, ensure nav scrolling |
+| Migration SQL | `supply_items` + `supply_usage_logs` tables with RLS |
 
