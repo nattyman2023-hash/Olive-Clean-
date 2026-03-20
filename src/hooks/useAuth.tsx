@@ -40,8 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(!!adminRes.data);
       setIsClient(!!clientRes.data);
     } catch {
-      setIsAdmin(false);
-      setIsClient(false);
+      // On timeout/error, preserve existing role state
     }
   };
 
@@ -53,7 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await checkRoles(session.user.id);
+          if (_event === 'SIGNED_IN' || !initialized) {
+            await checkRoles(session.user.id);
+          }
         } else {
           setIsAdmin(false);
           setIsClient(false);
