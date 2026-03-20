@@ -26,6 +26,7 @@ interface Client {
   preferences: Record<string, string>;
   notes: string | null;
   created_at: string;
+  client_user_id: string | null;
 }
 
 const NEIGHBORHOODS = ["Belle Meade", "Brentwood", "Franklin", "Green Hills", "West Nashville"];
