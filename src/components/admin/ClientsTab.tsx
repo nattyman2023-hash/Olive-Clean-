@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import {
   Search,
   Plus,
@@ -14,6 +15,7 @@ import {
   MapPin,
   Loader2,
   Trash2,
+  Send,
 } from "lucide-react";
 
 interface Client {

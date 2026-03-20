@@ -75,7 +75,13 @@ export default function ResetPassword() {
       return;
     }
     toast.success("Password updated successfully!");
-    navigate("/admin");
+
+    // Redirect based on role
+    const { data: isClient } = await supabase.rpc("has_role", {
+      _user_id: (await supabase.auth.getUser()).data.user!.id,
+      _role: "client" as never,
+    });
+    navigate(isClient ? "/client" : "/admin");
   };
 
   if (error) {

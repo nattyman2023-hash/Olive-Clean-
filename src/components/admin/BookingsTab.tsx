@@ -64,6 +64,20 @@ export default function BookingsTab() {
     setBookings(data || []);
   };
 
+  const inviteClient = async (booking: BookingRequest) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("invite-client", {
+        body: { email: booking.email, name: booking.name, address: booking.address },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Account setup email sent to ${booking.email}`);
+    } catch (err: any) {
+      console.error("Invite error:", err);
+      toast.error(err.message || "Failed to send invitation.");
+    }
+  };
+
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase
       .from("booking_requests")
@@ -76,6 +90,14 @@ export default function BookingsTab() {
     toast.success(`Status updated to ${status}.`);
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     if (selected?.id === id) setSelected({ ...selected, status });
+
+    // Auto-invite client when status set to confirmed
+    if (status === "confirmed") {
+      const booking = bookings.find((b) => b.id === id);
+      if (booking) {
+        inviteClient(booking);
+      }
+    }
   };
 
   const filtered = bookings.filter((b) => {
