@@ -489,6 +489,91 @@ export type Database = {
         }
         Relationships: []
       }
+      supply_items: {
+        Row: {
+          category: string
+          created_at: string
+          current_stock: number
+          id: string
+          last_restocked_at: string | null
+          name: string
+          notes: string | null
+          reorder_threshold: number
+          unit: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          current_stock?: number
+          id?: string
+          last_restocked_at?: string | null
+          name: string
+          notes?: string | null
+          reorder_threshold?: number
+          unit?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          current_stock?: number
+          id?: string
+          last_restocked_at?: string | null
+          name?: string
+          notes?: string | null
+          reorder_threshold?: number
+          unit?: string
+        }
+        Relationships: []
+      }
+      supply_usage_logs: {
+        Row: {
+          employee_id: string | null
+          id: string
+          job_id: string | null
+          logged_at: string
+          quantity_used: number
+          supply_item_id: string
+        }
+        Insert: {
+          employee_id?: string | null
+          id?: string
+          job_id?: string | null
+          logged_at?: string
+          quantity_used?: number
+          supply_item_id: string
+        }
+        Update: {
+          employee_id?: string | null
+          id?: string
+          job_id?: string | null
+          logged_at?: string
+          quantity_used?: number
+          supply_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_usage_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_usage_logs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_usage_logs_supply_item_id_fkey"
+            columns: ["supply_item_id"]
+            isOneToOne: false
+            referencedRelation: "supply_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
