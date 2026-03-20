@@ -14,6 +14,7 @@ import AnalyticsTab from "@/components/admin/AnalyticsTab";
 import TeamTab from "@/components/admin/TeamTab";
 import HiringTab from "@/components/admin/HiringTab";
 import RoutesTab from "@/components/admin/RoutesTab";
+import SuppliesTab from "@/components/admin/SuppliesTab";
 
 const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
@@ -24,6 +25,7 @@ const ADMIN_TABS = [
   { value: "team", label: "Team", adminOnly: true },
   { value: "hiring", label: "Hiring", adminOnly: true },
   { value: "routes", label: "Routes", adminOnly: true },
+  { value: "supplies", label: "Supplies", adminOnly: true },
 ];
 
 function AdminGate() {
@@ -114,6 +116,7 @@ export default function AdminDashboard() {
           <TabsContent value="team">{isAdmin ? <TeamTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="hiring">{isAdmin ? <HiringTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="routes">{isAdmin ? <RoutesTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="supplies">{isAdmin ? <SuppliesTab /> : <AdminGate />}</TabsContent>
         </Tabs>
       </main>
     </div>
