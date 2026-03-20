@@ -62,7 +62,6 @@ export default function TeamTab() {
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
-  const [formUserId, setFormUserId] = useState("");
   const [formStatus, setFormStatus] = useState("onboarding");
   const [formNotes, setFormNotes] = useState("");
   const [formCerts, setFormCerts] = useState("");
