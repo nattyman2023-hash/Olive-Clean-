@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell, AreaChart, Area, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 import { DollarSign, CheckCircle2, Users, TrendingUp } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import FeedbackStats from "./FeedbackStats";
 
 type Job = Tables<"jobs">;
 type ClientMinimal = Pick<Tables<"clients">, "id" | "created_at">;
@@ -34,22 +35,17 @@ export default function AnalyticsTab() {
     load();
   }, []);
 
-  // Revenue by month
   const revenueData = useMemo(() => {
     const map = new Map<string, number>();
-    jobs
-      .filter((j) => j.status === "completed" && j.price)
-      .forEach((j) => {
-        const d = new Date(j.completed_at ?? j.scheduled_at);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        map.set(key, (map.get(key) ?? 0) + Number(j.price));
-      });
-    return [...map.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, revenue]) => ({
-        month: new Date(month + "-01").toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
-        revenue,
-      }));
+    jobs.filter((j) => j.status === "completed" && j.price).forEach((j) => {
+      const d = new Date(j.completed_at ?? j.scheduled_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      map.set(key, (map.get(key) ?? 0) + Number(j.price));
+    });
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([month, revenue]) => ({
+      month: new Date(month + "-01").toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+      revenue,
+    }));
   }, [jobs]);
 
   const totalRevenue = useMemo(
@@ -57,7 +53,6 @@ export default function AnalyticsTab() {
     [jobs]
   );
 
-  // Job status distribution
   const statusData = useMemo(() => {
     const map = new Map<string, number>();
     jobs.forEach((j) => map.set(j.status, (map.get(j.status) ?? 0) + 1));
@@ -69,11 +64,8 @@ export default function AnalyticsTab() {
     return Math.round((jobs.filter((j) => j.status === "completed").length / jobs.length) * 100);
   }, [jobs]);
 
-  // Client growth (cumulative)
   const growthData = useMemo(() => {
-    const sorted = [...clients].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    const sorted = [...clients].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const map = new Map<string, number>();
     sorted.forEach((c) => {
       const d = new Date(c.created_at);
@@ -104,7 +96,7 @@ export default function AnalyticsTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={DollarSign} label="Total Revenue" value={`$${totalRevenue.toLocaleString()}`} />
@@ -115,7 +107,6 @@ export default function AnalyticsTab() {
 
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Revenue */}
         <Card>
           <CardHeader><CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle></CardHeader>
           <CardContent>
@@ -134,7 +125,6 @@ export default function AnalyticsTab() {
           </CardContent>
         </Card>
 
-        {/* Status distribution */}
         <Card>
           <CardHeader><CardTitle className="text-sm font-medium">Job Status Distribution</CardTitle></CardHeader>
           <CardContent>
@@ -166,7 +156,6 @@ export default function AnalyticsTab() {
           </CardContent>
         </Card>
 
-        {/* Client growth */}
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-sm font-medium">Client Growth</CardTitle></CardHeader>
           <CardContent>
@@ -190,6 +179,12 @@ export default function AnalyticsTab() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Feedback section */}
+      <div>
+        <h2 className="text-base font-semibold text-foreground mb-4">Client Feedback</h2>
+        <FeedbackStats />
       </div>
     </div>
   );
