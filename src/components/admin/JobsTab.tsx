@@ -13,6 +13,8 @@ import {
   PlayCircle,
   Briefcase,
   Loader2,
+  Link as LinkIcon,
+  Copy,
 } from "lucide-react";
 
 interface Job {
