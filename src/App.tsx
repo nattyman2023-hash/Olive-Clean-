@@ -14,6 +14,8 @@ import FeedbackForm from "./pages/FeedbackForm.tsx";
 import ClientLogin from "./pages/ClientLogin.tsx";
 import ClientDashboard from "./pages/ClientDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Careers from "./pages/Careers.tsx";
+import Questionnaire from "./pages/Questionnaire.tsx";
 
 const queryClient = new QueryClient();
 
