@@ -1,106 +1,121 @@
 
 
-# Olive Clean Ecosystem Expansion — Phased Plan
+# Phase 2: Employee Portal + Client-Facing Portal
 
-This covers all four selected features. Given the scope, implementation will be split into two phases to keep each change set manageable.
+## Database Migrations
 
----
+### Migration 1: Employee tables
+```sql
+-- employees table
+CREATE TABLE public.employees (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name text NOT NULL,
+  phone text,
+  email text,
+  status text NOT NULL DEFAULT 'onboarding',
+  certifications jsonb DEFAULT '[]'::jsonb,
+  onboarding_checklist jsonb DEFAULT '{"documentation":false,"training":false,"policy_agreement":false,"supplies_issued":false}'::jsonb,
+  hired_at timestamptz DEFAULT now(),
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 
-## Phase 1: Feedback System + Perks Engine Enhancements
+-- RLS: admin full CRUD, staff can view own
+CREATE POLICY "Admin can manage employees" ON public.employees FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'admin')) WITH CHECK (has_role(auth.uid(), 'admin'));
+CREATE POLICY "Staff can view own employee record" ON public.employees FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
 
-### 1A. Feedback Table & Post-Service Flow
+-- employee_performance table (monthly KPI snapshots)
+CREATE TABLE public.employee_performance (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  month date NOT NULL,
+  jobs_completed integer DEFAULT 0,
+  recleans integer DEFAULT 0,
+  avg_rating numeric DEFAULT 0,
+  avg_efficiency_pct numeric DEFAULT 0,
+  attendance_score numeric DEFAULT 100,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(employee_id, month)
+);
+ALTER TABLE public.employee_performance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admin can manage performance" ON public.employee_performance FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'admin')) WITH CHECK (has_role(auth.uid(), 'admin'));
+CREATE POLICY "Staff can view own performance" ON public.employee_performance FOR SELECT TO authenticated
+  USING (employee_id IN (SELECT id FROM public.employees WHERE user_id = auth.uid()));
+```
 
-**Database migration:**
-- Create `feedback` table: `id`, `job_id` (FK→jobs), `client_id` (FK→clients), `rating` (integer 1-5), `comments` (text), `created_at`
-- RLS: Authenticated admin/staff can SELECT/INSERT/UPDATE. Public can SELECT (anonymized — no client details exposed).
-- Add `after_photos` storage bucket for post-service photos.
+### Migration 2: Client portal support
+```sql
+-- Add client role to enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'client';
 
-**Admin dashboard — new Feedback section in Analytics tab:**
-- Average rating stat card, rating distribution bar chart
-- Recent feedback list with star ratings, comments, and linked job/client
-- Ability for admin to view after-photos uploaded per job
+-- Add client_user_id to clients table
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS client_user_id uuid;
 
-**Post-service survey trigger:**
-- When a job status changes to "completed", surface a "Request Feedback" button in the Jobs detail panel
-- This generates a shareable link (public route `/feedback/:job_id`) where the client can rate 1-5 stars, leave comments, and upload photos
+-- RLS: clients can view their own record
+CREATE POLICY "Clients can view own record" ON public.clients FOR SELECT TO authenticated
+  USING (client_user_id = auth.uid());
+CREATE POLICY "Clients can update own preferences" ON public.clients FOR UPDATE TO authenticated
+  USING (client_user_id = auth.uid()) WITH CHECK (client_user_id = auth.uid());
 
-**New files:**
-- `src/pages/FeedbackForm.tsx` — public feedback submission page
-- Migration SQL for `feedback` table + storage bucket
+-- Clients can view their own jobs
+CREATE POLICY "Clients can view own jobs" ON public.jobs FOR SELECT TO authenticated
+  USING (client_id IN (SELECT id FROM public.clients WHERE client_user_id = auth.uid()));
 
-**Edited files:**
-- `src/App.tsx` — add `/feedback/:jobId` route
-- `src/components/admin/JobsTab.tsx` — add "Request Feedback" button
-- `src/components/admin/AnalyticsTab.tsx` — add feedback stats section
+-- Clients can view their own feedback
+CREATE POLICY "Clients can view own feedback" ON public.feedback FOR SELECT TO authenticated
+  USING (client_id IN (SELECT id FROM public.clients WHERE client_user_id = auth.uid()));
+```
 
-### 1B. Perks Engine Enhancements
+## New Files
 
-**Upgrade the Gap Filler in PerksTab:**
-- When a job is cancelled, auto-match active Perks members in the same zone/neighborhood
-- Add a "Send Offer" button next to each matched member (prepares an offer with slot time and Perks rate)
-- Track offer status: offered → accepted / declined
-- "Instant Confirmation" flow: when accepted, auto-create a new job with status "scheduled" for the Perks member at the discounted price
+### `src/components/admin/TeamTab.tsx`
+Admin-only tab with:
+- Employee list with status badges (onboarding/active/inactive), search/filter
+- Add/edit employee form (name, phone, email, certifications, notes)
+- Onboarding checklist tracker (4 checkboxes: documentation, training, policy agreement, supplies)
+- Performance dashboard per employee showing KPIs from `employee_performance` table
+- Ability to link employee to an auth user (for staff login)
 
-**Database migration:**
-- Create `perks_offers` table: `id`, `perks_member_id` (FK→perks_members), `cancelled_job_id` (FK→jobs), `offered_at`, `status` (offered/accepted/declined), `responded_at`, `new_job_id` (FK→jobs, nullable)
-- RLS: Admin can SELECT/INSERT/UPDATE
+### `src/pages/ClientLogin.tsx`
+Simple email/password login form (styled like AdminLogin) with:
+- Sign up flow (creates auth user, assigns `client` role)
+- Login flow redirecting to `/client`
+- Forgot password link
 
-**Edited files:**
-- `src/components/admin/PerksTab.tsx` — enhanced Gap Filler with offer tracking and instant confirmation
+### `src/pages/ClientDashboard.tsx`
+Client-facing dashboard with 3 sections:
+- **Upcoming Jobs**: list of scheduled jobs for this client
+- **Past Jobs**: completed jobs with feedback links
+- **My Preferences**: editable key-value pairs from `clients.preferences` JSONB field (gate codes, pet names, cleaning quirks)
+- Header with client name and sign-out button
 
----
+## Edited Files
 
-## Phase 2: Employee Portal + Client-Facing Portal
+### `src/pages/AdminDashboard.tsx`
+- Import and add "Team" tab (admin-only, alongside Perks and Analytics)
 
-### 2A. Employee Portal
+### `src/App.tsx`
+- Add routes: `/client/login`, `/client`
 
-**Database migration:**
-- Create `employees` table: `id`, `user_id` (FK→auth.users), `name`, `phone`, `status` (active/onboarding/inactive), `certifications` (jsonb), `hired_at`, `notes`
-- Create `employee_performance` table: `id`, `employee_id` (FK→employees), `month` (date), `jobs_completed`, `recleans`, `avg_rating`, `avg_efficiency_pct`, `attendance_score`
-- RLS: Admin can full CRUD; staff can SELECT own records
+### `src/components/Navbar.tsx`
+- Add "Client Login" link to navLinks array
 
-**Admin dashboard — new "Team" tab:**
-- Employee list with status badges, search/filter
-- Add/edit employee form with certifications tracker
-- Performance dashboard per employee: completion rate, re-clean rate, efficiency (actual vs estimated duration), client satisfaction from feedback
-- Onboarding checklist tracker (documentation, training, policy, supplies)
+### `src/components/Footer.tsx`
+- Add "Client Portal" link next to "Staff Login"
 
-**New files:**
-- `src/components/admin/TeamTab.tsx`
-
-**Edited files:**
-- `src/pages/AdminDashboard.tsx` — add Team tab
-
-### 2B. Client-Facing Portal
-
-**New routes and pages:**
-- `/client/login` — client authentication (email/password)
-- `/client` — client dashboard showing upcoming jobs, past jobs, preferences editor, invoices
-
-**Database changes:**
-- Add `client_user_id` column to `clients` table (nullable uuid) to link a client record to an auth user
-- Add new role `client` to the `app_role` enum
-- RLS policies: clients can SELECT their own records from `clients`, `jobs`, and `feedback`
-
-**New files:**
-- `src/pages/ClientLogin.tsx`
-- `src/pages/ClientDashboard.tsx`
-
-**Edited files:**
-- `src/App.tsx` — add client routes
-- `src/components/Navbar.tsx` — add "Client Login" link
-- `src/components/Footer.tsx` — add "Client Portal" link
-
----
-
-## Implementation Order
-
-Phase 1 (this implementation cycle): Feedback system + Perks Engine — 2 migrations, 1 new page, 3 edited components
-Phase 2 (next cycle): Employee portal + Client portal — 2 migrations, 3 new pages, 3 edited files
+### `src/hooks/useAuth.tsx`
+- Add `isClient` boolean that checks for the `client` role
+- Expose it via context so ClientDashboard can guard access
 
 ## Technical Notes
-- All new tables use RLS with the existing `has_role()` security definer function
-- Storage bucket for after-photos uses authenticated upload with admin/staff read access
-- No external API keys needed for Phase 1
-- Phase 2 client portal requires adding `client` to the `app_role` enum via migration
+- Client sign-up creates auth user + inserts `user_roles` row with `client` role + links `clients.client_user_id`
+- The client sign-up requires an existing client record (matched by email) to link to — otherwise shows "Contact us to get started"
+- Employee `onboarding_checklist` stored as JSONB for flexible checkbox tracking
+- No new API keys or edge functions needed
+- All new tables protected by RLS using existing `has_role()` function
 
