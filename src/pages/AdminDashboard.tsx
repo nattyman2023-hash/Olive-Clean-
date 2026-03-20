@@ -79,6 +79,11 @@ export default function AdminDashboard() {
                 Analytics
               </TabsTrigger>
             )}
+            {isAdmin && (
+              <TabsTrigger value="team" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                Team
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="bookings">
