@@ -296,7 +296,12 @@ export default function ClientsTab() {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">{selected.name}</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">{selected.neighborhood || "No area assigned"}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground">{selected.neighborhood || "No area assigned"}</p>
+                    <Badge variant={selected.client_user_id ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
+                      {selected.client_user_id ? "Portal Active" : "No Account"}
+                    </Badge>
+                  </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => openEdit(selected)} className="active:scale-95">
                   Edit
