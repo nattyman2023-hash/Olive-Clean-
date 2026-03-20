@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function AnalyticsTab() {
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientMinimal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
