@@ -25,22 +25,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  const checkRoles = async (userId: string) => {
+    const [adminRes, clientRes] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
+    ]);
+    setIsAdmin(!!adminRes.data);
+    setIsClient(!!clientRes.data);
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-
         if (session?.user) {
-          // Check admin role via has_role function
-          const { data } = await supabase.rpc("has_role", {
-            _user_id: session.user.id,
-            _role: "admin",
-          });
-          setIsAdmin(!!data);
+          await checkRoles(session.user.id);
         } else {
           setIsAdmin(false);
+          setIsClient(false);
         }
         setLoading(false);
       }
@@ -50,13 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        supabase.rpc("has_role", {
-          _user_id: session.user.id,
-          _role: "admin",
-        }).then(({ data }) => {
-          setIsAdmin(!!data);
-          setLoading(false);
-        });
+        checkRoles(session.user.id).then(() => setLoading(false));
       } else {
         setLoading(false);
       }
