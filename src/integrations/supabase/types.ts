@@ -62,6 +62,136 @@ export type Database = {
         }
         Relationships: []
       }
+      clients: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          neighborhood: string | null
+          notes: string | null
+          phone: string | null
+          preferences: Json | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          neighborhood?: string | null
+          notes?: string | null
+          phone?: string | null
+          preferences?: Json | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          neighborhood?: string | null
+          notes?: string | null
+          phone?: string | null
+          preferences?: Json | null
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          actual_duration_minutes: number | null
+          assigned_to: string | null
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          notes: string | null
+          price: number | null
+          scheduled_at: string
+          service: string
+          status: string
+        }
+        Insert: {
+          actual_duration_minutes?: number | null
+          assigned_to?: string | null
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          price?: number | null
+          scheduled_at: string
+          service: string
+          status?: string
+        }
+        Update: {
+          actual_duration_minutes?: number | null
+          assigned_to?: string | null
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          price?: number | null
+          scheduled_at?: string
+          service?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      perks_members: {
+        Row: {
+          client_id: string
+          discount_percent: number
+          flexibility_zone: string | null
+          id: string
+          joined_at: string
+          notes: string | null
+          status: string
+        }
+        Insert: {
+          client_id: string
+          discount_percent?: number
+          flexibility_zone?: string | null
+          id?: string
+          joined_at?: string
+          notes?: string | null
+          status?: string
+        }
+        Update: {
+          client_id?: string
+          discount_percent?: number
+          flexibility_zone?: string | null
+          id?: string
+          joined_at?: string
+          notes?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perks_members_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
