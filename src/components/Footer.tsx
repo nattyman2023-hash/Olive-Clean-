@@ -65,6 +65,7 @@ export default function Footer() {
         <div className="border-t border-background/10 mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-background/40">© {new Date().getFullYear()} Olive Clean. All rights reserved.</p>
           <div className="flex gap-6 text-xs text-background/40">
+            <Link to="/about" className="hover:text-background/60 transition-colors">About</Link>
             <Link to="/" className="hover:text-background/60 transition-colors">Privacy</Link>
             <Link to="/" className="hover:text-background/60 transition-colors">Terms</Link>
             <Link to="/admin/login" className="hover:text-background/60 transition-colors">Staff Login</Link>
