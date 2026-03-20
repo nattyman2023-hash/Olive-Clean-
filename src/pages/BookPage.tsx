@@ -46,9 +46,25 @@ export default function BookPage() {
       ? !!form.frequency
       : !!form.name && !!form.email && !!form.phone;
 
-  const handleSubmit = () => {
-    // TODO: Send to Supabase
-    console.log("Booking submitted:", form);
+  const handleSubmit = async () => {
+    setLoading(true);
+    const { error } = await supabase.from("booking_requests").insert({
+      service: form.service,
+      home_type: form.homeType,
+      bedrooms: parseInt(form.bedrooms),
+      bathrooms: parseInt(form.bathrooms),
+      frequency: form.frequency,
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      address: form.address || null,
+      notes: form.notes || null,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Something went wrong. Please try again.");
+      return;
+    }
     setSubmitted(true);
   };
 
