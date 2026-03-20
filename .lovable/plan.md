@@ -1,48 +1,44 @@
 
 
-# Plan: Enhanced Routes Tab + Supply Tracking + Admin Nav Stability
+# Plan: Seed Sample Jobs for Daily Routes Demo
 
-## 1. Enhanced Routes Tab — Geographic Clustering and Predictive Routing
+## What
 
-Upgrade `src/components/admin/RoutesTab.tsx` with:
+Insert 8 sample jobs scheduled for today across multiple clients, technicians, neighborhoods, and service types so the Routes tab has meaningful data to demonstrate geographic clustering, zone grouping, drag-and-drop reordering, and efficiency metrics.
 
-- **Skill-based constraint badges**: Show technician certifications on each tech group header (pulled from `employees.certifications`), flag mismatches when a job requires a cert the tech doesn't have
-- **Route efficiency metrics per technician**: Utilization percentage (work time vs total time including drive), idle gap detection between jobs
-- **Neighborhood clustering view**: Toggle between "by technician" and "by zone" grouping — zone view clusters all jobs in a neighborhood regardless of tech assignment, helping admins spot rebalancing opportunities
-- **Priority client indicator**: Badge on job cards for clients with a `priority` flag in their `preferences` JSONB (for "Emergency Request" high-priority clients)
-- **Drag-and-drop reorder**: Allow reordering jobs within a technician's route, saving the new sequence by updating `scheduled_at` timestamps
+## Sample Data
 
-## 2. New: Supply & Equipment Tracking
+Using existing clients and employees:
 
-### Database Migration
-- New `supply_items` table:
-  - `id`, `name`, `category` (cleaning_supply, equipment), `current_stock`, `reorder_threshold`, `unit`, `last_restocked_at`, `notes`, `created_at`
-- New `supply_usage_logs` table:
-  - `id`, `supply_item_id` (FK), `employee_id` (FK nullable), `quantity_used`, `logged_at`, `job_id` (FK nullable)
-- RLS: Admin full access, staff can insert usage logs and view items
+| Time | Client | Neighborhood | Tech | Service | Duration | Drive |
+|------|--------|-------------|------|---------|----------|-------|
+| 8:00 AM | Margaret Whitfield | Belle Meade | Maria Santos | Deep Clean | 120m | 15m |
+| 8:30 AM | James & Alicia Drummond | Green Hills | Aisha Johnson | Standard Clean | 90m | 10m |
+| 10:30 AM | The Richardson Family | Belle Meade | Maria Santos | Standard Clean | 90m | 8m |
+| 10:00 AM | Dr. Priya Nair | Green Hills | Aisha Johnson | Move-Out Clean | 150m | 12m |
+| 1:00 PM | Margaret Whitfield | Belle Meade | Maria Santos | Window Treatment | 60m | 5m |
+| 1:30 PM | James & Alicia Drummond | Green Hills | Aisha Johnson | Standard Clean | 90m | 10m |
+| 3:30 PM | The Richardson Family | Belle Meade | Unassigned | Deep Clean | 120m | — |
+| 4:00 PM | Dr. Priya Nair | Green Hills | Unassigned | Standard Clean | 90m | — |
 
-### Admin UI — New "Supplies" Tab
-- `src/components/admin/SuppliesTab.tsx`:
-  - Inventory list with stock levels and color-coded status (green/amber/red based on threshold)
-  - "Low Stock" alert banner when any item falls below threshold
-  - Usage trend sparklines per item (last 30 days from `supply_usage_logs`)
-  - Add/edit supply items dialog
-  - Log usage form (select item, quantity, optional employee/job)
-- Add tab to `AdminDashboard.tsx`
+This gives:
+- **2 techs** with 3 jobs each (for tech grouping + utilization metrics)
+- **2 unassigned** jobs (visible in "Unassigned" group)
+- **2 neighborhoods** (Belle Meade + Green Hills) for zone grouping demo
+- Mixed services and durations for variety
+- Drive time estimates for route efficiency display
 
-## 3. Admin Nav Stability (final fix)
+## Technical Details
 
-The current implementation already has `rolesLoading` and skeleton loaders. The remaining issue is that all 8 tabs show in the `TabsList` but the `ScrollArea` may clip on narrow viewports. Fix:
-
-- Ensure `TabsList` uses `w-max min-w-full` so it never wraps/clips
-- Add `overflow-x-auto` fallback styling
+- Single database migration inserting 8 rows into `jobs` table
+- Uses today's date dynamically via `CURRENT_DATE` so jobs always appear on "today"
+- References existing `client_id` and `assigned_to` (employee `user_id`) values
+- All jobs set to `status = 'scheduled'`
+- The existing job for Dr. Nair at 2 PM stays as-is
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/admin/RoutesTab.tsx` | Skill badges, zone grouping toggle, drag-reorder, priority indicators, efficiency metrics |
-| `src/components/admin/SuppliesTab.tsx` | New — inventory management + usage tracking |
-| `src/pages/AdminDashboard.tsx` | Add Supplies tab, ensure nav scrolling |
-| Migration SQL | `supply_items` + `supply_usage_logs` tables with RLS |
+| Migration SQL | Insert 8 sample jobs for today |
 
