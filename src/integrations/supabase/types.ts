@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      applicants: {
+        Row: {
+          applied_at: string
+          cover_note: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          resume_url: string | null
+          screening_score: number | null
+          status: string
+        }
+        Insert: {
+          applied_at?: string
+          cover_note?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          resume_url?: string | null
+          screening_score?: number | null
+          status?: string
+        }
+        Update: {
+          applied_at?: string
+          cover_note?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          resume_url?: string | null
+          screening_score?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       booking_requests: {
         Row: {
           address: string | null
@@ -70,6 +112,8 @@ export type Database = {
           created_by: string | null
           email: string | null
           id: string
+          lat: number | null
+          lng: number | null
           name: string
           neighborhood: string | null
           notes: string | null
@@ -83,6 +127,8 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          lat?: number | null
+          lng?: number | null
           name: string
           neighborhood?: string | null
           notes?: string | null
@@ -96,6 +142,8 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          lat?: number | null
+          lng?: number | null
           name?: string
           neighborhood?: string | null
           notes?: string | null
@@ -240,6 +288,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           duration_minutes: number | null
+          estimated_drive_minutes: number | null
           id: string
           notes: string | null
           price: number | null
@@ -254,6 +303,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           duration_minutes?: number | null
+          estimated_drive_minutes?: number | null
           id?: string
           notes?: string | null
           price?: number | null
@@ -268,6 +318,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           duration_minutes?: number | null
+          estimated_drive_minutes?: number | null
           id?: string
           notes?: string | null
           price?: number | null
@@ -281,6 +332,48 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lifecycle_events: {
+        Row: {
+          channel: string
+          client_id: string
+          event_type: string
+          id: string
+          job_id: string | null
+          sent_at: string
+        }
+        Insert: {
+          channel?: string
+          client_id: string
+          event_type: string
+          id?: string
+          job_id?: string | null
+          sent_at?: string
+        }
+        Update: {
+          channel?: string
+          client_id?: string
+          event_type?: string
+          id?: string
+          job_id?: string | null
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifecycle_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifecycle_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]

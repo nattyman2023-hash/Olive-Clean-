@@ -14,6 +14,8 @@ import FeedbackForm from "./pages/FeedbackForm.tsx";
 import ClientLogin from "./pages/ClientLogin.tsx";
 import ClientDashboard from "./pages/ClientDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Careers from "./pages/Careers.tsx";
+import Questionnaire from "./pages/Questionnaire.tsx";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/feedback/:jobId" element={<FeedbackForm />} />
             <Route path="/client/login" element={<ClientLogin />} />
             <Route path="/client" element={<ClientDashboard />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/questionnaire/:clientId" element={<Questionnaire />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
