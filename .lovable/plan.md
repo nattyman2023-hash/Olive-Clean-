@@ -1,37 +1,63 @@
 
 
-# Fix Employee UUID Error + Seed Sample Data
+# Fix: Admin Tabs Disappearing When Switching Tabs
 
-## Problem
-The "Add Employee" form has an "Auth User ID" field with placeholder text "UUID". When left empty, the code falls back to `emp.user_id || crypto.randomUUID()`, but when the user types nothing and the field contains empty string `""`, it passes that through. The real issue is the field shouldn't be exposed to the user at all for basic employee creation — it should auto-generate a UUID.
+## Root Cause
 
-## Fix 1: TeamTab.tsx — Remove manual UUID field, auto-generate
+When Supabase fires `onAuthStateChange` (e.g., during token refresh or tab interaction), the `checkRoles` function is called again. During that async call, if it times out or errors, `isAdmin` is set to `false` — causing Perks, Analytics, and Team tabs to vanish mid-session.
 
-**File:** `src/components/admin/TeamTab.tsx`
+Additionally, the race between `onAuthStateChange` and `getSession` can trigger `checkRoles` twice, and the second call may reset roles before resolving.
 
-- Remove the `formUserId` state and the "Auth User ID" input field from the form
-- In `handleSubmit`, always use `selectedEmployee?.user_id || crypto.randomUUID()` so new employees get a valid UUID automatically
-- Keep the ability to see/link user_id only when editing (optional advanced field), or remove entirely since linking to auth users can be done via the database directly
+## Fix (`src/hooks/useAuth.tsx`)
 
-## Fix 2: Seed sample data via database insert
+1. **Preserve existing roles during re-checks** — only update `isAdmin`/`isClient` on successful RPC responses, never reset to `false` on timeout/error if user is still logged in
+2. **Skip redundant role checks** — if roles are already loaded for the same user, don't re-check on every auth state change (only on `SIGNED_IN` and `TOKEN_REFRESHED` events that change the user)
+3. **Use `setTimeout` with `setLoading(false)` as a failsafe** so the app never hangs
 
-Insert realistic sample data to populate the CRM:
+### Key Changes
 
-**Clients** (5 records): Nashville-area households with JSONB preferences (gate codes, pet info, marble type, etc.)
+```typescript
+const checkRoles = async (userId: string) => {
+  try {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), 5000)
+    );
+    const roleCheck = Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
+    ]);
+    const [adminRes, clientRes] = (await Promise.race([roleCheck, timeout])) as any;
+    setIsAdmin(!!adminRes.data);
+    setIsClient(!!clientRes.data);
+  } catch {
+    // On timeout/error, DON'T reset roles — keep whatever was previously set
+    // Only reset on explicit sign-out (handled separately)
+  }
+};
+```
 
-**Employees** (4 records): Mix of active/onboarding statuses with certifications and onboarding progress
+In `onAuthStateChange`:
+```typescript
+async (_event, session) => {
+  setSession(session);
+  setUser(session?.user ?? null);
+  if (session?.user) {
+    // Only re-check roles on sign-in, not every event
+    if (_event === 'SIGNED_IN' || !initialized) {
+      await checkRoles(session.user.id);
+    }
+  } else {
+    // Only reset on actual sign-out
+    setIsAdmin(false);
+    setIsClient(false);
+  }
+  initialized = true;
+  setLoading(false);
+}
+```
 
-**Jobs** (6 records): Mix of scheduled, completed, and cancelled jobs linked to clients
-
-**Feedback** (3 records): Star ratings and comments for completed jobs
-
-**Perks Members** (2 records): Active members in different flexibility zones
-
-This gives the admin dashboard meaningful data across all tabs — Bookings, Clients, Jobs, Perks, Analytics, and Team.
-
-## Technical Notes
-- Sample data inserted via the database insert tool (not migrations)
-- Employee `user_id` will use generated UUIDs (not linked to real auth users, which is fine for demo data)
-- Client `client_user_id` left null for sample data (no auth accounts created)
-- All data uses Nashville neighborhoods matching the Olive Clean brand
+## Summary
+- **1 file changed**: `src/hooks/useAuth.tsx`
+- Roles persist across tab switches and token refreshes
+- Roles only reset on explicit sign-out
 
