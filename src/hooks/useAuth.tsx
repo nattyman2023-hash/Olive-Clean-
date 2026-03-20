@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  rolesLoading: boolean;
   isAdmin: boolean;
   isStaff: boolean;
   isClient: boolean;
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
+  rolesLoading: true,
   isAdmin: false,
   isStaff: false,
   isClient: false,
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -45,10 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsStaff(!!staffRes.data);
       setIsClient(!!clientRes.data);
     } catch {
-      if (attempt < 1) {
+      if (attempt < 2) {
         await new Promise((r) => setTimeout(r, 1000));
         return checkRoles(userId, attempt + 1);
       }
+    } finally {
+      setRolesLoading(false);
     }
   };
 
@@ -61,12 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         if (session?.user) {
           if (_event === 'SIGNED_IN' || !initialized) {
+            setRolesLoading(true);
             await checkRoles(session.user.id);
           }
         } else {
           setIsAdmin(false);
           setIsStaff(false);
           setIsClient(false);
+          setRolesLoading(false);
         }
         initialized = true;
         setLoading(false);
@@ -78,8 +85,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
+          setRolesLoading(true);
           checkRoles(session.user.id).then(() => setLoading(false));
         } else {
+          setRolesLoading(false);
           setLoading(false);
         }
       }
@@ -93,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, isStaff, isClient, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, rolesLoading, isAdmin, isStaff, isClient, signOut }}>
       {children}
     </AuthContext.Provider>
   );
