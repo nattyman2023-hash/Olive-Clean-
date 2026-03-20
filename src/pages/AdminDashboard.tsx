@@ -8,6 +8,7 @@ import BookingsTab from "@/components/admin/BookingsTab";
 import ClientsTab from "@/components/admin/ClientsTab";
 import JobsTab from "@/components/admin/JobsTab";
 import PerksTab from "@/components/admin/PerksTab";
+import AnalyticsTab from "@/components/admin/AnalyticsTab";
 
 export default function AdminDashboard() {
   const { user, isAdmin, loading: authLoading, signOut } = useAuth();
@@ -72,6 +73,11 @@ export default function AdminDashboard() {
                 Perks
               </TabsTrigger>
             )}
+            {isAdmin && (
+              <TabsTrigger value="analytics" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                Analytics
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="bookings">
@@ -86,6 +92,11 @@ export default function AdminDashboard() {
           {isAdmin && (
             <TabsContent value="perks">
               <PerksTab />
+            </TabsContent>
+          )}
+          {isAdmin && (
+            <TabsContent value="analytics">
+              <AnalyticsTab />
             </TabsContent>
           )}
         </Tabs>
