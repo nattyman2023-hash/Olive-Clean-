@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import {
   Search,
   Plus,
@@ -14,6 +15,7 @@ import {
   MapPin,
   Loader2,
   Trash2,
+  Send,
 } from "lucide-react";
 
 interface Client {
@@ -26,6 +28,7 @@ interface Client {
   preferences: Record<string, string>;
   notes: string | null;
   created_at: string;
+  client_user_id: string | null;
 }
 
 const NEIGHBORHOODS = ["Belle Meade", "Brentwood", "Franklin", "Green Hills", "West Nashville"];
@@ -37,6 +40,7 @@ export default function ClientsTab() {
   const [search, setSearch] = useState("");
   const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
   const [selected, setSelected] = useState<Client | null>(null);
+  const [inviting, setInviting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -292,7 +296,12 @@ export default function ClientsTab() {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">{selected.name}</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">{selected.neighborhood || "No area assigned"}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground">{selected.neighborhood || "No area assigned"}</p>
+                    <Badge variant={selected.client_user_id ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
+                      {selected.client_user_id ? "Portal Active" : "No Account"}
+                    </Badge>
+                  </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => openEdit(selected)} className="active:scale-95">
                   Edit
@@ -335,6 +344,35 @@ export default function ClientsTab() {
                 <div className="border-t border-border pt-4">
                   <p className="text-xs text-muted-foreground mb-1">Notes</p>
                   <p className="text-sm text-foreground">{selected.notes}</p>
+                </div>
+              )}
+              {!selected.client_user_id && selected.email && (
+                <div className="border-t border-border pt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={inviting}
+                    className="w-full rounded-lg active:scale-[0.97]"
+                    onClick={async () => {
+                      setInviting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("invite-client", {
+                          body: { email: selected.email, name: selected.name, client_id: selected.id },
+                        });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast.success(`Setup email sent to ${selected.email}`);
+                        fetchClients();
+                      } catch (err: any) {
+                        toast.error(err.message || "Failed to send invitation.");
+                      } finally {
+                        setInviting(false);
+                      }
+                    }}
+                  >
+                    {inviting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+                    Send Account Setup Email
+                  </Button>
                 </div>
               )}
             </div>
