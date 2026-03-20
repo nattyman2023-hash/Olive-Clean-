@@ -101,6 +101,92 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_performance: {
+        Row: {
+          attendance_score: number | null
+          avg_efficiency_pct: number | null
+          avg_rating: number | null
+          created_at: string | null
+          employee_id: string
+          id: string
+          jobs_completed: number | null
+          month: string
+          recleans: number | null
+        }
+        Insert: {
+          attendance_score?: number | null
+          avg_efficiency_pct?: number | null
+          avg_rating?: number | null
+          created_at?: string | null
+          employee_id: string
+          id?: string
+          jobs_completed?: number | null
+          month: string
+          recleans?: number | null
+        }
+        Update: {
+          attendance_score?: number | null
+          avg_efficiency_pct?: number | null
+          avg_rating?: number | null
+          created_at?: string | null
+          employee_id?: string
+          id?: string
+          jobs_completed?: number | null
+          month?: string
+          recleans?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_performance_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          certifications: Json | null
+          created_at: string | null
+          email: string | null
+          hired_at: string | null
+          id: string
+          name: string
+          notes: string | null
+          onboarding_checklist: Json | null
+          phone: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          certifications?: Json | null
+          created_at?: string | null
+          email?: string | null
+          hired_at?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          onboarding_checklist?: Json | null
+          phone?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          certifications?: Json | null
+          created_at?: string | null
+          email?: string | null
+          hired_at?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          onboarding_checklist?: Json | null
+          phone?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           client_id: string
