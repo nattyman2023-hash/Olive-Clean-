@@ -432,6 +432,18 @@ export default function TeamTab() {
                           <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => openEdit(emp)}>
                             Edit
                           </Button>
+                          {emp.email && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Send login invite"
+                              disabled={inviteMutation.isPending}
+                              onClick={() => inviteMutation.mutate(emp)}
+                            >
+                              <Mail className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
