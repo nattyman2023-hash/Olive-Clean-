@@ -67,6 +67,7 @@ export default function Footer() {
           <div className="flex gap-6 text-xs text-background/40">
             <Link to="/" className="hover:text-background/60 transition-colors">Privacy</Link>
             <Link to="/" className="hover:text-background/60 transition-colors">Terms</Link>
+            <Link to="/admin/login" className="hover:text-background/60 transition-colors">Staff Login</Link>
           </div>
         </div>
       </div>
