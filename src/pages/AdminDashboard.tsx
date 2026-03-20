@@ -86,6 +86,16 @@ export default function AdminDashboard() {
                 Team
               </TabsTrigger>
             )}
+            {isAdmin && (
+              <TabsTrigger value="hiring" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                Hiring
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="routes" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                Routes
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="bookings">
