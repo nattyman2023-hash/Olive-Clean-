@@ -164,7 +164,7 @@ export default function TeamTab() {
       name: formName,
       phone: formPhone,
       email: formEmail,
-      user_id: formUserId,
+      user_id: selectedEmployee?.user_id || crypto.randomUUID(),
       status: formStatus,
       notes: formNotes,
       certifications: formCerts.split(",").map((s) => s.trim()).filter(Boolean),
