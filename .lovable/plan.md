@@ -1,62 +1,59 @@
 
 
-# Fix Admin Nav + Employee Portal
+# Plan: Branded Auth Emails + Admin Nav Fix + Employee Profile Builder
 
-## Problems Identified
+## 1. Branded Auth Email Templates
 
-1. **Admin tabs shrinking**: The tabs for Perks, Analytics, Team, Hiring, Routes are gated behind `isAdmin`. The `checkRoles` function has a 5-second timeout and on failure silently preserves state (defaults to `false`). Race conditions or slow RPC calls cause `isAdmin` to remain `false`, hiding most tabs.
+The email domain `notify.wubhairstudio.co.uk` is configured (pending DNS). I will:
 
-2. **No employee portal**: Employees (hired via ATS) have no login page or dedicated dashboard.
+- Scaffold auth email templates using the managed flow
+- Apply Olive Clean branding to all 6 templates:
+  - Primary button: `hsl(62, 24%, 41%)` (olive green)
+  - Foreground: `hsl(0, 0%, 18%)`
+  - Muted text: `hsl(0, 0%, 45%)`
+  - Font: Poppins with Arial fallback
+  - Border radius: `0.75rem`
+  - White email background
+  - Warm, professional tone matching the app's "calm luxury" voice
+- Deploy `auth-email-hook` edge function
 
-## Changes
+DNS verification is still pending — emails will start sending once DNS completes. You can monitor progress in Cloud settings.
 
-### 1. Fix Admin Tab Visibility
+## 2. Fix Admin Dashboard Tab Visibility
 
-**`src/pages/AdminDashboard.tsx`**
-- Make the TabsList horizontally scrollable on smaller screens using `overflow-x-auto` and `flex-wrap` or a scroll container
-- Show all 8 tabs always (remove `isAdmin` gating on tab triggers) but keep content gated — if a non-admin clicks a restricted tab, show "Admin access required"
-- Alternative (better UX): Keep `isAdmin` gating but add a loading skeleton for tabs while roles are being resolved
+**Root cause**: Tabs 4-8 (Perks, Analytics, Team, Hiring, Routes) are gated behind `isAdmin`, which defaults to `false` and can remain `false` if the role check times out or races.
 
-**`src/hooks/useAuth.tsx`**
-- Add `isStaff` role check alongside `isAdmin` and `isClient`
-- Improve the `checkRoles` timeout handling — retry once on failure instead of silently failing
+**Fix in `AdminDashboard.tsx`**:
+- Add a `rolesLoading` state to `useAuth` that is `true` until `checkRoles` resolves
+- While `rolesLoading` is true, show a skeleton placeholder for tabs
+- Show all 8 tabs once roles resolve (keeping content gated if not admin)
+- Ensure `ScrollArea` works correctly for horizontal scrolling on mobile
 
-### 2. Employee Login Page
+**Fix in `useAuth.tsx`**:
+- Add `rolesLoading` boolean to context — starts `true`, set `false` after `checkRoles` completes or fails
+- Increase retry attempts from 1 to 2
 
-**`src/pages/EmployeeLogin.tsx`** (new)
-- Login form similar to `ClientLogin.tsx`
-- Authenticates via email/password
-- Redirects to `/employee` dashboard on success
-- Checks for `staff` role
+## 3. Employee Profile Builder in Admin Dashboard
 
-### 3. Employee Dashboard
+Enhance `TeamTab.tsx` with an expanded employee profile view accessible from the admin:
 
-**`src/pages/EmployeeDashboard.tsx`** (new)
-- Header with employee name and sign-out
-- **Today's Schedule**: List of assigned jobs for today with client name, address, time, service type
-- **My Performance**: Monthly stats from `employee_performance` table (jobs completed, avg rating, efficiency)
-- **Profile**: View own employee record (certifications, onboarding checklist status)
-
-### 4. Route Updates
-
-**`src/App.tsx`**
-- Add `/employee/login` → `EmployeeLogin`
-- Add `/employee` → `EmployeeDashboard`
-
-### 5. Employee Invite Flow
-
-**`src/components/admin/TeamTab.tsx`**
-- Add "Send Login Email" button for employees without auth accounts
-- Reuse the invite pattern from `invite-client` but assign `staff` role instead
+- **Profile detail panel**: When clicking an employee row, show a full profile view with:
+  - Personal info (name, email, phone, status)
+  - Certifications management (add/remove individual certs)
+  - Onboarding checklist with toggle controls
+  - Performance history table
+  - Notes/internal comments
+  - "Send Login Invite" button prominently placed
+- **Edit inline**: Allow editing employee fields directly in the profile view instead of a separate dialog
+- This consolidates the current scattered checklist/performance/edit flows into one unified profile builder
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/hooks/useAuth.tsx` | Add `isStaff`, improve role check reliability |
-| `src/pages/AdminDashboard.tsx` | Fix tab overflow, improve tab visibility |
-| `src/pages/EmployeeLogin.tsx` | New employee login page |
-| `src/pages/EmployeeDashboard.tsx` | New employee dashboard |
-| `src/App.tsx` | Add employee routes |
-| `src/components/admin/TeamTab.tsx` | Add invite button for employees |
+| `src/hooks/useAuth.tsx` | Add `rolesLoading` state |
+| `src/pages/AdminDashboard.tsx` | Show skeleton while roles load, then all tabs |
+| `src/components/admin/TeamTab.tsx` | Add unified employee profile builder view |
+| `supabase/functions/_shared/email-templates/*` | 6 branded templates (scaffolded) |
+| `supabase/functions/auth-email-hook/*` | Auth email hook (scaffolded + deployed) |
 
