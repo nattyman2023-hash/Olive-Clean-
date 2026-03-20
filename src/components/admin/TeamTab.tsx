@@ -62,7 +62,6 @@ export default function TeamTab() {
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
-  const [formUserId, setFormUserId] = useState("");
   const [formStatus, setFormStatus] = useState("onboarding");
   const [formNotes, setFormNotes] = useState("");
   const [formCerts, setFormCerts] = useState("");
@@ -141,7 +140,6 @@ export default function TeamTab() {
     setFormName("");
     setFormPhone("");
     setFormEmail("");
-    setFormUserId("");
     setFormStatus("onboarding");
     setFormNotes("");
     setFormCerts("");
@@ -153,7 +151,6 @@ export default function TeamTab() {
     setFormName(emp.name);
     setFormPhone(emp.phone || "");
     setFormEmail(emp.email || "");
-    setFormUserId(emp.user_id);
     setFormStatus(emp.status);
     setFormNotes(emp.notes || "");
     setFormCerts((emp.certifications || []).join(", "));
@@ -167,7 +164,7 @@ export default function TeamTab() {
       name: formName,
       phone: formPhone,
       email: formEmail,
-      user_id: formUserId,
+      user_id: selectedEmployee?.user_id || crypto.randomUUID(),
       status: formStatus,
       notes: formNotes,
       certifications: formCerts.split(",").map((s) => s.trim()).filter(Boolean),
@@ -341,10 +338,6 @@ export default function TeamTab() {
                   <Label className="text-xs">Email</Label>
                   <Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="rounded-xl mt-1" />
                 </div>
-              </div>
-              <div>
-                <Label className="text-xs">Auth User ID (for staff login)</Label>
-                <Input value={formUserId} onChange={(e) => setFormUserId(e.target.value)} placeholder="UUID" className="rounded-xl mt-1 font-mono text-xs" />
               </div>
               <div>
                 <Label className="text-xs">Certifications (comma-separated)</Label>
