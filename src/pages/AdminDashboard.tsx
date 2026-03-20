@@ -105,6 +105,11 @@ export default function AdminDashboard() {
               <AnalyticsTab />
             </TabsContent>
           )}
+          {isAdmin && (
+            <TabsContent value="team">
+              <TeamTab />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>

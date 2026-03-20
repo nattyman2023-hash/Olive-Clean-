@@ -9,6 +9,7 @@ const navLinks = [
   { label: "Perks Club", href: "#perks" },
   { label: "Reviews", href: "#reviews" },
   { label: "About", href: "/about", isRoute: true },
+  { label: "Client Login", href: "/client/login", isRoute: true },
 ];
 
 export default function Navbar() {
