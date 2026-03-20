@@ -102,7 +102,7 @@ export default function ClientDashboard() {
     mutationFn: async (prefs: Record<string, string>) => {
       const { error } = await supabase
         .from("clients")
-        .update({ preferences: prefs as unknown as Record<string, unknown> })
+        .update({ preferences: prefs as unknown as null })
         .eq("id", client!.id);
       if (error) throw error;
     },

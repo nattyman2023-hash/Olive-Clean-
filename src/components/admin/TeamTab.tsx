@@ -126,7 +126,7 @@ export default function TeamTab() {
     mutationFn: async ({ id, checklist }: { id: string; checklist: Record<string, boolean> }) => {
       const { error } = await supabase
         .from("employees")
-        .update({ onboarding_checklist: checklist as unknown as Record<string, unknown> })
+        .update({ onboarding_checklist: checklist as unknown as null })
         .eq("id", id);
       if (error) throw error;
     },
