@@ -136,6 +136,22 @@ export default function TeamTab() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const inviteMutation = useMutation({
+    mutationFn: async (emp: Employee) => {
+      if (!emp.email) throw new Error("Employee needs an email address first");
+      const { data, error } = await supabase.functions.invoke("invite-employee", {
+        body: { email: emp.email, name: emp.name, employee_id: emp.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      toast.success("Login invite sent!");
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const resetForm = () => {
     setFormName("");
     setFormPhone("");
