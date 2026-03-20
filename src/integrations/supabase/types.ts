@@ -101,6 +101,48 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          client_id: string
+          comments: string | null
+          created_at: string
+          id: string
+          job_id: string
+          rating: number
+        }
+        Insert: {
+          client_id: string
+          comments?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          rating: number
+        }
+        Update: {
+          client_id?: string
+          comments?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           actual_duration_minutes: number | null
@@ -188,6 +230,58 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      perks_offers: {
+        Row: {
+          cancelled_job_id: string
+          id: string
+          new_job_id: string | null
+          offered_at: string
+          perks_member_id: string
+          responded_at: string | null
+          status: string
+        }
+        Insert: {
+          cancelled_job_id: string
+          id?: string
+          new_job_id?: string | null
+          offered_at?: string
+          perks_member_id: string
+          responded_at?: string | null
+          status?: string
+        }
+        Update: {
+          cancelled_job_id?: string
+          id?: string
+          new_job_id?: string | null
+          offered_at?: string
+          perks_member_id?: string
+          responded_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perks_offers_cancelled_job_id_fkey"
+            columns: ["cancelled_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "perks_offers_new_job_id_fkey"
+            columns: ["new_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "perks_offers_perks_member_id_fkey"
+            columns: ["perks_member_id"]
+            isOneToOne: false
+            referencedRelation: "perks_members"
             referencedColumns: ["id"]
           },
         ]
