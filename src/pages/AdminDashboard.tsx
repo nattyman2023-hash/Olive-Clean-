@@ -24,6 +24,7 @@ const ADMIN_TABS = [
   { value: "team", label: "Team", adminOnly: true },
   { value: "hiring", label: "Hiring", adminOnly: true },
   { value: "routes", label: "Routes", adminOnly: true },
+  { value: "supplies", label: "Supplies", adminOnly: true },
 ];
 
 function AdminGate() {
