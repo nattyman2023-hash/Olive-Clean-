@@ -1,45 +1,38 @@
 
 
-# Analytics Tab + Admin Account Setup
+# Fix Password Reset + Add About Page
 
-## 1. Create Admin Account
+## 1. Fix "Auth session missing!" on Reset Password
 
-I'll use the backend to create a user for `natalinog2002@yahoo.com` and assign the admin role. This requires:
-- Creating the user in the authentication system
-- Inserting a row in `user_roles` with role `admin`
+**Root cause:** The `/reset-password` page doesn't wait for the auth recovery session to be established. When the user clicks the email link, the URL contains recovery tokens in the hash fragment. The page must listen for the `PASSWORD_RECOVERY` auth event before allowing `updateUser()`.
 
-**Note:** I cannot set the password directly — I'll create the user via the backend, but you may need to use the "Forgot Password" flow at `/admin/login` to set the password to `Malta2016@//` if the auto-created password doesn't work. Alternatively, I can enable auto-confirm and sign up the user via code.
+**Fix in `src/pages/ResetPassword.tsx`:**
+- Add a `useEffect` that listens to `onAuthStateChange` for the `PASSWORD_RECOVERY` event
+- Track a `ready` state — only show the form once the recovery session is active
+- Show a loading spinner while waiting for the session
+- Show an error message if the token is invalid/expired
 
-## 2. Analytics Tab (`src/components/admin/AnalyticsTab.tsx`)
+## 2. About Page (`src/pages/About.tsx`)
 
-A new tab in the admin dashboard showing three chart sections using Recharts (already available via the chart UI components):
+A new page telling the Olive Clean story with sections for:
+- **Hero/Intro** — "The Olive Clean Story" headline with a brief mission statement about premium residential cleaning in Nashville
+- **The Debbie Sardone Method** — explanation of the speed-cleaning philosophy: trained technicians, systematic approach, consistent results
+- **Our Values** — 3-4 core values (e.g., "We Remember Everything," "Flexibility Over Rigidity," "Premium Without Pretension," "Community First")
+- **Why Nashville** — brief section on serving Nashville's most discerning families
+- CTA to book a cleaning
 
-### Revenue Over Time
-- Bar chart showing monthly revenue from `jobs` table (sum of `price` grouped by month for completed jobs)
-- Displays total revenue stat card
+Consistent with existing design language (rounded elements, muted backgrounds, primary color accents).
 
-### Job Completion Rates
-- Pie/donut chart showing job status distribution (scheduled, in_progress, completed, cancelled)
-- Completion rate percentage stat card
+## 3. Wire Up Route + Navigation
 
-### Client Growth
-- Line/area chart showing cumulative client count over time from `clients.created_at`
-- Total clients stat card
+- Add `/about` route in `src/App.tsx`
+- Add "About" link to `src/components/Navbar.tsx`
+- Add "About" link to Footer
 
-All data fetched client-side from existing tables — no new database tables needed.
-
-## 3. Dashboard Update (`src/pages/AdminDashboard.tsx`)
-
-- Add "Analytics" tab (admin-only, like Perks)
-- Import and render `AnalyticsTab`
-
-## Files
-- **Create**: `src/components/admin/AnalyticsTab.tsx`
-- **Edit**: `src/pages/AdminDashboard.tsx` — add Analytics tab
-
-## Technical Details
-- Uses existing `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` from `src/components/ui/chart.tsx`
-- Uses Recharts `BarChart`, `PieChart`, `AreaChart` primitives
-- Data aggregation done in-component with `useMemo`
-- No database migration needed — queries existing `jobs`, `clients` tables
+## Files to Create/Edit
+- **Edit**: `src/pages/ResetPassword.tsx` — fix recovery session handling
+- **Create**: `src/pages/About.tsx` — About page
+- **Edit**: `src/App.tsx` — add /about route
+- **Edit**: `src/components/Navbar.tsx` — add About nav link
+- **Edit**: `src/components/Footer.tsx` — add About link
 
