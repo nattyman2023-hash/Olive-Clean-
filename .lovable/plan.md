@@ -1,121 +1,84 @@
 
 
-# Phase 2: Employee Portal + Client-Facing Portal
+# Fix: Endless Loading on Admin Login / Dashboard
 
-## Database Migrations
+## Root Cause
 
-### Migration 1: Employee tables
-```sql
--- employees table
-CREATE TABLE public.employees (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  name text NOT NULL,
-  phone text,
-  email text,
-  status text NOT NULL DEFAULT 'onboarding',
-  certifications jsonb DEFAULT '[]'::jsonb,
-  onboarding_checklist jsonb DEFAULT '{"documentation":false,"training":false,"policy_agreement":false,"supplies_issued":false}'::jsonb,
-  hired_at timestamptz DEFAULT now(),
-  notes text,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+The `AuthProvider` in `src/hooks/useAuth.tsx` blocks the entire app with `loading: true` until two RPC calls (`has_role` for admin and client) complete. If these RPC calls are slow or hang (e.g. due to network latency, cold-start on the database, or RLS evaluation overhead), **every page** — including the simple `/admin/login` form — stays stuck because the auth context never resolves.
 
--- RLS: admin full CRUD, staff can view own
-CREATE POLICY "Admin can manage employees" ON public.employees FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin')) WITH CHECK (has_role(auth.uid(), 'admin'));
-CREATE POLICY "Staff can view own employee record" ON public.employees FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
+Additionally, there is a race condition: both `onAuthStateChange` and `getSession` fire on mount, potentially calling `checkRoles` twice simultaneously.
 
--- employee_performance table (monthly KPI snapshots)
-CREATE TABLE public.employee_performance (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id uuid NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
-  month date NOT NULL,
-  jobs_completed integer DEFAULT 0,
-  recleans integer DEFAULT 0,
-  avg_rating numeric DEFAULT 0,
-  avg_efficiency_pct numeric DEFAULT 0,
-  attendance_score numeric DEFAULT 100,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(employee_id, month)
-);
-ALTER TABLE public.employee_performance ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Admin can manage performance" ON public.employee_performance FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin')) WITH CHECK (has_role(auth.uid(), 'admin'));
-CREATE POLICY "Staff can view own performance" ON public.employee_performance FOR SELECT TO authenticated
-  USING (employee_id IN (SELECT id FROM public.employees WHERE user_id = auth.uid()));
+## Fix (single file: `src/hooks/useAuth.tsx`)
+
+1. **Add a timeout to `checkRoles`** — wrap the RPC calls in a `Promise.race` with a 5-second timeout so the app always becomes interactive, even if role checks are slow. If the timeout fires, default to non-admin/non-client (safe fallback).
+
+2. **Deduplicate initialization** — set up `onAuthStateChange` first (as recommended), then call `getSession`. Use a flag to prevent `checkRoles` from running twice for the same session.
+
+3. **Don't block non-auth pages** — ensure `setLoading(false)` is called promptly even if `checkRoles` fails, so the login form renders immediately.
+
+### Code Changes
+
+```typescript
+// In checkRoles, wrap with timeout:
+const checkRoles = async (userId: string) => {
+  try {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), 5000)
+    );
+    const roleCheck = Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
+    ]);
+    const [adminRes, clientRes] = await Promise.race([roleCheck, timeout]) as any;
+    setIsAdmin(!!adminRes.data);
+    setIsClient(!!clientRes.data);
+  } catch {
+    // Timeout or error — safe defaults
+    setIsAdmin(false);
+    setIsClient(false);
+  }
+};
 ```
 
-### Migration 2: Client portal support
-```sql
--- Add client role to enum
-ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'client';
+```typescript
+// In useEffect, use an initialized flag to prevent double checkRoles:
+useEffect(() => {
+  let initialized = false;
 
--- Add client_user_id to clients table
-ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS client_user_id uuid;
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await checkRoles(session.user.id);
+      } else {
+        setIsAdmin(false);
+        setIsClient(false);
+      }
+      initialized = true;
+      setLoading(false);
+    }
+  );
 
--- RLS: clients can view their own record
-CREATE POLICY "Clients can view own record" ON public.clients FOR SELECT TO authenticated
-  USING (client_user_id = auth.uid());
-CREATE POLICY "Clients can update own preferences" ON public.clients FOR UPDATE TO authenticated
-  USING (client_user_id = auth.uid()) WITH CHECK (client_user_id = auth.uid());
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!initialized) {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        checkRoles(session.user.id).then(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    }
+  });
 
--- Clients can view their own jobs
-CREATE POLICY "Clients can view own jobs" ON public.jobs FOR SELECT TO authenticated
-  USING (client_id IN (SELECT id FROM public.clients WHERE client_user_id = auth.uid()));
-
--- Clients can view their own feedback
-CREATE POLICY "Clients can view own feedback" ON public.feedback FOR SELECT TO authenticated
-  USING (client_id IN (SELECT id FROM public.clients WHERE client_user_id = auth.uid()));
+  return () => subscription.unsubscribe();
+}, []);
 ```
 
-## New Files
+## Summary
 
-### `src/components/admin/TeamTab.tsx`
-Admin-only tab with:
-- Employee list with status badges (onboarding/active/inactive), search/filter
-- Add/edit employee form (name, phone, email, certifications, notes)
-- Onboarding checklist tracker (4 checkboxes: documentation, training, policy agreement, supplies)
-- Performance dashboard per employee showing KPIs from `employee_performance` table
-- Ability to link employee to an auth user (for staff login)
-
-### `src/pages/ClientLogin.tsx`
-Simple email/password login form (styled like AdminLogin) with:
-- Sign up flow (creates auth user, assigns `client` role)
-- Login flow redirecting to `/client`
-- Forgot password link
-
-### `src/pages/ClientDashboard.tsx`
-Client-facing dashboard with 3 sections:
-- **Upcoming Jobs**: list of scheduled jobs for this client
-- **Past Jobs**: completed jobs with feedback links
-- **My Preferences**: editable key-value pairs from `clients.preferences` JSONB field (gate codes, pet names, cleaning quirks)
-- Header with client name and sign-out button
-
-## Edited Files
-
-### `src/pages/AdminDashboard.tsx`
-- Import and add "Team" tab (admin-only, alongside Perks and Analytics)
-
-### `src/App.tsx`
-- Add routes: `/client/login`, `/client`
-
-### `src/components/Navbar.tsx`
-- Add "Client Login" link to navLinks array
-
-### `src/components/Footer.tsx`
-- Add "Client Portal" link next to "Staff Login"
-
-### `src/hooks/useAuth.tsx`
-- Add `isClient` boolean that checks for the `client` role
-- Expose it via context so ClientDashboard can guard access
-
-## Technical Notes
-- Client sign-up creates auth user + inserts `user_roles` row with `client` role + links `clients.client_user_id`
-- The client sign-up requires an existing client record (matched by email) to link to — otherwise shows "Contact us to get started"
-- Employee `onboarding_checklist` stored as JSONB for flexible checkbox tracking
-- No new API keys or edge functions needed
-- All new tables protected by RLS using existing `has_role()` function
+- **1 file edited**: `src/hooks/useAuth.tsx`
+- **No database changes needed**
+- Adds timeout protection and deduplication to prevent infinite loading
 
