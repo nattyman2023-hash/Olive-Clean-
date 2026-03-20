@@ -14,6 +14,7 @@ import AnalyticsTab from "@/components/admin/AnalyticsTab";
 import TeamTab from "@/components/admin/TeamTab";
 import HiringTab from "@/components/admin/HiringTab";
 import RoutesTab from "@/components/admin/RoutesTab";
+import SuppliesTab from "@/components/admin/SuppliesTab";
 
 const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
