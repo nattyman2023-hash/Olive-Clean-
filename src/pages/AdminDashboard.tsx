@@ -8,6 +8,7 @@ import BookingsTab from "@/components/admin/BookingsTab";
 import ClientsTab from "@/components/admin/ClientsTab";
 import JobsTab from "@/components/admin/JobsTab";
 import PerksTab from "@/components/admin/PerksTab";
+import AnalyticsTab from "@/components/admin/AnalyticsTab";
 
 export default function AdminDashboard() {
   const { user, isAdmin, loading: authLoading, signOut } = useAuth();
