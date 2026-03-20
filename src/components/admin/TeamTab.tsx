@@ -340,10 +340,6 @@ export default function TeamTab() {
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Auth User ID (for staff login)</Label>
-                <Input value={formUserId} onChange={(e) => setFormUserId(e.target.value)} placeholder="UUID" className="rounded-xl mt-1 font-mono text-xs" />
-              </div>
-              <div>
                 <Label className="text-xs">Certifications (comma-separated)</Label>
                 <Input value={formCerts} onChange={(e) => setFormCerts(e.target.value)} placeholder="CPR, Green Clean, OSHA" className="rounded-xl mt-1" />
               </div>
