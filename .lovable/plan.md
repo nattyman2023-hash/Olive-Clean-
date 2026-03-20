@@ -1,40 +1,45 @@
 
 
-# CRM Phase Implementation
+# Analytics Tab + Admin Account Setup
 
-## Overview
-Add three new database tables (clients, jobs, perks_members), refactor the admin dashboard with tabbed navigation, and add a Staff Login link to the footer.
+## 1. Create Admin Account
 
-## 1. Database Migration
+I'll use the backend to create a user for `natalinog2002@yahoo.com` and assign the admin role. This requires:
+- Creating the user in the authentication system
+- Inserting a row in `user_roles` with role `admin`
 
-Create `clients`, `jobs`, and `perks_members` tables with RLS policies allowing admin/staff access.
+**Note:** I cannot set the password directly — I'll create the user via the backend, but you may need to use the "Forgot Password" flow at `/admin/login` to set the password to `Malta2016@//` if the auto-created password doesn't work. Alternatively, I can enable auto-confirm and sign up the user via code.
 
-**clients** — name, email, phone, address, neighborhood, preferences (jsonb), notes, created_by (uuid)
-**jobs** — client_id (FK→clients), service, status (scheduled/in_progress/completed/cancelled), scheduled_at, completed_at, assigned_to, duration_minutes, actual_duration_minutes, price, notes
-**perks_members** — client_id (FK→clients), status (active/paused/cancelled), discount_percent (default 40), flexibility_zone, joined_at, notes
+## 2. Analytics Tab (`src/components/admin/AnalyticsTab.tsx`)
 
-RLS: Admin and staff can SELECT/INSERT/UPDATE on clients and jobs. Admin-only on perks_members.
+A new tab in the admin dashboard showing three chart sections using Recharts (already available via the chart UI components):
 
-## 2. Footer Update
-Add "Staff Login" link to the bottom bar of `src/components/Footer.tsx`, linking to `/admin/login`.
+### Revenue Over Time
+- Bar chart showing monthly revenue from `jobs` table (sum of `price` grouped by month for completed jobs)
+- Displays total revenue stat card
 
-## 3. Admin Dashboard Refactor
+### Job Completion Rates
+- Pie/donut chart showing job status distribution (scheduled, in_progress, completed, cancelled)
+- Completion rate percentage stat card
 
-Refactor `AdminDashboard.tsx` to use a tabbed layout with four tabs: **Bookings | Clients | Jobs | Perks**.
+### Client Growth
+- Line/area chart showing cumulative client count over time from `clients.created_at`
+- Total clients stat card
 
-Extract existing bookings logic into `src/components/admin/BookingsTab.tsx` and create three new tab components:
+All data fetched client-side from existing tables — no new database tables needed.
 
-- **BookingsTab** — current bookings list/detail (extracted from AdminDashboard)
-- **ClientsTab** — list clients with search/filter by neighborhood, add/edit client form with JSONB preferences editor, view job history
-- **JobsTab** — list jobs with status/client/date filters, create job (select client, service, date, assign tech), update status and log duration
-- **PerksTab** — list Perks members with status badges, enroll client, simple "Gap Filler" view showing nearby members when a job cancels
+## 3. Dashboard Update (`src/pages/AdminDashboard.tsx`)
 
-## Files to Create/Edit
-- **Migration**: New SQL migration for 3 tables + RLS
-- **Edit**: `src/components/Footer.tsx` — add Staff Login link
-- **Edit**: `src/pages/AdminDashboard.tsx` — tabbed navigation shell
-- **Create**: `src/components/admin/BookingsTab.tsx`
-- **Create**: `src/components/admin/ClientsTab.tsx`
-- **Create**: `src/components/admin/JobsTab.tsx`
-- **Create**: `src/components/admin/PerksTab.tsx`
+- Add "Analytics" tab (admin-only, like Perks)
+- Import and render `AnalyticsTab`
+
+## Files
+- **Create**: `src/components/admin/AnalyticsTab.tsx`
+- **Edit**: `src/pages/AdminDashboard.tsx` — add Analytics tab
+
+## Technical Details
+- Uses existing `ChartContainer`, `ChartTooltip`, `ChartTooltipContent` from `src/components/ui/chart.tsx`
+- Uses Recharts `BarChart`, `PieChart`, `AreaChart` primitives
+- Data aggregation done in-component with `useMemo`
+- No database migration needed — queries existing `jobs`, `clients` tables
 
