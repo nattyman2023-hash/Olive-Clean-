@@ -11,6 +11,8 @@ import AdminDashboard from "./pages/AdminDashboard.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import About from "./pages/About.tsx";
 import FeedbackForm from "./pages/FeedbackForm.tsx";
+import ClientLogin from "./pages/ClientLogin.tsx";
+import ClientDashboard from "./pages/ClientDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/about" element={<About />} />
             <Route path="/feedback/:jobId" element={<FeedbackForm />} />
+            <Route path="/client/login" element={<ClientLogin />} />
+            <Route path="/client" element={<ClientDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
