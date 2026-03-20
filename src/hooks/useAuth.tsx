@@ -28,15 +28,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isClient, setIsClient] = useState(false);
 
   const checkRoles = async (userId: string) => {
-    const [adminRes, clientRes] = await Promise.all([
-      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-      supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
-    ]);
-    setIsAdmin(!!adminRes.data);
-    setIsClient(!!clientRes.data);
+    try {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 5000)
+      );
+      const roleCheck = Promise.all([
+        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
+      ]);
+      const [adminRes, clientRes] = (await Promise.race([roleCheck, timeout])) as any;
+      setIsAdmin(!!adminRes.data);
+      setIsClient(!!clientRes.data);
+    } catch {
+      setIsAdmin(false);
+      setIsClient(false);
+    }
   };
 
   useEffect(() => {
+    let initialized = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
@@ -47,17 +58,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsAdmin(false);
           setIsClient(false);
         }
+        initialized = true;
         setLoading(false);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkRoles(session.user.id).then(() => setLoading(false));
-      } else {
-        setLoading(false);
+      if (!initialized) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          checkRoles(session.user.id).then(() => setLoading(false));
+        } else {
+          setLoading(false);
+        }
       }
     });
 
