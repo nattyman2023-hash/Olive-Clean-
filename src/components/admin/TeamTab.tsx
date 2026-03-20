@@ -151,7 +151,6 @@ export default function TeamTab() {
     setFormName(emp.name);
     setFormPhone(emp.phone || "");
     setFormEmail(emp.email || "");
-    setFormUserId(emp.user_id);
     setFormStatus(emp.status);
     setFormNotes(emp.notes || "");
     setFormCerts((emp.certifications || []).join(", "));
