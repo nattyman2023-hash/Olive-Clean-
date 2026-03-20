@@ -10,8 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail } from "lucide-react";
+import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -55,8 +56,7 @@ export default function TeamTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [detailView, setDetailView] = useState<"checklist" | "performance" | null>(null);
+  const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -65,6 +65,7 @@ export default function TeamTab() {
   const [formStatus, setFormStatus] = useState("onboarding");
   const [formNotes, setFormNotes] = useState("");
   const [formCerts, setFormCerts] = useState("");
+  const [newCert, setNewCert] = useState("");
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["employees"],
@@ -79,13 +80,13 @@ export default function TeamTab() {
   });
 
   const { data: performance = [] } = useQuery({
-    queryKey: ["employee_performance", selectedEmployee?.id],
-    enabled: !!selectedEmployee && detailView === "performance",
+    queryKey: ["employee_performance", profileEmployee?.id],
+    enabled: !!profileEmployee,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employee_performance")
         .select("*")
-        .eq("employee_id", selectedEmployee!.id)
+        .eq("employee_id", profileEmployee!.id)
         .order("month", { ascending: false })
         .limit(12);
       if (error) throw error;
@@ -114,9 +115,7 @@ export default function TeamTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
-      toast.success(selectedEmployee ? "Employee updated" : "Employee added");
-      resetForm();
-      setDialogOpen(false);
+      toast.success("Employee saved");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -159,32 +158,65 @@ export default function TeamTab() {
     setFormStatus("onboarding");
     setFormNotes("");
     setFormCerts("");
-    setSelectedEmployee(null);
   };
 
-  const openEdit = (emp: Employee) => {
-    setSelectedEmployee(emp);
+  const openAddDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    upsertMutation.mutate({
+      name: formName,
+      phone: formPhone,
+      email: formEmail,
+      user_id: crypto.randomUUID(),
+      status: formStatus,
+      notes: formNotes,
+      certifications: formCerts.split(",").map((s) => s.trim()).filter(Boolean),
+    });
+    setDialogOpen(false);
+    resetForm();
+  };
+
+  const openProfile = (emp: Employee) => {
+    setProfileEmployee(emp);
     setFormName(emp.name);
     setFormPhone(emp.phone || "");
     setFormEmail(emp.email || "");
     setFormStatus(emp.status);
     setFormNotes(emp.notes || "");
-    setFormCerts((emp.certifications || []).join(", "));
-    setDialogOpen(true);
+    setNewCert("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveProfileField = (field: string, value: any) => {
+    if (!profileEmployee) return;
+    const updated = { ...profileEmployee, [field]: value };
+    setProfileEmployee(updated);
     upsertMutation.mutate({
-      id: selectedEmployee?.id,
-      name: formName,
-      phone: formPhone,
-      email: formEmail,
-      user_id: selectedEmployee?.user_id || crypto.randomUUID(),
-      status: formStatus,
-      notes: formNotes,
-      certifications: formCerts.split(",").map((s) => s.trim()).filter(Boolean),
+      id: updated.id,
+      name: updated.name,
+      phone: updated.phone,
+      email: updated.email,
+      user_id: updated.user_id,
+      status: updated.status,
+      notes: updated.notes,
+      certifications: updated.certifications,
     });
+  };
+
+  const addCert = () => {
+    if (!newCert.trim() || !profileEmployee) return;
+    const certs = [...(profileEmployee.certifications || []), newCert.trim()];
+    setNewCert("");
+    saveProfileField("certifications", certs);
+  };
+
+  const removeCert = (cert: string) => {
+    if (!profileEmployee) return;
+    const certs = (profileEmployee.certifications || []).filter((c) => c !== cert);
+    saveProfileField("certifications", certs);
   };
 
   const filtered = employees.filter((e) => {
@@ -209,89 +241,202 @@ export default function TeamTab() {
     );
   }
 
-  // Detail views
-  if (selectedEmployee && detailView === "checklist") {
-    const cl = selectedEmployee.onboarding_checklist;
+  // ── Profile Detail View ──
+  if (profileEmployee) {
+    const cl = profileEmployee.onboarding_checklist || {};
     const prog = checklistProgress(cl);
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <div>
-            <CardTitle className="text-base">{selectedEmployee.name} — Onboarding</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">{prog.done}/{prog.total} complete ({prog.pct}%)</p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedEmployee(null); setDetailView(null); }}>
-            ← Back
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-            <div className="bg-primary h-full transition-all" style={{ width: `${prog.pct}%` }} />
-          </div>
-          {Object.entries(CHECKLIST_LABELS).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-3 cursor-pointer group">
-              <Checkbox
-                checked={cl[key] || false}
-                onCheckedChange={(checked) => {
-                  const updated = { ...cl, [key]: !!checked };
-                  setSelectedEmployee({ ...selectedEmployee, onboarding_checklist: updated });
-                  checklistMutation.mutate({ id: selectedEmployee.id, checklist: updated });
-                }}
-              />
-              <span className="text-sm group-hover:text-foreground transition-colors">{label}</span>
-            </label>
-          ))}
-        </CardContent>
-      </Card>
-    );
-  }
 
-  if (selectedEmployee && detailView === "performance") {
     return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <CardTitle className="text-base">{selectedEmployee.name} — Performance</CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedEmployee(null); setDetailView(null); }}>
-            ← Back
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setProfileEmployee(null)} className="active:scale-[0.97] transition-transform">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
-        </CardHeader>
-        <CardContent>
-          {performance.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No performance data recorded yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Month</TableHead>
-                  <TableHead className="text-right">Jobs</TableHead>
-                  <TableHead className="text-right">Re-cleans</TableHead>
-                  <TableHead className="text-right">Avg Rating</TableHead>
-                  <TableHead className="text-right">Efficiency</TableHead>
-                  <TableHead className="text-right">Attendance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {performance.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium text-xs">
-                      {new Date(p.month).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{p.jobs_completed}</TableCell>
-                    <TableCell className="text-right tabular-nums">{p.recleans}</TableCell>
-                    <TableCell className="text-right tabular-nums">{Number(p.avg_rating).toFixed(1)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{Number(p.avg_efficiency_pct).toFixed(0)}%</TableCell>
-                    <TableCell className="text-right tabular-nums">{Number(p.attendance_score).toFixed(0)}%</TableCell>
-                  </TableRow>
+          <h2 className="text-lg font-semibold text-foreground">{profileEmployee.name}</h2>
+          <span className={`text-[0.65rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_COLORS[profileEmployee.status] || STATUS_COLORS.inactive}`}>
+            {profileEmployee.status}
+          </span>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Personal Info */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Personal Info</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Name</Label>
+                <Input
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  onBlur={() => formName !== profileEmployee.name && saveProfileField("name", formName)}
+                  className="rounded-xl mt-1"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <Input
+                    type="email"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    onBlur={() => formEmail !== (profileEmployee.email || "") && saveProfileField("email", formEmail || null)}
+                    className="rounded-xl mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Phone</Label>
+                  <Input
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    onBlur={() => formPhone !== (profileEmployee.phone || "") && saveProfileField("phone", formPhone || null)}
+                    className="rounded-xl mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select
+                  value={formStatus}
+                  onValueChange={(v) => {
+                    setFormStatus(v);
+                    saveProfileField("status", v);
+                  }}
+                >
+                  <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="onboarding">Onboarding</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Notes</Label>
+                <Textarea
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  onBlur={() => formNotes !== (profileEmployee.notes || "") && saveProfileField("notes", formNotes || null)}
+                  className="rounded-xl mt-1 min-h-[80px]"
+                  placeholder="Internal notes about this employee..."
+                />
+              </div>
+              {profileEmployee.email && (
+                <Button
+                  onClick={() => inviteMutation.mutate(profileEmployee)}
+                  disabled={inviteMutation.isPending}
+                  className="w-full rounded-full active:scale-[0.97] transition-transform"
+                >
+                  {inviteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Mail className="h-4 w-4 mr-1" />}
+                  Send Login Invite
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Onboarding Checklist */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">Onboarding Checklist</CardTitle>
+                <span className="text-xs text-muted-foreground tabular-nums">{prog.done}/{prog.total}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div className="bg-primary h-full transition-all duration-300" style={{ width: `${prog.pct}%` }} />
+              </div>
+              {Object.entries(CHECKLIST_LABELS).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={cl[key] || false}
+                    onCheckedChange={(checked) => {
+                      const updated = { ...cl, [key]: !!checked };
+                      setProfileEmployee({ ...profileEmployee, onboarding_checklist: updated });
+                      checklistMutation.mutate({ id: profileEmployee.id, checklist: updated });
+                    }}
+                  />
+                  <span className="text-sm group-hover:text-foreground transition-colors">{label}</span>
+                </label>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Certifications */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Certifications</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {(profileEmployee.certifications || []).length === 0 && (
+                  <p className="text-xs text-muted-foreground">No certifications yet.</p>
+                )}
+                {(profileEmployee.certifications || []).map((c) => (
+                  <Badge key={c} variant="secondary" className="text-xs pl-2 pr-1 py-0.5 gap-1">
+                    {c}
+                    <button onClick={() => removeCert(c)} className="hover:text-destructive transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newCert}
+                  onChange={(e) => setNewCert(e.target.value)}
+                  placeholder="Add certification..."
+                  className="rounded-xl text-sm"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCert())}
+                />
+                <Button size="sm" variant="outline" onClick={addCert} disabled={!newCert.trim()} className="rounded-xl active:scale-[0.97] transition-transform">
+                  Add
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Performance History */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Performance History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {performance.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No performance data recorded yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Month</TableHead>
+                      <TableHead className="text-xs text-right">Jobs</TableHead>
+                      <TableHead className="text-xs text-right">Rating</TableHead>
+                      <TableHead className="text-xs text-right">Efficiency</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {performance.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-xs">
+                          {new Date(p.month).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{p.jobs_completed}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{Number(p.avg_rating).toFixed(1)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{Number(p.avg_efficiency_pct).toFixed(0)}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     );
   }
 
-  // Main list view
+  // ── Main List View ──
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -319,15 +464,15 @@ export default function TeamTab() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full active:scale-[0.97] transition-transform">
+            <Button size="sm" className="rounded-full active:scale-[0.97] transition-transform" onClick={openAddDialog}>
               <Plus className="h-4 w-4 mr-1" /> Add Employee
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>{selectedEmployee ? "Edit Employee" : "Add Employee"}</DialogTitle>
+              <DialogTitle>Add Employee</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+            <form onSubmit={handleAddSubmit} className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Full Name *</Label>
@@ -365,7 +510,7 @@ export default function TeamTab() {
               </div>
               <Button type="submit" className="w-full rounded-full active:scale-[0.97] transition-transform" disabled={upsertMutation.isPending}>
                 {upsertMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                {selectedEmployee ? "Update" : "Add"} Employee
+                Add Employee
               </Button>
             </form>
           </DialogContent>
@@ -394,7 +539,11 @@ export default function TeamTab() {
                 {filtered.map((emp) => {
                   const prog = checklistProgress(emp.onboarding_checklist || {});
                   return (
-                    <TableRow key={emp.id}>
+                    <TableRow
+                      key={emp.id}
+                      className="cursor-pointer"
+                      onClick={() => openProfile(emp)}
+                    >
                       <TableCell>
                         <div>
                           <p className="font-medium text-sm">{emp.name}</p>
@@ -408,9 +557,12 @@ export default function TeamTab() {
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex flex-wrap gap-1">
-                          {(emp.certifications || []).map((c) => (
+                          {(emp.certifications || []).slice(0, 3).map((c) => (
                             <Badge key={c} variant="secondary" className="text-[0.6rem] px-1.5 py-0">{c}</Badge>
                           ))}
+                          {(emp.certifications || []).length > 3 && (
+                            <Badge variant="secondary" className="text-[0.6rem] px-1.5 py-0">+{emp.certifications.length - 3}</Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
@@ -421,17 +573,8 @@ export default function TeamTab() {
                           <span className="text-[0.65rem] text-muted-foreground tabular-nums">{prog.pct}%</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedEmployee(emp); setDetailView("checklist"); }}>
-                            <ClipboardCheck className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedEmployee(emp); setDetailView("performance"); }}>
-                            <BarChart3 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => openEdit(emp)}>
-                            Edit
-                          </Button>
                           {emp.email && (
                             <Button
                               variant="ghost"
@@ -444,6 +587,9 @@ export default function TeamTab() {
                               <Mail className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openProfile(emp)}>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

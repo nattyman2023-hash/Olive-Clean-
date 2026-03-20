@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { LogOut, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LogOut, Loader2, Lock } from "lucide-react";
 import BookingsTab from "@/components/admin/BookingsTab";
 import ClientsTab from "@/components/admin/ClientsTab";
 import JobsTab from "@/components/admin/JobsTab";
@@ -25,8 +26,18 @@ const ADMIN_TABS = [
   { value: "routes", label: "Routes", adminOnly: true },
 ];
 
+function AdminGate() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+      <Lock className="h-8 w-8 opacity-40" />
+      <p className="text-sm font-medium">Admin access required</p>
+      <p className="text-xs">You don't have permission to view this section.</p>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
-  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
+  const { user, isAdmin, loading: authLoading, rolesLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,8 +55,6 @@ export default function AdminDashboard() {
   }
 
   if (!user) return null;
-
-  const visibleTabs = ADMIN_TABS.filter((t) => !t.adminOnly || isAdmin);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -74,29 +83,37 @@ export default function AdminDashboard() {
 
       <main className="container py-8 max-w-6xl">
         <Tabs defaultValue="bookings" className="space-y-6">
-          <ScrollArea className="w-full">
-            <TabsList className="bg-card border border-border rounded-xl p-1 h-auto inline-flex w-max min-w-full">
-              {visibleTabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="rounded-lg text-xs whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  {tab.label}
-                </TabsTrigger>
+          {rolesLoading ? (
+            <div className="flex gap-1 p-1">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-20 rounded-lg" />
               ))}
-            </TabsList>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+            </div>
+          ) : (
+            <ScrollArea className="w-full">
+              <TabsList className="bg-card border border-border rounded-xl p-1 h-auto inline-flex w-max min-w-full">
+                {ADMIN_TABS.map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="rounded-lg text-xs whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  >
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          )}
 
           <TabsContent value="bookings"><BookingsTab /></TabsContent>
           <TabsContent value="clients"><ClientsTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
-          <TabsContent value="perks"><PerksTab /></TabsContent>
-          <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
-          <TabsContent value="team"><TeamTab /></TabsContent>
-          <TabsContent value="hiring"><HiringTab /></TabsContent>
-          <TabsContent value="routes"><RoutesTab /></TabsContent>
+          <TabsContent value="perks">{isAdmin ? <PerksTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="analytics">{isAdmin ? <AnalyticsTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="team">{isAdmin ? <TeamTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="hiring">{isAdmin ? <HiringTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="routes">{isAdmin ? <RoutesTab /> : <AdminGate />}</TabsContent>
         </Tabs>
       </main>
     </div>
