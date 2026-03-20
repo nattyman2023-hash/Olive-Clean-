@@ -16,6 +16,8 @@ import ClientDashboard from "./pages/ClientDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Careers from "./pages/Careers.tsx";
 import Questionnaire from "./pages/Questionnaire.tsx";
+import EmployeeLogin from "./pages/EmployeeLogin.tsx";
+import EmployeeDashboard from "./pages/EmployeeDashboard.tsx";
 
 const queryClient = new QueryClient();
 
