@@ -21,6 +21,7 @@ const frequencies = ["One-Time", "Weekly", "Bi-Weekly", "Monthly"];
 
 export default function BookPage() {
   const [step, setStep] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     service: "",
