@@ -78,15 +78,26 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden bg-background border-t border-border animate-fade-in">
           <div className="container py-6 flex flex-col gap-4">
-            {navLinks.map((link) => (
-              <button
-                key={link.href}
-                onClick={() => scrollTo(link.href)}
-                className="text-left text-base font-medium text-foreground py-2"
-              >
-                {link.label}
-              </button>
-            ))}
+            {navLinks.map((link) =>
+              (link as any).isRoute ? (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  onClick={() => setOpen(false)}
+                  className="text-left text-base font-medium text-foreground py-2"
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <button
+                  key={link.href}
+                  onClick={() => scrollTo(link.href)}
+                  className="text-left text-base font-medium text-foreground py-2"
+                >
+                  {link.label}
+                </button>
+              )
+            )}
             <Button asChild className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-full mt-2 active:scale-[0.97] transition-transform">
               <Link to="/book">Get Free Estimate</Link>
             </Button>
