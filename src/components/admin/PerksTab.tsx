@@ -10,6 +10,9 @@ import {
   Star,
   Loader2,
   Zap,
+  Send,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 interface PerksMember {
@@ -29,10 +32,26 @@ interface ClientOption {
   neighborhood: string | null;
 }
 
+interface PerksOffer {
+  id: string;
+  perks_member_id: string;
+  cancelled_job_id: string;
+  status: string;
+  offered_at: string;
+  responded_at: string | null;
+  new_job_id: string | null;
+}
+
 const statusBadge: Record<string, string> = {
   active: "text-primary bg-primary/10",
   paused: "text-olive-gold bg-olive-gold/10",
   cancelled: "text-destructive bg-destructive/10",
+};
+
+const offerStatusBadge: Record<string, string> = {
+  offered: "text-olive-gold bg-olive-gold/10",
+  accepted: "text-primary bg-primary/10",
+  declined: "text-destructive bg-destructive/10",
 };
 
 const ZONES = ["Belle Meade / West End", "Brentwood / Franklin", "Green Hills / 12 South", "West Nashville / Bellevue"];
@@ -110,20 +129,83 @@ export default function PerksTab() {
     if (selected?.id === id) setSelected({ ...selected, status });
   };
 
-  // Gap Filler: cancelled jobs → nearby Perks members
+  // Enhanced Gap Filler
   const [cancelledJobs, setCancelledJobs] = useState<any[]>([]);
+  const [offers, setOffers] = useState<PerksOffer[]>([]);
   const [showGapFiller, setShowGapFiller] = useState(false);
+  const [sendingOffer, setSendingOffer] = useState<string | null>(null);
 
   const loadGapFiller = async () => {
-    const { data } = await supabase
-      .from("jobs")
-      .select("*, clients(name, neighborhood)")
-      .eq("status", "cancelled")
-      .order("scheduled_at", { ascending: false })
-      .limit(10);
-    setCancelledJobs(data || []);
+    const [jobsRes, offersRes] = await Promise.all([
+      supabase
+        .from("jobs")
+        .select("*, clients(name, neighborhood)")
+        .eq("status", "cancelled")
+        .order("scheduled_at", { ascending: false })
+        .limit(10),
+      supabase.from("perks_offers").select("*").order("offered_at", { ascending: false }),
+    ]);
+    setCancelledJobs(jobsRes.data || []);
+    setOffers(offersRes.data || []);
     setShowGapFiller(true);
   };
+
+  const sendOffer = async (cancelledJobId: string, memberId: string) => {
+    setSendingOffer(`${cancelledJobId}-${memberId}`);
+    const { error } = await supabase.from("perks_offers").insert({
+      perks_member_id: memberId,
+      cancelled_job_id: cancelledJobId,
+    });
+    setSendingOffer(null);
+    if (error) {
+      toast.error("Failed to create offer.");
+      return;
+    }
+    toast.success("Offer sent to Perks member!");
+    loadGapFiller();
+  };
+
+  const updateOfferStatus = async (offerId: string, status: "accepted" | "declined", cancelledJob?: any, member?: PerksMember) => {
+    const update: any = { status, responded_at: new Date().toISOString() };
+
+    if (status === "accepted" && cancelledJob && member) {
+      // Create a new job at discounted price
+      const originalPrice = cancelledJob.price ? Number(cancelledJob.price) : null;
+      const discount = member.discount_percent || 40;
+      const perksPrice = originalPrice ? originalPrice * (1 - discount / 100) : null;
+
+      const { data: newJob, error: jobErr } = await supabase
+        .from("jobs")
+        .insert({
+          client_id: member.client_id,
+          service: cancelledJob.service,
+          scheduled_at: cancelledJob.scheduled_at,
+          duration_minutes: cancelledJob.duration_minutes,
+          price: perksPrice,
+          notes: `Perks Club fill-in (${discount}% off). Original job cancelled.`,
+          status: "scheduled",
+        })
+        .select("id")
+        .single();
+
+      if (jobErr) {
+        toast.error("Failed to create replacement job.");
+        return;
+      }
+      update.new_job_id = newJob.id;
+    }
+
+    const { error } = await supabase.from("perks_offers").update(update).eq("id", offerId);
+    if (error) {
+      toast.error("Failed to update offer.");
+      return;
+    }
+    toast.success(status === "accepted" ? "Offer accepted — new job scheduled!" : "Offer declined.");
+    loadGapFiller();
+  };
+
+  const getExistingOffer = (jobId: string, memberId: string) =>
+    offers.find((o) => o.cancelled_job_id === jobId && o.perks_member_id === memberId);
 
   const filtered = members.filter((m) => {
     const name = m.clients?.name || "";
@@ -148,12 +230,12 @@ export default function PerksTab() {
         </div>
       </div>
 
-      {/* Gap Filler View */}
+      {/* Enhanced Gap Filler */}
       {showGapFiller && (
         <div className="bg-card rounded-xl border border-border shadow-sm p-6 mb-6 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <Zap className="h-4 w-4 text-olive-gold" /> Gap Filler — Recently Cancelled Jobs
+              <Zap className="h-4 w-4 text-olive-gold" /> Gap Filler — Fill Cancelled Slots
             </h3>
             <button onClick={() => setShowGapFiller(false)} className="text-muted-foreground hover:text-foreground active:scale-95">
               <X className="h-4 w-4" />
@@ -168,18 +250,78 @@ export default function PerksTab() {
                 (m) => m.status === "active" && m.clients?.neighborhood === neighborhood
               );
               return (
-                <div key={j.id} className="border border-border rounded-lg p-4 space-y-2">
+                <div key={j.id} className="border border-border rounded-lg p-4 space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-foreground">{j.clients?.name} — {j.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
+                    <span className="font-medium text-foreground">
+                      {j.clients?.name} — {j.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                    </span>
                     <span className="text-muted-foreground">
-                      {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {nearbyMembers.length > 0
-                      ? `${nearbyMembers.length} Perks member${nearbyMembers.length > 1 ? "s" : ""} in ${neighborhood}: ${nearbyMembers.map((m) => m.clients?.name).join(", ")}`
-                      : `No active Perks members in ${neighborhood || "this area"}.`}
-                  </p>
+                  {j.price && (
+                    <p className="text-xs text-muted-foreground">Original price: ${Number(j.price).toFixed(2)}</p>
+                  )}
+                  {nearbyMembers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No active Perks members in {neighborhood || "this area"}.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {nearbyMembers.length} match{nearbyMembers.length > 1 ? "es" : ""} in {neighborhood}:
+                      </p>
+                      {nearbyMembers.map((m) => {
+                        const existing = getExistingOffer(j.id, m.id);
+                        return (
+                          <div key={m.id} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{m.clients?.name}</p>
+                              <p className="text-[0.65rem] text-muted-foreground">{m.discount_percent}% discount · {m.clients?.phone || "No phone"}</p>
+                            </div>
+                            {existing ? (
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full ${offerStatusBadge[existing.status]}`}>
+                                  {existing.status.charAt(0).toUpperCase() + existing.status.slice(1)}
+                                </span>
+                                {existing.status === "offered" && (
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => updateOfferStatus(existing.id, "accepted", j, m)}
+                                      className="p-1 rounded-md text-primary hover:bg-primary/10 transition-colors active:scale-95"
+                                      title="Accept"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => updateOfferStatus(existing.id, "declined")}
+                                      className="p-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors active:scale-95"
+                                      title="Decline"
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg text-xs active:scale-[0.97] gap-1.5"
+                                disabled={sendingOffer === `${j.id}-${m.id}`}
+                                onClick={() => sendOffer(j.id, m.id)}
+                              >
+                                {sendingOffer === `${j.id}-${m.id}` ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Send className="h-3 w-3" />
+                                )}
+                                Send Offer
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })

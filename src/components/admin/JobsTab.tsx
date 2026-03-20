@@ -326,6 +326,26 @@ export default function JobsTab() {
                 </div>
               )}
 
+              {/* Feedback link */}
+              {selected.status === "completed" && (
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs text-muted-foreground mb-2">Client Feedback</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full rounded-lg active:scale-[0.97] gap-2"
+                    onClick={() => {
+                      const url = `${window.location.origin}/feedback/${selected.id}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success("Feedback link copied to clipboard!");
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy Feedback Link
+                  </Button>
+                </div>
+              )}
+
               {/* Status actions */}
               <div className="border-t border-border pt-4">
                 <p className="text-xs text-muted-foreground mb-2">Update Status</p>
