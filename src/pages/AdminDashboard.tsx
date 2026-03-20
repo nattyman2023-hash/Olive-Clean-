@@ -122,6 +122,16 @@ export default function AdminDashboard() {
               <TeamTab />
             </TabsContent>
           )}
+          {isAdmin && (
+            <TabsContent value="hiring">
+              <HiringTab />
+            </TabsContent>
+          )}
+          {isAdmin && (
+            <TabsContent value="routes">
+              <RoutesTab />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>
