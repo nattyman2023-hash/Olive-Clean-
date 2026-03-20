@@ -7,7 +7,7 @@ import { DollarSign, CheckCircle2, Users, TrendingUp } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Job = Tables<"jobs">;
-type Client = Tables<"clients">;
+type ClientMinimal = Pick<Tables<"clients">, "id" | "created_at">;
 
 const STATUS_COLORS: Record<string, string> = {
   completed: "hsl(var(--primary))",
