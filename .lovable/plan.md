@@ -1,39 +1,44 @@
 
 
-# Plan: Cross-Tech Drag-and-Drop Assignment + Mobile Footer
+# Plan: Fix Map Display, Job Loading, and Popup Issues
 
-## 1. Drag-and-Drop Job Assignment Between Technicians
+## Root Causes Identified
 
-Currently, drag-and-drop only reorders jobs within the same technician group. We need to support dragging a job from one technician's column to another, which reassigns the job.
+### 1. Jobs failing to load in JobsTab
+The query in `JobsTab.tsx` line 89 does `employees(name, photo_url)` join, but there is **no foreign key** from `jobs.assigned_to` to `employees.id`. The `assigned_to` column stores `user_id` (not `employees.id`), so this join fails entirely, causing "Failed to load jobs."
 
-### Changes to `src/components/admin/RoutesTab.tsx`
-- Track `dragSourceGroup` (which tech group the dragged job came from) alongside `draggedJob`
-- Update `handleDrop` to detect cross-group drops: when `dragSourceGroup !== targetTechName`, update the job's `assigned_to` field to the target technician's `user_id` in addition to reordering
-- Add a new mutation `reassignMutation` that updates `assigned_to` on the job
-- Add a visual drop zone at the bottom of each tech group (a dashed border area saying "Drop here to assign") that appears when dragging
-- Show a visual indicator on the target group header when dragging over it
+**Fix:** Replace the implicit join with a manual lookup. Fetch employees separately (already done) and match by `user_id` in the UI instead of relying on a broken FK join.
 
-### Changes to `src/components/admin/routes/RouteJobCard.tsx`
-- Pass `onDragEnd` prop to clear drag state when drag is cancelled
-- Add `data-job-id` for accessibility
+### 2. Employee map showing only 1-2 jobs
+The employee dashboard query (line 69) selects `clients(name, address, neighborhood, preferences)` — it's **missing `lat` and `lng`**. The `EmployeeJobMap` filters on `j.clients?.lat != null && j.clients?.lng != null`, so jobs without these fields are excluded.
 
-## 2. Mobile-Optimized Footer
+**Fix:** Add `lat, lng` to the clients select in the employee dashboard query.
 
-The current footer has 7 links in a single horizontal `flex` row with `gap-6` — on a 407px viewport these wrap awkwardly and are hard to tap.
+### 3. Map popups not working on click
+The Leaflet markers use `bindPopup()` which should work. However, `scrollWheelZoom: false` combined with the map container intercepting events may cause issues. Will verify the popup HTML is valid and the map initializes correctly.
 
-### Changes to `src/components/Footer.tsx`
-- Reduce padding on mobile: `py-10 sm:py-16`
-- Grid: change to `grid-cols-2` on mobile (brand + contact side by side, services + areas side by side) instead of stacking all 4 vertically
-- Bottom links: restructure into a 2-column grid on mobile (`grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:gap-6`) so links are tappable with proper spacing
-- Increase tap target size on mobile: `py-1` on link items
-- Reduce gap between grid sections on mobile: `gap-8 sm:gap-12`
-- Make copyright and links stack centered on mobile
+## Changes
 
-## Files Changed
+### File: `src/components/admin/JobsTab.tsx`
+- Remove `employees(name, photo_url)` from the Supabase query select
+- After fetching jobs, match `assigned_to` against the already-fetched `employees` list (by comparing `assigned_to` with employee `id` — but wait, `assigned_to` stores `user_id` not `id`)
+- Need to check: does `assigned_to` store `employees.id` or `employees.user_id`?
+- Based on RoutesTab (which uses `employeeMap[e.user_id]`), `assigned_to` stores `user_id`
+- So: fetch employees with `id, name, photo_url, user_id`, then build a lookup map by `user_id` to manually populate the employee info on each job
+
+### File: `src/pages/EmployeeDashboard.tsx`
+- Line 69: Change `clients(name, address, neighborhood, preferences)` to `clients(name, address, neighborhood, preferences, lat, lng)`
+
+### File: `src/components/employee/EmployeeJobMap.tsx`
+- Ensure map `fitBounds` works correctly with all jobs that have coordinates
+- No structural changes needed — the missing data was the root cause
+
+## Technical Details
 
 | File | Change |
 |------|--------|
-| `src/components/admin/RoutesTab.tsx` | Cross-group drag-and-drop with `assigned_to` reassignment |
-| `src/components/admin/routes/RouteJobCard.tsx` | Add `onDragEnd` support |
-| `src/components/Footer.tsx` | Mobile-responsive layout for links and grid |
+| `src/components/admin/JobsTab.tsx` | Remove broken `employees()` join; manually map employee data using `user_id` lookup |
+| `src/pages/EmployeeDashboard.tsx` | Add `lat, lng` to the clients select query |
+
+No database changes needed.
 
