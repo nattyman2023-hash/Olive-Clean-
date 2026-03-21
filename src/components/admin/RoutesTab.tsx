@@ -248,18 +248,23 @@ export default function RoutesTab() {
                   isZoneMode={groupMode === "zone"}
                 />
                 <div className="space-y-2">
-                  {groupJobs.map((j, i) => (
-                    <RouteJobCard
-                      key={j.id}
-                      job={j}
-                      index={i}
-                      zoneColors={ZONE_COLORS}
-                      defaultZone={DEFAULT_ZONE}
-                      onDragStart={() => setDraggedJob(j.id)}
-                      onDrop={() => handleDrop(groupName, i)}
-                      isDragging={draggedJob === j.id}
-                    />
-                  ))}
+                  {groupJobs.map((j, i) => {
+                    const assignedEmp = j.assigned_to ? employeeMap[j.assigned_to] : undefined;
+                    return (
+                      <div key={j.id}>
+                        <RouteJobCard
+                          job={j}
+                          index={i}
+                          zoneColors={ZONE_COLORS}
+                          defaultZone={DEFAULT_ZONE}
+                          onDragStart={() => setDraggedJob(j.id)}
+                          onDrop={() => handleDrop(groupName, i)}
+                          isDragging={draggedJob === j.id}
+                        />
+                        <ConstraintWarning job={j} employee={assignedEmp} />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
