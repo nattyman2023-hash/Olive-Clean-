@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     // Check if auth user already exists
     const { data: existingUsers } = await adminClient.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
+      (u) => u.email?.toLowerCase() === trimmedEmail
     );
 
     let authUserId: string;
