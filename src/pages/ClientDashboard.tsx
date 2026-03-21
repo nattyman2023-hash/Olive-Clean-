@@ -6,10 +6,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star } from "lucide-react";
 import { format } from "date-fns";
+import BookingSection from "@/components/client/BookingSection";
+import TechnicianAvatar from "@/components/client/TechnicianAvatar";
 
 interface ClientRecord {
   id: string;
@@ -28,6 +29,7 @@ interface Job {
   completed_at: string | null;
   price: number | null;
   notes: string | null;
+  assigned_to: string | null;
 }
 
 interface FeedbackRecord {
@@ -40,7 +42,11 @@ interface FeedbackRecord {
 const STATUS_BADGE: Record<string, string> = {
   scheduled: "bg-blue-100 text-blue-800 border-blue-200",
   "in-progress": "bg-amber-100 text-amber-800 border-amber-200",
+  accepted: "bg-blue-100 text-blue-800 border-blue-200",
+  on_route: "bg-amber-100 text-amber-800 border-amber-200",
+  on_site: "bg-violet-100 text-violet-800 border-violet-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  complete: "bg-emerald-100 text-emerald-800 border-emerald-200",
   cancelled: "bg-muted text-muted-foreground border-border",
 };
 
@@ -84,6 +90,23 @@ export default function ClientDashboard() {
       return data as Job[];
     },
   });
+
+  // Fetch assigned technicians for jobs
+  const assignedUserIds = [...new Set(jobs.filter((j) => j.assigned_to).map((j) => j.assigned_to!))];
+  const { data: technicians = [] } = useQuery({
+    queryKey: ["technicians_for_jobs", assignedUserIds],
+    enabled: assignedUserIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("user_id, name, photo_url")
+        .in("user_id", assignedUserIds);
+      if (error) throw error;
+      return data as { user_id: string; name: string; photo_url: string | null }[];
+    },
+  });
+
+  const techByUserId = Object.fromEntries(technicians.map((t) => [t.user_id, t]));
 
   const { data: feedbacks = [] } = useQuery({
     queryKey: ["client_feedback", client?.id],
@@ -157,8 +180,8 @@ export default function ClientDashboard() {
     );
   }
 
-  const upcomingJobs = jobs.filter((j) => j.status === "scheduled" || j.status === "in-progress");
-  const pastJobs = jobs.filter((j) => j.status === "completed" || j.status === "cancelled");
+  const upcomingJobs = jobs.filter((j) => ["scheduled", "in-progress", "accepted", "on_route", "on_site"].includes(j.status));
+  const pastJobs = jobs.filter((j) => j.status === "completed" || j.status === "complete" || j.status === "cancelled");
   const feedbackByJob = Object.fromEntries(feedbacks.map((f) => [f.job_id, f]));
   const prefs = (client.preferences || {}) as Record<string, string>;
 
@@ -183,6 +206,9 @@ export default function ClientDashboard() {
       </header>
 
       <main className="container py-8 max-w-4xl space-y-8">
+        {/* Book a Cleaning */}
+        <BookingSection client={{ name: client.name, email: client.email, phone: client.phone, address: client.address }} />
+
         {/* Upcoming Jobs */}
         <section>
           <div className="flex items-center gap-2 mb-4">
@@ -193,22 +219,30 @@ export default function ClientDashboard() {
             <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No upcoming appointments.</CardContent></Card>
           ) : (
             <div className="space-y-3">
-              {upcomingJobs.map((job) => (
-                <Card key={job.id}>
-                  <CardContent className="py-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{job.service}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {job.price && <span className="text-sm font-semibold tabular-nums">${Number(job.price).toFixed(0)}</span>}
-                      <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
-                        {job.status}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {upcomingJobs.map((job) => {
+                const tech = job.assigned_to ? techByUserId[job.assigned_to] : null;
+                return (
+                  <Card key={job.id}>
+                    <CardContent className="py-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{job.service}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
+                        {tech && (
+                          <div className="mt-1.5">
+                            <TechnicianAvatar name={tech.name} photoUrl={tech.photo_url} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {job.price && <span className="text-sm font-semibold tabular-nums">${Number(job.price).toFixed(0)}</span>}
+                        <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
+                          {job.status.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </section>
@@ -238,7 +272,7 @@ export default function ClientDashboard() {
                             <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                             <span className="text-xs font-medium tabular-nums">{fb.rating}</span>
                           </div>
-                        ) : job.status === "completed" ? (
+                        ) : (job.status === "completed" || job.status === "complete") ? (
                           <Button asChild variant="ghost" size="sm" className="text-xs h-7">
                             <Link to={`/feedback/${job.id}`}>Leave Review</Link>
                           </Button>
