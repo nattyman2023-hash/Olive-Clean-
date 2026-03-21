@@ -129,6 +129,11 @@ export default function EmployeeDashboard() {
           ))
         )}
 
+        {/* Map */}
+        {!jobsLoading && todayJobs.length > 0 && (
+          <EmployeeJobMap jobs={todayJobs} />
+        )}
+
         {/* Performance */}
         {performance.length > 0 && (
           <Card>
