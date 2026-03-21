@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -152,6 +152,9 @@ export default function HiringTab() {
 
   return (
     <div>
+      {/* Job Postings Management */}
+      <JobPostingsSection />
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
@@ -395,5 +398,97 @@ function AddApplicantDialog({ open, onOpenChange, onSubmit, loading }: {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function JobPostingsSection() {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState("full-time");
+  const [requirements, setRequirements] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+
+  const { data: postings = [] } = useQuery({
+    queryKey: ["job-postings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("job_postings").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("job_postings").insert({
+        title, description, type, requirements: requirements || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job-postings"] });
+      setAddOpen(false);
+      setTitle(""); setDescription(""); setRequirements("");
+      toast.success("Job posting created");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const newStatus = status === "open" ? "closed" : "open";
+      const { error } = await supabase.from("job_postings").update({ status: newStatus }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job-postings"] });
+      toast.success("Posting updated");
+    },
+  });
+
+  return (
+    <div className="mb-10">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-semibold text-foreground">Job Postings</h3>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />New Posting</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Create Job Posting</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div><Label>Title *</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Cleaning Technician" /></div>
+              <div><Label>Type</Label>
+                <select value={type} onChange={(e) => setType(e.target.value)} className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background">
+                  <option value="full-time">Full-time</option><option value="part-time">Part-time</option>
+                </select>
+              </div>
+              <div><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Job description..." className="min-h-[80px]" /></div>
+              <div><Label>Requirements</Label><Input value={requirements} onChange={(e) => setRequirements(e.target.value)} placeholder="Must have reliable transportation..." /></div>
+              <Button onClick={() => createMutation.mutate()} disabled={!title || createMutation.isPending} className="w-full rounded-xl">
+                {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Create Posting
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+      {postings.length === 0 ? (
+        <p className="text-sm text-muted-foreground bg-card rounded-xl border border-border p-6 text-center">No job postings yet.</p>
+      ) : (
+        <div className="grid gap-3">
+          {postings.map((p: any) => (
+            <div key={p.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">{p.title}</p>
+                <p className="text-xs text-muted-foreground">{p.type} · {p.location}</p>
+              </div>
+              <Button size="sm" variant={p.status === "open" ? "outline" : "default"} className="rounded-lg text-xs" onClick={() => toggleMutation.mutate({ id: p.id, status: p.status })}>
+                {p.status === "open" ? "Close" : "Reopen"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

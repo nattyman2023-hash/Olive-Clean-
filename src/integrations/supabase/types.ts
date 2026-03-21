@@ -17,9 +17,11 @@ export type Database = {
       applicants: {
         Row: {
           applied_at: string
+          available_days: Json | null
           cover_note: string | null
           created_at: string
           email: string
+          has_transportation: boolean | null
           id: string
           name: string
           notes: string | null
@@ -27,12 +29,15 @@ export type Database = {
           resume_url: string | null
           screening_score: number | null
           status: string
+          years_experience: number | null
         }
         Insert: {
           applied_at?: string
+          available_days?: Json | null
           cover_note?: string | null
           created_at?: string
           email: string
+          has_transportation?: boolean | null
           id?: string
           name: string
           notes?: string | null
@@ -40,12 +45,15 @@ export type Database = {
           resume_url?: string | null
           screening_score?: number | null
           status?: string
+          years_experience?: number | null
         }
         Update: {
           applied_at?: string
+          available_days?: Json | null
           cover_note?: string | null
           created_at?: string
           email?: string
+          has_transportation?: boolean | null
           id?: string
           name?: string
           notes?: string | null
@@ -53,6 +61,7 @@ export type Database = {
           resume_url?: string | null
           screening_score?: number | null
           status?: string
+          years_experience?: number | null
         }
         Relationships: []
       }
@@ -280,10 +289,44 @@ export type Database = {
           },
         ]
       }
+      job_postings: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          location: string
+          requirements: string | null
+          status: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          location?: string
+          requirements?: string | null
+          status?: string
+          title: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          location?: string
+          requirements?: string | null
+          status?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           actual_duration_minutes: number | null
           assigned_to: string | null
+          checklist_state: Json | null
           client_id: string
           completed_at: string | null
           created_at: string
@@ -299,6 +342,7 @@ export type Database = {
         Insert: {
           actual_duration_minutes?: number | null
           assigned_to?: string | null
+          checklist_state?: Json | null
           client_id: string
           completed_at?: string | null
           created_at?: string
@@ -314,6 +358,7 @@ export type Database = {
         Update: {
           actual_duration_minutes?: number | null
           assigned_to?: string | null
+          checklist_state?: Json | null
           client_id?: string
           completed_at?: string | null
           created_at?: string

@@ -8,6 +8,9 @@ import { Loader2, MapPin, Clock, User, Calendar, Shield, Zap, GripVertical, Layo
 import { toast } from "@/hooks/use-toast";
 import RouteJobCard from "./routes/RouteJobCard";
 import RouteTechHeader from "./routes/RouteTechHeader";
+import AutoAssignButton from "./dispatch/AutoAssignButton";
+import RecurringScheduleButton from "./dispatch/RecurringScheduleButton";
+import ConstraintWarning from "./dispatch/ConstraintWarning";
 
 export interface RouteJob {
   id: string;
@@ -179,6 +182,10 @@ export default function RoutesTab() {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            <AutoAssignButton jobs={jobs} employees={employees} selectedDate={selectedDate} />
+            <RecurringScheduleButton jobs={jobs} selectedDate={selectedDate} />
+          </div>
+          <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <Input
               type="date"
@@ -241,18 +248,23 @@ export default function RoutesTab() {
                   isZoneMode={groupMode === "zone"}
                 />
                 <div className="space-y-2">
-                  {groupJobs.map((j, i) => (
-                    <RouteJobCard
-                      key={j.id}
-                      job={j}
-                      index={i}
-                      zoneColors={ZONE_COLORS}
-                      defaultZone={DEFAULT_ZONE}
-                      onDragStart={() => setDraggedJob(j.id)}
-                      onDrop={() => handleDrop(groupName, i)}
-                      isDragging={draggedJob === j.id}
-                    />
-                  ))}
+                  {groupJobs.map((j, i) => {
+                    const assignedEmp = j.assigned_to ? employeeMap[j.assigned_to] : undefined;
+                    return (
+                      <div key={j.id}>
+                        <RouteJobCard
+                          job={j}
+                          index={i}
+                          zoneColors={ZONE_COLORS}
+                          defaultZone={DEFAULT_ZONE}
+                          onDragStart={() => setDraggedJob(j.id)}
+                          onDrop={() => handleDrop(groupName, i)}
+                          isDragging={draggedJob === j.id}
+                        />
+                        <ConstraintWarning job={j} employee={assignedEmp} />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

@@ -66,6 +66,7 @@ export default function Footer() {
           <p className="text-xs text-background/40">© {new Date().getFullYear()} Olive Clean. All rights reserved.</p>
           <div className="flex gap-6 text-xs text-background/40">
             <Link to="/about" className="hover:text-background/60 transition-colors">About</Link>
+            <Link to="/careers" className="hover:text-background/60 transition-colors">Careers</Link>
             <Link to="/" className="hover:text-background/60 transition-colors">Privacy</Link>
             <Link to="/" className="hover:text-background/60 transition-colors">Terms</Link>
             <Link to="/client/login" className="hover:text-background/60 transition-colors">Client Portal</Link>
