@@ -52,6 +52,7 @@ export default function ClientsTab() {
   const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
   const [selected, setSelected] = useState<Client | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
