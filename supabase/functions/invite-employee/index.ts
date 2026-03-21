@@ -54,6 +54,10 @@ Deno.serve(async (req) => {
       });
     }
 
+    const trimmedEmail = email.trim().toLowerCase();
+    const origin = req.headers.get("origin") || req.headers.get("referer")?.replace(/\/$/, "") || "https://olive-sanctuary-stack.lovable.app";
+    const redirectTo = `${origin}/reset-password`;
+
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Check if auth user already exists
