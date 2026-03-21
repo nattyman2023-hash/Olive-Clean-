@@ -1,88 +1,48 @@
 
 
-# Plan: Dispatch Engine + Employee On-Site Dashboard + Careers Upgrade
+# Plan: Real-time Notifications, Route Map, and Careers Page Fixes
 
-## Overview
+## 1. Real-time Job Status Notifications (Admin Dashboard)
 
-Three major feature areas plus footer update and sample data seeding.
+Enable Supabase Realtime on the `jobs` table and add a toast notification listener in `RoutesTab.tsx`:
 
----
+- **Migration**: `ALTER PUBLICATION supabase_realtime ADD TABLE public.jobs;`
+- **RoutesTab.tsx**: Subscribe to `postgres_changes` on `jobs` table filtering for `UPDATE` events. When a technician changes status (e.g., "on_route" → "on_site"), show a toast notification with the tech name, client name, and new status. Auto-invalidate the route jobs query so the UI refreshes live.
 
-## 1. Intelligent Dispatch Engine (Admin — Routes Tab Enhancement)
+## 2. Nashville Map Visualization (Routes Tab)
 
-Upgrade `RoutesTab.tsx` with dispatch logic:
+Add an interactive map component using Leaflet (free, no API key needed) below the route cards:
 
-- **Auto-assign button**: Algorithm that assigns unassigned jobs to technicians based on:
-  - Geographic proximity (matching job neighborhood to tech's current zone)
-  - Skill constraints (check job service requires cert → match tech certifications)
-  - Workload balancing (spread jobs evenly across techs)
-- **Recursive scheduling**: "Generate Recurring" button that creates the next 6 months of jobs for clients with recurring frequency, preserving technician continuity (same `assigned_to`)
-- **Constraint mismatch warnings**: Visual flag when a tech lacks required cert for assigned job
-- **Perks Club gap filler integration**: When a job is cancelled from routes view, auto-trigger the Perks Club matching (link to existing PerksTab gap filler)
+- **New file**: `src/components/admin/routes/RouteMap.tsx`
+  - Renders a Leaflet map centered on Nashville (36.1627, -86.7816)
+  - Plots job locations using client `lat`/`lng` from the `clients` table (already in schema)
+  - Color-coded markers by zone (Belle Meade = amber, Green Hills = violet, etc.) matching existing `ZONE_COLORS`
+  - Marker popups showing client name, service, and assigned tech
+  - Polylines connecting jobs in sequence per technician
+- **RoutesTab.tsx**: Add a map toggle button and render `RouteMap` when active
+- **Dependencies**: `leaflet` + `react-leaflet` + types
+- **Sample data update**: Migration to set `lat`/`lng` on existing sample clients (Nashville coordinates)
 
-No new tables needed — uses existing `jobs`, `employees`, `clients` tables.
+## 3. Careers Page — Add Navbar/Footer + Job-Specific Applications
 
-## 2. Employee Dashboard — "On-Site Assistant"
+**Header/Footer**: The Careers page currently has a custom inline header instead of the shared `Navbar` and `Footer`. Fix:
+- Import and render `Navbar` at top and `Footer` at bottom of `Careers.tsx`
+- Remove the custom inline header
 
-Complete rebuild of `EmployeeDashboard.tsx`:
-
-- **Day-at-a-Glance**: Job sequence cards with time, client name, address, service tier
-- **Status Sliders**: Interactive status progression: `accepted` → `on_route` → `on_site` → `complete` — updates `jobs.status` via mutation
-- **Home Memory Panel**: Expandable section per job showing `clients.preferences` JSONB (pet info, special instructions, "don't wake the baby" notes)
-- **Tier-Specific Checklists**: Dynamic checklist based on service type:
-  - `essential-clean`: floors, surfaces, bathrooms
-  - `deep-clean`: + baseboards, door frames, light fixtures
-  - `signature-deep-clean`: + windows, cabinets interior
-- **Before/After Photo Upload**: Camera capture + upload to `after_photos` bucket, required before marking job "complete"
-- **Incident/Supply Report**: Quick form to flag maintenance issues or low supplies (inserts into `supply_usage_logs` or a notes field)
-
-### Database Changes
-- Add `checklist_state` (jsonb, default `'{}'`) column to `jobs` table for persisting checklist progress per job
-- Add `before_photos` storage bucket (public) for before-job photos
-
-## 3. Multi-Step Careers Application Page
-
-Rebuild `Careers.tsx` as a multi-step wizard:
-
-- **Step 1**: Personal info (name, email, phone)
-- **Step 2**: Experience & availability (years of experience, available days checkboxes, transportation yes/no)
-- **Step 3**: Resume upload + cover note
-- **Step 4**: Review & submit
-
-Progress bar at top showing current step.
-
-### Database Changes
-- Add columns to `applicants`: `years_experience` (integer, nullable), `available_days` (jsonb, nullable), `has_transportation` (boolean, nullable)
-
-## 4. Job Listings on Careers Page
-
-- Add `job_postings` table: `id`, `title`, `description`, `location`, `type` (full-time/part-time), `requirements` (text), `status` (open/closed), `created_at`
-- RLS: Admin full access, public can read open postings
-- Display open postings above the application form on the Careers page
-- Add "Job Postings" management section in HiringTab for admin to create/edit postings
-
-## 5. Footer Update
-
-Add "Careers" link to `Footer.tsx` between "About" and "Privacy".
-
-## 6. Sample Data
-
-Seed via insert tool (not migration):
-- 3 job postings (Cleaning Technician, Team Lead, Part-Time Weekend Cleaner)
-- Update existing sample jobs with `assigned_to` matching employee IDs (now that FK is dropped)
-- Sample checklist states on a couple jobs
-
----
+**Apply to specific job**: 
+- Add an "Apply Now" button on each job posting card that scrolls to the form and pre-selects that job
+- Add a `job_posting_id` column (nullable UUID, FK to `job_postings`) to the `applicants` table so applications are linked to specific postings
+- Show a dropdown/indicator in the form showing which position they're applying for (or "General Application")
+- In `HiringTab.tsx`, show the linked job posting title on each applicant
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| Migration SQL | Add `checklist_state` to jobs, `job_postings` table, extra `applicants` columns, `before_photos` bucket |
-| `src/components/admin/RoutesTab.tsx` | Auto-assign algorithm, recurring scheduling, constraint warnings |
-| `src/pages/EmployeeDashboard.tsx` | Full rebuild: status sliders, Home Memory, checklists, photo upload, incident reports |
-| `src/pages/Careers.tsx` | Multi-step wizard with job listings display |
-| `src/components/admin/HiringTab.tsx` | Add job postings management section |
-| `src/components/Footer.tsx` | Add Careers link |
-| Insert SQL | Sample job postings, job assignments, checklist data |
+| Migration SQL | Enable realtime on jobs, add lat/lng to sample clients, add `job_posting_id` to applicants |
+| `src/components/admin/RoutesTab.tsx` | Realtime subscription + toast, map toggle |
+| `src/components/admin/routes/RouteMap.tsx` | New — Leaflet map with zone-colored pins and tech route lines |
+| `src/pages/Careers.tsx` | Add Navbar + Footer, "Apply Now" per posting, job_posting_id in form state |
+| `src/components/admin/HiringTab.tsx` | Show linked job posting on applicant cards |
+| `package.json` | Add leaflet, react-leaflet, @types/leaflet |
 
