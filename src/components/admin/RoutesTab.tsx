@@ -259,7 +259,9 @@ export default function RoutesTab() {
       {/* Map */}
       {showMap && !jobsLoading && totalJobs > 0 && (
         <div className="mb-8">
-          <RouteMap jobs={jobs} employees={employees} employeeMap={employeeMap} />
+          <Suspense fallback={<div className="h-[420px] bg-card rounded-xl border border-border flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+            <RouteMap jobs={jobs} employees={employees} employeeMap={employeeMap} />
+          </Suspense>
         </div>
       )}
 
