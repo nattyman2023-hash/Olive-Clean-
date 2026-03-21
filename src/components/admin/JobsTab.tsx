@@ -94,7 +94,7 @@ export default function JobsTab() {
     setLoading(true);
     const { data, error } = await supabase
       .from("jobs")
-      .select("*, clients(name, neighborhood)")
+      .select("*, clients(name, neighborhood, lat, lng)")
       .order("scheduled_at", { ascending: false });
     setLoading(false);
     if (error) {
