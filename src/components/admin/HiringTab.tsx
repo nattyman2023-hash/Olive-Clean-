@@ -187,6 +187,12 @@ export default function HiringTab() {
               {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
+          <AddApplicantDialog
+            open={addOpen}
+            onOpenChange={setAddOpen}
+            onSubmit={(data) => addApplicantMutation.mutate(data)}
+            loading={addApplicantMutation.isPending}
+          />
         </div>
       </div>
 
