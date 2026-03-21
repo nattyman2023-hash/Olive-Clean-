@@ -66,7 +66,7 @@ export default function EmployeeDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("jobs")
-        .select("*, clients(name, address, neighborhood, preferences)")
+        .select("*, clients(name, address, neighborhood, preferences, lat, lng)")
         .eq("assigned_to", employee!.user_id)
         .gte("scheduled_at", startOfDay(today).toISOString())
         .lte("scheduled_at", endOfDay(today).toISOString())

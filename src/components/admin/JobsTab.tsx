@@ -44,6 +44,7 @@ interface EmployeeOption {
   id: string;
   name: string;
   photo_url: string | null;
+  user_id: string;
 }
 
 const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; className: string }> = {
@@ -77,26 +78,30 @@ export default function JobsTab() {
   });
 
   useEffect(() => {
-    fetchJobs();
     fetchClients();
     fetchEmployees();
   }, []);
+
+  useEffect(() => {
+    if (employees.length > 0) fetchJobs();
+  }, [employees]);
 
   const fetchJobs = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("jobs")
-      .select("*, clients(name, neighborhood), employees(name, photo_url)")
+      .select("*, clients(name, neighborhood)")
       .order("scheduled_at", { ascending: false });
     setLoading(false);
     if (error) {
       toast.error("Failed to load jobs.");
       return;
     }
-    // Normalize employees join (may come as array since no FK declared)
+    // Build employee lookup by user_id (assigned_to stores user_id)
+    const empByUserId = new Map(employees.map((e) => [e.user_id, e]));
     const normalized = (data || []).map((j: any) => ({
       ...j,
-      employees: Array.isArray(j.employees) ? j.employees[0] || null : j.employees,
+      employees: j.assigned_to ? empByUserId.get(j.assigned_to) || null : null,
     })) as Job[];
     setJobs(normalized);
   };
@@ -107,7 +112,7 @@ export default function JobsTab() {
   };
 
   const fetchEmployees = async () => {
-    const { data } = await supabase.from("employees").select("id, name, photo_url").eq("status", "active").order("name");
+    const { data } = await supabase.from("employees").select("id, name, photo_url, user_id").eq("status", "active").order("name");
     setEmployees(data || []);
   };
 
