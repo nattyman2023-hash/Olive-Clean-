@@ -17,7 +17,7 @@ import {
   Copy,
   UserCircle,
   List,
-  Map,
+  Map as MapIcon,
 } from "lucide-react";
 import JobsMap from "./jobs/JobsMap";
 
