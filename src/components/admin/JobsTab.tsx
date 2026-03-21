@@ -93,7 +93,12 @@ export default function JobsTab() {
       toast.error("Failed to load jobs.");
       return;
     }
-    setJobs(data || []);
+    // Normalize employees join (may come as array since no FK declared)
+    const normalized = (data || []).map((j: any) => ({
+      ...j,
+      employees: Array.isArray(j.employees) ? j.employees[0] || null : j.employees,
+    })) as Job[];
+    setJobs(normalized);
   };
 
   const fetchClients = async () => {
