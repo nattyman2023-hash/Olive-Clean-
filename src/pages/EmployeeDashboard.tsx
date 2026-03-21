@@ -13,6 +13,7 @@ import {
   ChevronDown, ChevronUp, Camera, AlertTriangle, Package,
   Navigation, Home, Play
 } from "lucide-react";
+import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 
@@ -126,6 +127,11 @@ export default function EmployeeDashboard() {
           todayJobs.map((job: any, idx: number) => (
             <JobCard key={job.id} job={job} index={idx} queryClient={queryClient} employeeId={employee?.id} />
           ))
+        )}
+
+        {/* Map */}
+        {!jobsLoading && todayJobs.length > 0 && (
+          <EmployeeJobMap jobs={todayJobs} />
         )}
 
         {/* Performance */}
