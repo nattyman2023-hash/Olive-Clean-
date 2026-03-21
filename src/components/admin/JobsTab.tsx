@@ -16,7 +16,10 @@ import {
   Loader2,
   Copy,
   UserCircle,
+  List,
+  Map,
 } from "lucide-react";
+import JobsMap from "./jobs/JobsMap";
 
 interface Job {
   id: string;
