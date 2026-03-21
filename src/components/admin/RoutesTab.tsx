@@ -28,6 +28,8 @@ export interface RouteJob {
     address: string | null;
     neighborhood: string | null;
     preferences: Record<string, unknown> | null;
+    lat: number | null;
+    lng: number | null;
   } | null;
 }
 
