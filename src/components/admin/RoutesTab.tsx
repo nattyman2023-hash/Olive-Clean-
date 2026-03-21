@@ -101,7 +101,7 @@ export default function RoutesTab() {
         .select("id, client_id, service, status, scheduled_at, duration_minutes, estimated_drive_minutes, notes, assigned_to, clients(name, address, neighborhood, preferences, lat, lng)")
         .gte("scheduled_at", startOfDay)
         .lte("scheduled_at", endOfDay)
-        .in("status", ["scheduled", "in_progress"])
+        .in("status", ["scheduled", "accepted", "on_route", "on_site", "in_progress"])
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
       return (data as unknown) as RouteJob[];

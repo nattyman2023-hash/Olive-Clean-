@@ -54,26 +54,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    const trimmedEmail = email.trim().toLowerCase();
+    const origin = req.headers.get("origin") || req.headers.get("referer")?.replace(/\/$/, "") || "https://olive-sanctuary-stack.lovable.app";
+    const redirectTo = `${origin}/reset-password`;
+
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Check if auth user already exists
     const { data: existingUsers } = await adminClient.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
+      (u) => u.email?.toLowerCase() === trimmedEmail
     );
 
     let authUserId: string;
 
     if (existingUser) {
       authUserId = existingUser.id;
-      await adminClient.auth.resetPasswordForEmail(email, {
-        redirectTo: `${supabaseUrl.replace(".supabase.co", ".lovable.app")}/reset-password`,
+      await adminClient.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo,
       });
     } else {
       const { data: invited, error: inviteError } =
-        await adminClient.auth.admin.inviteUserByEmail(email, {
+        await adminClient.auth.admin.inviteUserByEmail(trimmedEmail, {
           data: { display_name: name },
-          redirectTo: `${supabaseUrl.replace(".supabase.co", ".lovable.app")}/reset-password`,
+          redirectTo,
         });
 
       if (inviteError) {
@@ -103,7 +107,7 @@ Deno.serve(async (req) => {
     // Link employee record to auth user
     await adminClient
       .from("employees")
-      .update({ user_id: authUserId, email })
+      .update({ user_id: authUserId, email: trimmedEmail })
       .eq("id", employee_id);
 
     return new Response(
