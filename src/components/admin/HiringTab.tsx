@@ -345,3 +345,55 @@ export default function HiringTab() {
     </div>
   );
 }
+
+function AddApplicantDialog({ open, onOpenChange, onSubmit, loading }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: { name: string; email: string; phone: string; cover_note: string }) => void;
+  loading: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [coverNote, setCoverNote] = useState("");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="rounded-xl">
+          <Plus className="h-4 w-4 mr-1" /> Add Applicant
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Applicant Manually</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Full Name *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
+          </div>
+          <div>
+            <Label>Email *</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@email.com" />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(615) 555-0123" />
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Textarea value={coverNote} onChange={(e) => setCoverNote(e.target.value)} placeholder="Referral source, experience, etc." className="min-h-[80px]" />
+          </div>
+          <Button
+            onClick={() => onSubmit({ name, email, phone, cover_note: coverNote })}
+            disabled={!name || !email || loading}
+            className="w-full rounded-xl"
+          >
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Add Applicant
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
