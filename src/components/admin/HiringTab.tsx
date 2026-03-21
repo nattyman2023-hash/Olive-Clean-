@@ -31,6 +31,8 @@ interface Applicant {
   applied_at: string;
   notes: string | null;
   screening_score: number | null;
+  job_posting_id: string | null;
+  job_postings: { title: string } | null;
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof Clock; className: string }> = {
@@ -56,10 +58,10 @@ export default function HiringTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("applicants")
-        .select("*")
+        .select("*, job_postings(title)")
         .order("applied_at", { ascending: false });
       if (error) throw error;
-      return data as Applicant[];
+      return data as unknown as Applicant[];
     },
   });
 
@@ -235,6 +237,7 @@ export default function HiringTab() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Applied {new Date(a.applied_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {a.job_postings?.title && <span className="ml-2 text-primary">· {a.job_postings.title}</span>}
                   </p>
                 </button>
               );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Leaf, ChevronRight, ChevronLeft, Briefcase, MapPin, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, ChevronRight, ChevronLeft, Briefcase, MapPin, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const STEPS = ["Personal Info", "Experience", "Resume", "Review"];
@@ -20,10 +22,12 @@ export default function Careers() {
     available_days: [] as string[],
     has_transportation: false,
     cover_note: "",
+    job_posting_id: null as string | null,
   });
   const [resume, setResume] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const { data: postings = [] } = useQuery({
     queryKey: ["job-postings-public"],
@@ -43,10 +47,18 @@ export default function Careers() {
     }));
   };
 
+  const applyToJob = (postingId: string) => {
+    setForm((f) => ({ ...f, job_posting_id: postingId }));
+    setStep(0);
+    formRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const canProceed = () => {
     if (step === 0) return !!form.name && !!form.email;
     return true;
   };
+
+  const selectedPosting = postings.find((p: any) => p.id === form.job_posting_id);
 
   const handleSubmit = async () => {
     if (!form.name || !form.email) { toast.error("Name and email are required."); return; }
@@ -70,6 +82,7 @@ export default function Careers() {
         years_experience: form.years_experience ? parseInt(form.years_experience) : null,
         available_days: form.available_days.length > 0 ? form.available_days : null,
         has_transportation: form.has_transportation,
+        job_posting_id: form.job_posting_id,
       } as any);
       if (error) throw error;
       setSubmitted(true);
@@ -82,34 +95,28 @@ export default function Careers() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="h-8 w-8 text-secondary" />
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="h-8 w-8 text-secondary" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Application Received</h1>
+            <p className="text-muted-foreground">Thank you for your interest in joining Olive Clean. We'll review your application and get back to you soon.</p>
+            <Link to="/" className="inline-block text-sm text-primary hover:underline">← Back to Home</Link>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Application Received</h1>
-          <p className="text-muted-foreground">Thank you for your interest in joining Olive Clean. We'll review your application and get back to you soon.</p>
-          <Link to="/" className="inline-block text-sm text-primary hover:underline">← Back to Home</Link>
         </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container max-w-3xl py-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-            <Leaf className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Join Olive Clean</h1>
-            <p className="text-xs text-muted-foreground">Nashville's trusted home cleaning team</p>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background flex flex-col">
+      <Navbar />
 
-      <main className="container max-w-3xl py-10 px-4">
+      <main className="flex-1 container max-w-3xl py-24 px-4">
         {/* Open Positions */}
         {postings.length > 0 && (
           <div className="mb-10">
@@ -125,7 +132,9 @@ export default function Careers() {
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{p.type}</span>
                       </div>
                     </div>
-                    <Briefcase className="h-5 w-5 text-primary shrink-0" />
+                    <Button size="sm" className="rounded-xl shrink-0" onClick={() => applyToJob(p.id)}>
+                      Apply Now
+                    </Button>
                   </div>
                   {p.description && <p className="text-sm text-muted-foreground mt-3">{p.description}</p>}
                   {p.requirements && (
@@ -140,10 +149,23 @@ export default function Careers() {
         )}
 
         {/* Intro */}
-        <div className="mb-8">
+        <div className="mb-8" ref={formRef}>
           <h2 className="text-xl font-bold text-foreground mb-2">Apply Now</h2>
           <p className="text-sm text-muted-foreground">Complete the form below to submit your application. We offer competitive pay, flexible scheduling, and paid training.</p>
         </div>
+
+        {/* Applying for indicator */}
+        {selectedPosting && (
+          <div className="mb-4 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Applying for</p>
+              <p className="text-sm font-semibold text-foreground">{selectedPosting.title}</p>
+            </div>
+            <Button size="sm" variant="ghost" className="text-xs" onClick={() => setForm((f) => ({ ...f, job_posting_id: null }))}>
+              General Application
+            </Button>
+          </div>
+        )}
 
         {/* Progress */}
         <div className="flex items-center gap-1 mb-8">
@@ -156,7 +178,6 @@ export default function Careers() {
         </div>
 
         <div className="bg-card rounded-2xl border border-border shadow-sm p-8">
-          {/* Step 0: Personal Info */}
           {step === 0 && (
             <div className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
@@ -176,7 +197,6 @@ export default function Careers() {
             </div>
           )}
 
-          {/* Step 1: Experience */}
           {step === 1 && (
             <div className="space-y-5">
               <div>
@@ -187,10 +207,7 @@ export default function Careers() {
                 <label className="text-xs font-medium text-foreground mb-2 block">Available Days</label>
                 <div className="flex flex-wrap gap-2">
                   {DAYS.map((day) => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => toggleDay(day)}
+                    <button key={day} type="button" onClick={() => toggleDay(day)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                         form.available_days.includes(day) ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
                       }`}
@@ -201,17 +218,12 @@ export default function Careers() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Checkbox
-                  checked={form.has_transportation}
-                  onCheckedChange={(v) => setForm({ ...form, has_transportation: !!v })}
-                  id="transport"
-                />
+                <Checkbox checked={form.has_transportation} onCheckedChange={(v) => setForm({ ...form, has_transportation: !!v })} id="transport" />
                 <label htmlFor="transport" className="text-sm text-foreground cursor-pointer">I have reliable transportation</label>
               </div>
             </div>
           )}
 
-          {/* Step 2: Resume */}
           {step === 2 && (
             <div className="space-y-5">
               <div>
@@ -225,7 +237,6 @@ export default function Careers() {
             </div>
           )}
 
-          {/* Step 3: Review */}
           {step === 3 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-foreground text-sm">Review Your Application</h3>
@@ -233,6 +244,7 @@ export default function Careers() {
                 <p><span className="font-medium">Name:</span> {form.name}</p>
                 <p><span className="font-medium">Email:</span> {form.email}</p>
                 {form.phone && <p><span className="font-medium">Phone:</span> {form.phone}</p>}
+                {selectedPosting && <p><span className="font-medium">Position:</span> {selectedPosting.title}</p>}
                 {form.years_experience && <p><span className="font-medium">Experience:</span> {form.years_experience} years</p>}
                 {form.available_days.length > 0 && <p><span className="font-medium">Available:</span> {form.available_days.join(", ")}</p>}
                 <p><span className="font-medium">Transportation:</span> {form.has_transportation ? "Yes" : "No"}</p>
@@ -242,7 +254,6 @@ export default function Careers() {
             </div>
           )}
 
-          {/* Navigation */}
           <div className="flex justify-between mt-8">
             <Button variant="outline" className="rounded-xl" disabled={step === 0} onClick={() => setStep(step - 1)}>
               <ChevronLeft className="h-4 w-4 mr-1" />Back
@@ -259,6 +270,8 @@ export default function Careers() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

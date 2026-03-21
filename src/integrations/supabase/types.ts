@@ -23,6 +23,7 @@ export type Database = {
           email: string
           has_transportation: boolean | null
           id: string
+          job_posting_id: string | null
           name: string
           notes: string | null
           phone: string | null
@@ -39,6 +40,7 @@ export type Database = {
           email: string
           has_transportation?: boolean | null
           id?: string
+          job_posting_id?: string | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -55,6 +57,7 @@ export type Database = {
           email?: string
           has_transportation?: boolean | null
           id?: string
+          job_posting_id?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -63,7 +66,15 @@ export type Database = {
           status?: string
           years_experience?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "applicants_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       booking_requests: {
         Row: {

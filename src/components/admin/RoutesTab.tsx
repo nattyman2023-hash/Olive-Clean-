@@ -1,11 +1,12 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, Clock, User, Calendar, Shield, Zap, GripVertical, LayoutGrid } from "lucide-react";
+import { Loader2, MapPin, Clock, User, Calendar, Shield, Zap, GripVertical, LayoutGrid, Map } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import RouteMap from "./routes/RouteMap";
 import RouteJobCard from "./routes/RouteJobCard";
 import RouteTechHeader from "./routes/RouteTechHeader";
 import AutoAssignButton from "./dispatch/AutoAssignButton";
@@ -27,6 +28,8 @@ export interface RouteJob {
     address: string | null;
     neighborhood: string | null;
     preferences: Record<string, unknown> | null;
+    lat: number | null;
+    lng: number | null;
   } | null;
 }
 
@@ -54,7 +57,39 @@ export default function RoutesTab() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [groupMode, setGroupMode] = useState<GroupMode>("technician");
   const [draggedJob, setDraggedJob] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
   const queryClient = useQueryClient();
+
+  // Real-time subscription for job status changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("route-jobs-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "jobs" },
+        (payload) => {
+          const newJob = payload.new as any;
+          const oldJob = payload.old as any;
+          if (newJob.status !== oldJob.status) {
+            queryClient.invalidateQueries({ queryKey: ["route-jobs", selectedDate] });
+            const statusLabels: Record<string, string> = {
+              accepted: "Accepted",
+              on_route: "On Route",
+              on_site: "On Site",
+              in_progress: "In Progress",
+              complete: "Complete",
+            };
+            toast({
+              title: "Job Status Updated",
+              description: `Status changed to ${statusLabels[newJob.status] || newJob.status}`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedDate, queryClient]);
 
   const { data: jobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ["route-jobs", selectedDate],
@@ -63,7 +98,7 @@ export default function RoutesTab() {
       const endOfDay = `${selectedDate}T23:59:59`;
       const { data, error } = await supabase
         .from("jobs")
-        .select("id, client_id, service, status, scheduled_at, duration_minutes, estimated_drive_minutes, notes, assigned_to, clients(name, address, neighborhood, preferences)")
+        .select("id, client_id, service, status, scheduled_at, duration_minutes, estimated_drive_minutes, notes, assigned_to, clients(name, address, neighborhood, preferences, lat, lng)")
         .gte("scheduled_at", startOfDay)
         .lte("scheduled_at", endOfDay)
         .in("status", ["scheduled", "in_progress"])
@@ -184,6 +219,14 @@ export default function RoutesTab() {
           <div className="flex items-center gap-2">
             <AutoAssignButton jobs={jobs} employees={employees} selectedDate={selectedDate} />
             <RecurringScheduleButton jobs={jobs} selectedDate={selectedDate} />
+            <Button
+              size="sm"
+              variant={showMap ? "default" : "outline"}
+              className="rounded-xl"
+              onClick={() => setShowMap(!showMap)}
+            >
+              <Map className="h-3.5 w-3.5 mr-1" />Map
+            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -210,6 +253,13 @@ export default function RoutesTab() {
               {n}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Map */}
+      {showMap && !jobsLoading && totalJobs > 0 && (
+        <div className="mb-8">
+          <RouteMap jobs={jobs} employees={employees} employeeMap={employeeMap} />
         </div>
       )}
 
