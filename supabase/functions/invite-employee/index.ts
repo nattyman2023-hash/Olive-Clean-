@@ -75,9 +75,9 @@ Deno.serve(async (req) => {
       });
     } else {
       const { data: invited, error: inviteError } =
-        await adminClient.auth.admin.inviteUserByEmail(email, {
+        await adminClient.auth.admin.inviteUserByEmail(trimmedEmail, {
           data: { display_name: name },
-          redirectTo: `${supabaseUrl.replace(".supabase.co", ".lovable.app")}/reset-password`,
+          redirectTo,
         });
 
       if (inviteError) {
