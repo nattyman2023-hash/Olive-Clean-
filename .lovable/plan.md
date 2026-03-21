@@ -1,35 +1,76 @@
 
 
-# Plan: Fix Employee Invite, Login, Route Status Filter, and Map Issues
+# Plan: Footer Link, Client Booking, Employee Photos, and Access Setup
 
-## Problems Identified
+## Changes Overview
 
-1. **invite-employee edge function 400 error**: The email passed to Supabase auth isn't trimmed. Also, the redirect URL uses `supabaseUrl.replace(".supabase.co", ".lovable.app")` which produces a wrong domain (`tgdhglzegfbmdnzvseaa.lovable.app` instead of the actual app URL). The function should use the request origin or a known app URL.
+### 1. Add Employee Portal link to Footer
+**File:** `src/components/Footer.tsx`
+- Add "Employee Portal" link pointing to `/employee/login` in the footer links row (next to "Staff Login")
 
-2. **RoutesTab filters out active jobs**: Line 104 filters `.in("status", ["scheduled", "in_progress"])` — but the employee status flow uses `accepted`, `on_route`, `on_site`. Once a tech accepts a job, it vanishes from the admin Routes view and realtime notifications are invisible. This needs to include all active statuses.
+### 2. Add "Book a Cleaning" section to Client Dashboard
+**File:** `src/pages/ClientDashboard.tsx`
+- Add a new section between the header and upcoming appointments showing all 4 service packages (Essential, General, Signature Deep, Makeover Deep) with descriptions and starting prices
+- Each package has a "Book Now" button that opens a booking dialog
+- The dialog collects: preferred date/time, frequency, and optional notes
+- On submit, insert into `booking_requests` table (already allows public inserts) pre-filled with the client's name, email, phone, and address
+- Allow adding multiple services in a single booking session (an "Add Another Service" button that appends to a list before final submission)
 
-3. **Employee login flow**: The login page itself works, but the user `siyespinaci@yahoo.com` hasn't been successfully invited (the invite failed with 400). Once the edge function is fixed and the invite re-sent, login will work.
+### 3. Employee Profile Photo
+**Database migration:**
+- Add `photo_url TEXT` column to `employees` table
 
-4. **Maps**: The RouteMap and EmployeeJobMap implementations look correct, using plain Leaflet + MapTiler via the `get-maptiler-key` edge function. The employee map requires jobs with client `lat`/`lng` data — if sample clients lack coordinates, the map won't render.
+**Storage:**
+- Create `employee_photos` public storage bucket with RLS policies (admin + staff owner can upload, public can read)
 
-## Changes
+**File:** `src/components/admin/TeamTab.tsx`
+- Add photo upload button on employee detail view (avatar area) that uploads to `employee_photos` bucket and saves URL to `photo_url`
 
-### 1. Fix invite-employee edge function
-- Trim email before use: `const trimmedEmail = email.trim().toLowerCase()`
-- Fix redirect URL: use the `Origin` or `Referer` header from the request instead of constructing from supabase URL
-- Redeploy the function
+**File:** `src/pages/EmployeeDashboard.tsx`
+- Show employee's photo in the header instead of the "O" logo placeholder
 
-### 2. Fix RoutesTab status filter
-- Change `.in("status", ["scheduled", "in_progress"])` to `.in("status", ["scheduled", "accepted", "on_route", "on_site", "in_progress"])` so admin sees all active jobs and receives realtime status updates
+**File:** `src/pages/ClientDashboard.tsx`
+- For upcoming appointments, query the assigned employee's name and photo_url via the jobs -> employees join
+- Display a small avatar with the technician's name and photo next to each upcoming job card ("Your technician: [photo] Sarah")
 
-### 3. Enable siyespinaci@yahoo.com as employee
-- After fixing and redeploying the edge function, the admin can re-send the invite from the Team tab
-- Or we can directly invoke the fixed function to set up this user
+### 4. Set up siyespinaci@gmail.com as employee
+**Database operations (via insert tool):**
+- Create employee record for siyespinaci@gmail.com if not exists
+- After the edge function is deployed, invoke `invite-employee` to create auth account, assign staff role, and link
 
-## Files Changed
+### 5. Auto-link hired employees to dashboard access
+The current flow already handles this: when admin clicks "Send Login Invite" on an employee record, the `invite-employee` edge function creates the auth account, assigns the `staff` role, and links the employee record. No additional changes needed — this is already the intended workflow.
+
+---
+
+## Technical Details
+
+### Database Migration SQL
+```sql
+-- Add photo_url to employees
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS photo_url TEXT;
+
+-- Create employee_photos storage bucket
+INSERT INTO storage.buckets (id, name, public) VALUES ('employee_photos', 'employee_photos', true);
+
+-- Storage RLS: anyone can view
+CREATE POLICY "Public can view employee photos" ON storage.objects FOR SELECT USING (bucket_id = 'employee_photos');
+
+-- Admin can upload
+CREATE POLICY "Admin can upload employee photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'employee_photos' AND public.has_role(auth.uid(), 'admin'));
+
+-- Staff can upload own photos (path starts with their user_id)
+CREATE POLICY "Staff can upload own photo" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'employee_photos' AND public.has_role(auth.uid(), 'staff'));
+```
+
+### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/invite-employee/index.ts` | Trim email, fix redirect URL |
-| `src/components/admin/RoutesTab.tsx` | Expand status filter to include all active statuses |
+| Migration SQL | Add `photo_url` column, create `employee_photos` bucket |
+| `src/components/Footer.tsx` | Add Employee Portal link |
+| `src/pages/ClientDashboard.tsx` | Add booking section with packages, show assigned technician photo/name |
+| `src/components/admin/TeamTab.tsx` | Add photo upload on employee profile |
+| `src/pages/EmployeeDashboard.tsx` | Show employee photo in header |
+| Data operation | Create employee record and invoke invite for siyespinaci@gmail.com |
 
