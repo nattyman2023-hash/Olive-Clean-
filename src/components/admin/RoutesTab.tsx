@@ -98,7 +98,7 @@ export default function RoutesTab() {
       const endOfDay = `${selectedDate}T23:59:59`;
       const { data, error } = await supabase
         .from("jobs")
-        .select("id, client_id, service, status, scheduled_at, duration_minutes, estimated_drive_minutes, notes, assigned_to, clients(name, address, neighborhood, preferences)")
+        .select("id, client_id, service, status, scheduled_at, duration_minutes, estimated_drive_minutes, notes, assigned_to, clients(name, address, neighborhood, preferences, lat, lng)")
         .gte("scheduled_at", startOfDay)
         .lte("scheduled_at", endOfDay)
         .in("status", ["scheduled", "in_progress"])
