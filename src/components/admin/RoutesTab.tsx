@@ -217,6 +217,14 @@ export default function RoutesTab() {
           <div className="flex items-center gap-2">
             <AutoAssignButton jobs={jobs} employees={employees} selectedDate={selectedDate} />
             <RecurringScheduleButton jobs={jobs} selectedDate={selectedDate} />
+            <Button
+              size="sm"
+              variant={showMap ? "default" : "outline"}
+              className="rounded-xl"
+              onClick={() => setShowMap(!showMap)}
+            >
+              <Map className="h-3.5 w-3.5 mr-1" />Map
+            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
