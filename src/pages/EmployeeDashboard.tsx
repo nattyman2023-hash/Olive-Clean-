@@ -99,9 +99,13 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-muted/30">
       <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground text-sm font-bold">O</span>
-          </div>
+          {(employee as any)?.photo_url ? (
+            <img src={(employee as any).photo_url} alt={employee?.name || ""} className="w-8 h-8 rounded-full object-cover" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground text-sm font-bold">O</span>
+            </div>
+          )}
           <div>
             <h1 className="text-base font-semibold text-foreground leading-none">{employee?.name || "Team Member"}</h1>
             <p className="text-xs text-muted-foreground">On-Site Assistant</p>

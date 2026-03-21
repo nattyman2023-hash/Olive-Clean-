@@ -23,8 +23,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2, Camera } from "lucide-react";
 import { z } from "zod";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Employee {
   id: string;
@@ -37,6 +38,7 @@ interface Employee {
   onboarding_checklist: Record<string, boolean>;
   hired_at: string;
   notes: string | null;
+  photo_url: string | null;
 }
 
 interface PerformanceRecord {
@@ -338,6 +340,45 @@ export default function TeamTab() {
               <CardTitle className="text-sm font-medium">Personal Info</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Photo upload */}
+              <div className="flex items-center gap-3">
+                <Avatar className="h-16 w-16">
+                  {profileEmployee.photo_url && <AvatarImage src={profileEmployee.photo_url} alt={profileEmployee.name} />}
+                  <AvatarFallback className="text-lg bg-primary/10 text-primary">
+                    {profileEmployee.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="employee-photo-upload"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file || !profileEmployee) return;
+                      const ext = file.name.split(".").pop();
+                      const path = `${profileEmployee.id}/${crypto.randomUUID()}.${ext}`;
+                      const { error: uploadError } = await supabase.storage.from("employee_photos").upload(path, file);
+                      if (uploadError) { toast.error("Upload failed"); return; }
+                      const { data: { publicUrl } } = supabase.storage.from("employee_photos").getPublicUrl(path);
+                      const { error: updateError } = await supabase.from("employees").update({ photo_url: publicUrl }).eq("id", profileEmployee.id);
+                      if (updateError) { toast.error("Failed to save photo"); return; }
+                      setProfileEmployee({ ...profileEmployee, photo_url: publicUrl });
+                      queryClient.invalidateQueries({ queryKey: ["employees"] });
+                      toast.success("Photo updated");
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full text-xs gap-1"
+                    onClick={() => document.getElementById("employee-photo-upload")?.click()}
+                  >
+                    <Camera className="h-3 w-3" /> Upload Photo
+                  </Button>
+                </div>
+              </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Name</Label>
                 <Input

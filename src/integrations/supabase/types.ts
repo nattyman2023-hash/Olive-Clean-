@@ -227,6 +227,7 @@ export type Database = {
           notes: string | null
           onboarding_checklist: Json | null
           phone: string | null
+          photo_url: string | null
           status: string
           user_id: string
         }
@@ -240,6 +241,7 @@ export type Database = {
           notes?: string | null
           onboarding_checklist?: Json | null
           phone?: string | null
+          photo_url?: string | null
           status?: string
           user_id: string
         }
@@ -253,6 +255,7 @@ export type Database = {
           notes?: string | null
           onboarding_checklist?: Json | null
           phone?: string | null
+          photo_url?: string | null
           status?: string
           user_id?: string
         }
