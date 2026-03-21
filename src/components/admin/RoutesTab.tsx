@@ -57,6 +57,8 @@ export default function RoutesTab() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [groupMode, setGroupMode] = useState<GroupMode>("technician");
   const [draggedJob, setDraggedJob] = useState<string | null>(null);
+  const [dragSourceGroup, setDragSourceGroup] = useState<string | null>(null);
+  const [dragOverGroup, setDragOverGroup] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(false);
   const queryClient = useQueryClient();
 
