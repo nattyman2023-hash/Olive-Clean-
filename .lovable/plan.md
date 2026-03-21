@@ -1,76 +1,37 @@
 
 
-# Plan: Footer Link, Client Booking, Employee Photos, and Access Setup
+# Plan: Manual Assignment & Reassignment for Jobs
 
-## Changes Overview
+## Overview
+Add employee assignment controls to the Jobs tab so managers can manually assign/reassign technicians to jobs. When creating a new job, optionally assign an employee. In the job detail panel, show who's assigned and allow reassignment via a dropdown.
 
-### 1. Add Employee Portal link to Footer
-**File:** `src/components/Footer.tsx`
-- Add "Employee Portal" link pointing to `/employee/login` in the footer links row (next to "Staff Login")
+## Changes
 
-### 2. Add "Book a Cleaning" section to Client Dashboard
-**File:** `src/pages/ClientDashboard.tsx`
-- Add a new section between the header and upcoming appointments showing all 4 service packages (Essential, General, Signature Deep, Makeover Deep) with descriptions and starting prices
-- Each package has a "Book Now" button that opens a booking dialog
-- The dialog collects: preferred date/time, frequency, and optional notes
-- On submit, insert into `booking_requests` table (already allows public inserts) pre-filled with the client's name, email, phone, and address
-- Allow adding multiple services in a single booking session (an "Add Another Service" button that appends to a list before final submission)
+### 1. Update JobsTab — Job interface & data fetching
+- Add `assigned_to` and `employees` join to the Job interface
+- Fetch employees list (already fetching clients)
+- Include `assigned_to` in the jobs query select and join `employees(name, photo_url)` via `assigned_to`
 
-### 3. Employee Profile Photo
-**Database migration:**
-- Add `photo_url TEXT` column to `employees` table
+### 2. Update JobsTab — Create form
+- Add an "Assign To" dropdown (optional) in the new job form, listing all employees
+- Pass `assigned_to` to the insert call
 
-**Storage:**
-- Create `employee_photos` public storage bucket with RLS policies (admin + staff owner can upload, public can read)
+### 3. Update JobsTab — Detail panel: show assignment & reassign
+- Show current assignment with employee name/avatar in the detail panel
+- Add "Reassign" dropdown that updates `assigned_to` on the job
+- Show "Unassigned" state when no employee is assigned
 
-**File:** `src/components/admin/TeamTab.tsx`
-- Add photo upload button on employee detail view (avatar area) that uploads to `employee_photos` bucket and saves URL to `photo_url`
+### 4. Update JobsTab — Job list cards
+- Show assigned employee name as a small badge on each job card
 
-**File:** `src/pages/EmployeeDashboard.tsx`
-- Show employee's photo in the header instead of the "O" logo placeholder
+### 5. Update BookingsTab — Auto-create job on confirm
+- When a booking is confirmed, optionally auto-create a job in the `jobs` table with status `scheduled` (no auto-assign yet — manager assigns manually or uses auto-assign on Routes tab)
 
-**File:** `src/pages/ClientDashboard.tsx`
-- For upcoming appointments, query the assigned employee's name and photo_url via the jobs -> employees join
-- Display a small avatar with the technician's name and photo next to each upcoming job card ("Your technician: [photo] Sarah")
-
-### 4. Set up siyespinaci@gmail.com as employee
-**Database operations (via insert tool):**
-- Create employee record for siyespinaci@gmail.com if not exists
-- After the edge function is deployed, invoke `invite-employee` to create auth account, assign staff role, and link
-
-### 5. Auto-link hired employees to dashboard access
-The current flow already handles this: when admin clicks "Send Login Invite" on an employee record, the `invite-employee` edge function creates the auth account, assigns the `staff` role, and links the employee record. No additional changes needed — this is already the intended workflow.
-
----
-
-## Technical Details
-
-### Database Migration SQL
-```sql
--- Add photo_url to employees
-ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS photo_url TEXT;
-
--- Create employee_photos storage bucket
-INSERT INTO storage.buckets (id, name, public) VALUES ('employee_photos', 'employee_photos', true);
-
--- Storage RLS: anyone can view
-CREATE POLICY "Public can view employee photos" ON storage.objects FOR SELECT USING (bucket_id = 'employee_photos');
-
--- Admin can upload
-CREATE POLICY "Admin can upload employee photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'employee_photos' AND public.has_role(auth.uid(), 'admin'));
-
--- Staff can upload own photos (path starts with their user_id)
-CREATE POLICY "Staff can upload own photo" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'employee_photos' AND public.has_role(auth.uid(), 'staff'));
-```
-
-### Files Changed
+## Files Changed
 
 | File | Change |
 |------|--------|
-| Migration SQL | Add `photo_url` column, create `employee_photos` bucket |
-| `src/components/Footer.tsx` | Add Employee Portal link |
-| `src/pages/ClientDashboard.tsx` | Add booking section with packages, show assigned technician photo/name |
-| `src/components/admin/TeamTab.tsx` | Add photo upload on employee profile |
-| `src/pages/EmployeeDashboard.tsx` | Show employee photo in header |
-| Data operation | Create employee record and invoke invite for siyespinaci@gmail.com |
+| `src/components/admin/JobsTab.tsx` | Add `assigned_to` field to interface, form, detail panel with reassign dropdown, and job cards |
+
+No database changes needed — `assigned_to` column already exists on `jobs` table.
 
