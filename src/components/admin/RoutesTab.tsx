@@ -182,6 +182,10 @@ export default function RoutesTab() {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            <AutoAssignButton jobs={jobs} employees={employees} selectedDate={selectedDate} />
+            <RecurringScheduleButton jobs={jobs} selectedDate={selectedDate} />
+          </div>
+          <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <Input
               type="date"
