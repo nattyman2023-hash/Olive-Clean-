@@ -237,6 +237,7 @@ export default function HiringTab() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Applied {new Date(a.applied_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {a.job_postings?.title && <span className="ml-2 text-primary">· {a.job_postings.title}</span>}
                   </p>
                 </button>
               );
