@@ -135,6 +135,17 @@ export default function RoutesTab() {
     },
   });
 
+  const reassignMutation = useMutation({
+    mutationFn: async ({ jobId, newAssignedTo }: { jobId: string; newAssignedTo: string | null }) => {
+      const { error } = await supabase.from("jobs").update({ assigned_to: newAssignedTo }).eq("id", jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["route-jobs", selectedDate] });
+      toast({ title: "Job reassigned", description: "Technician assignment updated." });
+    },
+  });
+
   const employeeMap = useMemo(() => {
     const map: Record<string, Employee> = {};
     employees.forEach((e) => { map[e.user_id] = e; });
