@@ -3,9 +3,9 @@ import { MapPin, Phone, Mail } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-foreground text-background/80 py-16">
+    <footer className="bg-foreground text-background/80 py-10 sm:py-16">
       <div className="container">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -62,17 +62,17 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-background/10 mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-background/40">© {new Date().getFullYear()} Olive Clean. All rights reserved.</p>
-          <div className="flex gap-6 text-xs text-background/40">
-            <Link to="/about" className="hover:text-background/60 transition-colors">About</Link>
-            <Link to="/careers" className="hover:text-background/60 transition-colors">Careers</Link>
-            <Link to="/" className="hover:text-background/60 transition-colors">Privacy</Link>
-            <Link to="/" className="hover:text-background/60 transition-colors">Terms</Link>
-            <Link to="/client/login" className="hover:text-background/60 transition-colors">Client Portal</Link>
-            <Link to="/employee/login" className="hover:text-background/60 transition-colors">Employee Portal</Link>
-            <Link to="/admin/login" className="hover:text-background/60 transition-colors">Staff Login</Link>
+        <div className="border-t border-background/10 mt-8 sm:mt-12 pt-6 sm:pt-8 flex flex-col items-center gap-4">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:gap-6 text-xs text-background/40">
+            <Link to="/about" className="py-1 hover:text-background/60 transition-colors">About</Link>
+            <Link to="/careers" className="py-1 hover:text-background/60 transition-colors">Careers</Link>
+            <Link to="/" className="py-1 hover:text-background/60 transition-colors">Privacy</Link>
+            <Link to="/" className="py-1 hover:text-background/60 transition-colors">Terms</Link>
+            <Link to="/client/login" className="py-1 hover:text-background/60 transition-colors">Client Portal</Link>
+            <Link to="/employee/login" className="py-1 hover:text-background/60 transition-colors">Employee Portal</Link>
+            <Link to="/admin/login" className="py-1 hover:text-background/60 transition-colors col-span-2 sm:col-span-1 text-center sm:text-left">Staff Login</Link>
           </div>
+          <p className="text-xs text-background/40">© {new Date().getFullYear()} Olive Clean. All rights reserved.</p>
         </div>
       </div>
     </footer>
