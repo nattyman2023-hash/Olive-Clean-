@@ -1,47 +1,35 @@
 
 
-# Plan: Fix Maps with MapTiler + Add Delete for Clients/Employees
+# Plan: Fix Employee Invite, Login, Route Status Filter, and Map Issues
 
-## Problem
-The route map crashes with `render2 is not a function` — a React Context.Consumer incompatibility between `react-leaflet` v5 and React 18. The employee dashboard has no map. Both need MapTiler tiles.
+## Problems Identified
 
-## Solution
+1. **invite-employee edge function 400 error**: The email passed to Supabase auth isn't trimmed. Also, the redirect URL uses `supabaseUrl.replace(".supabase.co", ".lovable.app")` which produces a wrong domain (`tgdhglzegfbmdnzvseaa.lovable.app` instead of the actual app URL). The function should use the request origin or a known app URL.
 
-### 1. Replace react-leaflet with plain Leaflet + MapTiler tiles
+2. **RoutesTab filters out active jobs**: Line 104 filters `.in("status", ["scheduled", "in_progress"])` — but the employee status flow uses `accepted`, `on_route`, `on_site`. Once a tech accepts a job, it vanishes from the admin Routes view and realtime notifications are invisible. This needs to include all active statuses.
 
-Remove `react-leaflet` dependency. Rewrite `RouteMap.tsx` to use plain Leaflet (imperative API with `useRef` + `useEffect`) which avoids the React context issue entirely.
+3. **Employee login flow**: The login page itself works, but the user `siyespinaci@yahoo.com` hasn't been successfully invited (the invite failed with 400). Once the edge function is fixed and the invite re-sent, login will work.
 
-- **`src/components/admin/routes/RouteMap.tsx`**: Rewrite using `L.map()`, `L.marker()`, `L.polyline()` directly in a `useEffect`. Use MapTiler tile URL: `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=<KEY>`. The MapTiler API key is already stored as a secret — expose it via an edge function or embed it as a `VITE_` env var (it's a publishable map key, safe for client-side).
-- Remove `react-leaflet` and `@types/leaflet` from dependencies. Keep `leaflet` for the core library.
+4. **Maps**: The RouteMap and EmployeeJobMap implementations look correct, using plain Leaflet + MapTiler via the `get-maptiler-key` edge function. The employee map requires jobs with client `lat`/`lng` data — if sample clients lack coordinates, the map won't render.
 
-### 2. Add map to Employee Dashboard
+## Changes
 
-Add a small map card in `EmployeeDashboard.tsx` showing today's job locations with numbered markers for the job sequence. Uses same plain Leaflet + MapTiler approach.
+### 1. Fix invite-employee edge function
+- Trim email before use: `const trimmedEmail = email.trim().toLowerCase()`
+- Fix redirect URL: use the `Origin` or `Referer` header from the request instead of constructing from supabase URL
+- Redeploy the function
 
-### 3. Delete clients feature
+### 2. Fix RoutesTab status filter
+- Change `.in("status", ["scheduled", "in_progress"])` to `.in("status", ["scheduled", "accepted", "on_route", "on_site", "in_progress"])` so admin sees all active jobs and receives realtime status updates
 
-- **Database migration**: Add DELETE RLS policy on `clients` table for admin role
-- **`ClientsTab.tsx`**: Add a "Delete" button in the client detail panel with a confirmation dialog. Calls `supabase.from("clients").delete().eq("id", id)`.
-
-### 4. Delete employees feature
-
-- **Database migration**: Add DELETE RLS policy on `employees` table for admin role
-- **`TeamTab.tsx`**: Add a "Delete" button on employee records with confirmation. Calls `supabase.from("employees").delete().eq("id", id)`.
-
-### 5. MapTiler API key
-
-The secret `MapTiler` exists as a runtime secret. Since map tile URLs are loaded client-side, we need it as a build-time env var. Add `VITE_MAPTILER_KEY` to the `.env` by reading the existing secret value, or reference it directly in code. Since it's a publishable key, it's safe to store in the codebase.
-
----
+### 3. Enable siyespinaci@yahoo.com as employee
+- After fixing and redeploying the edge function, the admin can re-send the invite from the Team tab
+- Or we can directly invoke the fixed function to set up this user
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| Migration SQL | DELETE RLS policies for `clients` and `employees` |
-| `src/components/admin/routes/RouteMap.tsx` | Rewrite with plain Leaflet + MapTiler tiles |
-| `src/pages/EmployeeDashboard.tsx` | Add job location map using plain Leaflet |
-| `src/components/admin/ClientsTab.tsx` | Add delete button with confirmation |
-| `src/components/admin/TeamTab.tsx` | Add delete button with confirmation |
-| `package.json` | Remove `react-leaflet` |
+| `supabase/functions/invite-employee/index.ts` | Trim email, fix redirect URL |
+| `src/components/admin/RoutesTab.tsx` | Expand status filter to include all active statuses |
 
