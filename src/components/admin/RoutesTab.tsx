@@ -178,6 +178,19 @@ export default function RoutesTab() {
 
   const handleDrop = useCallback((targetTechName: string, targetIndex: number) => {
     if (!draggedJob) return;
+    setDragOverGroup(null);
+
+    // Cross-group: reassign the job to the target technician
+    if (dragSourceGroup && dragSourceGroup !== targetTechName && groupMode === "technician") {
+      const targetEmp = employees.find((e) => e.name === targetTechName);
+      const newAssignedTo = targetEmp ? targetEmp.user_id : null;
+      reassignMutation.mutate({ jobId: draggedJob, newAssignedTo });
+      setDraggedJob(null);
+      setDragSourceGroup(null);
+      return;
+    }
+
+    // Same-group: reorder
     const techJobs = grouped[targetTechName];
     if (!techJobs) return;
 
@@ -188,7 +201,6 @@ export default function RoutesTab() {
     const [moved] = reordered.splice(jobIndex, 1);
     reordered.splice(targetIndex, 0, moved);
 
-    // Reassign scheduled_at times keeping order, 30-min increments from the first job's time
     const baseTime = new Date(reordered[0].scheduled_at).getTime();
     const updates = reordered.map((j, i) => ({
       id: j.id,
@@ -197,7 +209,14 @@ export default function RoutesTab() {
 
     reorderMutation.mutate(updates);
     setDraggedJob(null);
-  }, [draggedJob, grouped, reorderMutation]);
+    setDragSourceGroup(null);
+  }, [draggedJob, dragSourceGroup, grouped, reorderMutation, reassignMutation, employees, groupMode]);
+
+  const clearDragState = useCallback(() => {
+    setDraggedJob(null);
+    setDragSourceGroup(null);
+    setDragOverGroup(null);
+  }, []);
 
   const totalJobs = jobs.length;
   const totalDriveMin = jobs.reduce((sum, j) => sum + (j.estimated_drive_minutes || 0), 0);
