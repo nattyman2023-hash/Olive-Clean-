@@ -13,6 +13,7 @@ import {
   ChevronDown, ChevronUp, Camera, AlertTriangle, Package,
   Navigation, Home, Play
 } from "lucide-react";
+import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 
