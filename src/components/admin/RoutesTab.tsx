@@ -57,6 +57,8 @@ export default function RoutesTab() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [groupMode, setGroupMode] = useState<GroupMode>("technician");
   const [draggedJob, setDraggedJob] = useState<string | null>(null);
+  const [dragSourceGroup, setDragSourceGroup] = useState<string | null>(null);
+  const [dragOverGroup, setDragOverGroup] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(false);
   const queryClient = useQueryClient();
 
@@ -133,6 +135,17 @@ export default function RoutesTab() {
     },
   });
 
+  const reassignMutation = useMutation({
+    mutationFn: async ({ jobId, newAssignedTo }: { jobId: string; newAssignedTo: string | null }) => {
+      const { error } = await supabase.from("jobs").update({ assigned_to: newAssignedTo }).eq("id", jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["route-jobs", selectedDate] });
+      toast({ title: "Job reassigned", description: "Technician assignment updated." });
+    },
+  });
+
   const employeeMap = useMemo(() => {
     const map: Record<string, Employee> = {};
     employees.forEach((e) => { map[e.user_id] = e; });
@@ -165,6 +178,19 @@ export default function RoutesTab() {
 
   const handleDrop = useCallback((targetTechName: string, targetIndex: number) => {
     if (!draggedJob) return;
+    setDragOverGroup(null);
+
+    // Cross-group: reassign the job to the target technician
+    if (dragSourceGroup && dragSourceGroup !== targetTechName && groupMode === "technician") {
+      const targetEmp = employees.find((e) => e.name === targetTechName);
+      const newAssignedTo = targetEmp ? targetEmp.user_id : null;
+      reassignMutation.mutate({ jobId: draggedJob, newAssignedTo });
+      setDraggedJob(null);
+      setDragSourceGroup(null);
+      return;
+    }
+
+    // Same-group: reorder
     const techJobs = grouped[targetTechName];
     if (!techJobs) return;
 
@@ -175,7 +201,6 @@ export default function RoutesTab() {
     const [moved] = reordered.splice(jobIndex, 1);
     reordered.splice(targetIndex, 0, moved);
 
-    // Reassign scheduled_at times keeping order, 30-min increments from the first job's time
     const baseTime = new Date(reordered[0].scheduled_at).getTime();
     const updates = reordered.map((j, i) => ({
       id: j.id,
@@ -184,7 +209,14 @@ export default function RoutesTab() {
 
     reorderMutation.mutate(updates);
     setDraggedJob(null);
-  }, [draggedJob, grouped, reorderMutation]);
+    setDragSourceGroup(null);
+  }, [draggedJob, dragSourceGroup, grouped, reorderMutation, reassignMutation, employees, groupMode]);
+
+  const clearDragState = useCallback(() => {
+    setDraggedJob(null);
+    setDragSourceGroup(null);
+    setDragOverGroup(null);
+  }, []);
 
   const totalJobs = jobs.length;
   const totalDriveMin = jobs.reduce((sum, j) => sum + (j.estimated_drive_minutes || 0), 0);
@@ -289,7 +321,11 @@ export default function RoutesTab() {
               : null;
 
             return (
-              <div key={groupName}>
+              <div
+                key={groupName}
+                onDragOver={(e) => { e.preventDefault(); setDragOverGroup(groupName); }}
+                onDragLeave={() => setDragOverGroup(null)}
+              >
                 <RouteTechHeader
                   name={groupName}
                   jobCount={groupJobs.length}
@@ -309,8 +345,9 @@ export default function RoutesTab() {
                           index={i}
                           zoneColors={ZONE_COLORS}
                           defaultZone={DEFAULT_ZONE}
-                          onDragStart={() => setDraggedJob(j.id)}
+                          onDragStart={() => { setDraggedJob(j.id); setDragSourceGroup(groupName); }}
                           onDrop={() => handleDrop(groupName, i)}
+                          onDragEnd={clearDragState}
                           isDragging={draggedJob === j.id}
                         />
                         <ConstraintWarning job={j} employee={assignedEmp} />
@@ -318,6 +355,20 @@ export default function RoutesTab() {
                     );
                   })}
                 </div>
+                {/* Drop zone for cross-tech assignment */}
+                {draggedJob && dragSourceGroup !== groupName && groupMode === "technician" && (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); handleDrop(groupName, groupJobs.length); }}
+                    className={`mt-2 border-2 border-dashed rounded-xl p-4 text-center text-xs font-medium transition-colors ${
+                      dragOverGroup === groupName
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-muted-foreground/30 text-muted-foreground"
+                    }`}
+                  >
+                    Drop here to assign to {groupName}
+                  </div>
+                )}
               </div>
             );
           })}

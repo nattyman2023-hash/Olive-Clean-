@@ -9,10 +9,11 @@ interface RouteJobCardProps {
   defaultZone: string;
   onDragStart: () => void;
   onDrop: () => void;
+  onDragEnd: () => void;
   isDragging: boolean;
 }
 
-export default function RouteJobCard({ job, index, zoneColors, defaultZone, onDragStart, onDrop, isDragging }: RouteJobCardProps) {
+export default function RouteJobCard({ job, index, zoneColors, defaultZone, onDragStart, onDrop, onDragEnd, isDragging }: RouteJobCardProps) {
   const zone = job.clients?.neighborhood || "";
   const zoneStyle = zoneColors[zone] || defaultZone;
   const isPriority = !!(job.clients?.preferences as Record<string, unknown>)?.priority;
@@ -20,9 +21,11 @@ export default function RouteJobCard({ job, index, zoneColors, defaultZone, onDr
   return (
     <div
       draggable
+      data-job-id={job.id}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      onDragEnd={onDragEnd}
       className={`border-l-4 rounded-xl border border-border p-4 shadow-sm transition-all ${zoneStyle} ${isDragging ? "opacity-40 scale-[0.97]" : ""} cursor-grab active:cursor-grabbing`}
     >
       <div className="flex items-start justify-between gap-4">
