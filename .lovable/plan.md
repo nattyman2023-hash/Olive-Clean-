@@ -1,37 +1,39 @@
 
 
-# Plan: Manual Assignment & Reassignment for Jobs
+# Plan: Cross-Tech Drag-and-Drop Assignment + Mobile Footer
 
-## Overview
-Add employee assignment controls to the Jobs tab so managers can manually assign/reassign technicians to jobs. When creating a new job, optionally assign an employee. In the job detail panel, show who's assigned and allow reassignment via a dropdown.
+## 1. Drag-and-Drop Job Assignment Between Technicians
 
-## Changes
+Currently, drag-and-drop only reorders jobs within the same technician group. We need to support dragging a job from one technician's column to another, which reassigns the job.
 
-### 1. Update JobsTab — Job interface & data fetching
-- Add `assigned_to` and `employees` join to the Job interface
-- Fetch employees list (already fetching clients)
-- Include `assigned_to` in the jobs query select and join `employees(name, photo_url)` via `assigned_to`
+### Changes to `src/components/admin/RoutesTab.tsx`
+- Track `dragSourceGroup` (which tech group the dragged job came from) alongside `draggedJob`
+- Update `handleDrop` to detect cross-group drops: when `dragSourceGroup !== targetTechName`, update the job's `assigned_to` field to the target technician's `user_id` in addition to reordering
+- Add a new mutation `reassignMutation` that updates `assigned_to` on the job
+- Add a visual drop zone at the bottom of each tech group (a dashed border area saying "Drop here to assign") that appears when dragging
+- Show a visual indicator on the target group header when dragging over it
 
-### 2. Update JobsTab — Create form
-- Add an "Assign To" dropdown (optional) in the new job form, listing all employees
-- Pass `assigned_to` to the insert call
+### Changes to `src/components/admin/routes/RouteJobCard.tsx`
+- Pass `onDragEnd` prop to clear drag state when drag is cancelled
+- Add `data-job-id` for accessibility
 
-### 3. Update JobsTab — Detail panel: show assignment & reassign
-- Show current assignment with employee name/avatar in the detail panel
-- Add "Reassign" dropdown that updates `assigned_to` on the job
-- Show "Unassigned" state when no employee is assigned
+## 2. Mobile-Optimized Footer
 
-### 4. Update JobsTab — Job list cards
-- Show assigned employee name as a small badge on each job card
+The current footer has 7 links in a single horizontal `flex` row with `gap-6` — on a 407px viewport these wrap awkwardly and are hard to tap.
 
-### 5. Update BookingsTab — Auto-create job on confirm
-- When a booking is confirmed, optionally auto-create a job in the `jobs` table with status `scheduled` (no auto-assign yet — manager assigns manually or uses auto-assign on Routes tab)
+### Changes to `src/components/Footer.tsx`
+- Reduce padding on mobile: `py-10 sm:py-16`
+- Grid: change to `grid-cols-2` on mobile (brand + contact side by side, services + areas side by side) instead of stacking all 4 vertically
+- Bottom links: restructure into a 2-column grid on mobile (`grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:gap-6`) so links are tappable with proper spacing
+- Increase tap target size on mobile: `py-1` on link items
+- Reduce gap between grid sections on mobile: `gap-8 sm:gap-12`
+- Make copyright and links stack centered on mobile
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/admin/JobsTab.tsx` | Add `assigned_to` field to interface, form, detail panel with reassign dropdown, and job cards |
-
-No database changes needed — `assigned_to` column already exists on `jobs` table.
+| `src/components/admin/RoutesTab.tsx` | Cross-group drag-and-drop with `assigned_to` reassignment |
+| `src/components/admin/routes/RouteJobCard.tsx` | Add `onDragEnd` support |
+| `src/components/Footer.tsx` | Mobile-responsive layout for links and grid |
 
