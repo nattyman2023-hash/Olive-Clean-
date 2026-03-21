@@ -216,6 +216,10 @@ export default function JobsTab() {
               {s === "all" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
             </button>
           ))}
+          <div className="flex bg-card border border-border rounded-lg p-0.5">
+            <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><List className="h-4 w-4" /></button>
+            <button onClick={() => setViewMode("map")} className={`p-1.5 rounded-md transition-colors ${viewMode === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><Map className="h-4 w-4" /></button>
+          </div>
           <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg active:scale-[0.97]">
             <Plus className="h-4 w-4 mr-1" /> New Job
           </Button>
