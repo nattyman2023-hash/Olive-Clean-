@@ -9,6 +9,7 @@ interface RouteJobCardProps {
   defaultZone: string;
   onDragStart: () => void;
   onDrop: () => void;
+  onDragEnd: () => void;
   isDragging: boolean;
 }
 
