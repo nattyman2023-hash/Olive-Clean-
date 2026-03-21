@@ -1,0 +1,1 @@
+ALTER TABLE public.jobs DROP CONSTRAINT jobs_assigned_to_fkey;

@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Search,
@@ -15,6 +17,7 @@ import {
   FileText,
   Loader2,
   Users,
+  Plus,
 } from "lucide-react";
 
 interface Applicant {
@@ -46,6 +49,7 @@ export default function HiringTab() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<Applicant | null>(null);
   const [noteText, setNoteText] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data: applicants = [], isLoading } = useQuery({
     queryKey: ["applicants"],
@@ -112,6 +116,24 @@ export default function HiringTab() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const addApplicantMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone: string; cover_note: string }) => {
+      const { error } = await supabase.from("applicants").insert({
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        cover_note: data.cover_note || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applicants"] });
+      setAddOpen(false);
+      toast.success("Applicant added manually");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const filtered = applicants.filter((a) => {
     const matchesSearch =
       !search ||
@@ -165,6 +187,12 @@ export default function HiringTab() {
               {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
+          <AddApplicantDialog
+            open={addOpen}
+            onOpenChange={setAddOpen}
+            onSubmit={(data) => addApplicantMutation.mutate(data)}
+            loading={addApplicantMutation.isPending}
+          />
         </div>
       </div>
 
@@ -315,5 +343,57 @@ export default function HiringTab() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AddApplicantDialog({ open, onOpenChange, onSubmit, loading }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: { name: string; email: string; phone: string; cover_note: string }) => void;
+  loading: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [coverNote, setCoverNote] = useState("");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="rounded-xl">
+          <Plus className="h-4 w-4 mr-1" /> Add Applicant
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Applicant Manually</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Full Name *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
+          </div>
+          <div>
+            <Label>Email *</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@email.com" />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(615) 555-0123" />
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Textarea value={coverNote} onChange={(e) => setCoverNote(e.target.value)} placeholder="Referral source, experience, etc." className="min-h-[80px]" />
+          </div>
+          <Button
+            onClick={() => onSubmit({ name, email, phone, cover_note: coverNote })}
+            disabled={!name || !email || loading}
+            className="w-full rounded-xl"
+          >
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Add Applicant
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
