@@ -34,7 +34,7 @@ interface Job {
   price: number | null;
   notes: string | null;
   created_at: string;
-  clients?: { name: string; neighborhood: string | null } | null;
+  clients?: { name: string; neighborhood: string | null; lat: number | null; lng: number | null } | null;
   employees?: { name: string; photo_url: string | null } | null;
 }
 
