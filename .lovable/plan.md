@@ -1,48 +1,47 @@
 
 
-# Plan: Real-time Notifications, Route Map, and Careers Page Fixes
+# Plan: Fix Maps with MapTiler + Add Delete for Clients/Employees
 
-## 1. Real-time Job Status Notifications (Admin Dashboard)
+## Problem
+The route map crashes with `render2 is not a function` — a React Context.Consumer incompatibility between `react-leaflet` v5 and React 18. The employee dashboard has no map. Both need MapTiler tiles.
 
-Enable Supabase Realtime on the `jobs` table and add a toast notification listener in `RoutesTab.tsx`:
+## Solution
 
-- **Migration**: `ALTER PUBLICATION supabase_realtime ADD TABLE public.jobs;`
-- **RoutesTab.tsx**: Subscribe to `postgres_changes` on `jobs` table filtering for `UPDATE` events. When a technician changes status (e.g., "on_route" → "on_site"), show a toast notification with the tech name, client name, and new status. Auto-invalidate the route jobs query so the UI refreshes live.
+### 1. Replace react-leaflet with plain Leaflet + MapTiler tiles
 
-## 2. Nashville Map Visualization (Routes Tab)
+Remove `react-leaflet` dependency. Rewrite `RouteMap.tsx` to use plain Leaflet (imperative API with `useRef` + `useEffect`) which avoids the React context issue entirely.
 
-Add an interactive map component using Leaflet (free, no API key needed) below the route cards:
+- **`src/components/admin/routes/RouteMap.tsx`**: Rewrite using `L.map()`, `L.marker()`, `L.polyline()` directly in a `useEffect`. Use MapTiler tile URL: `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=<KEY>`. The MapTiler API key is already stored as a secret — expose it via an edge function or embed it as a `VITE_` env var (it's a publishable map key, safe for client-side).
+- Remove `react-leaflet` and `@types/leaflet` from dependencies. Keep `leaflet` for the core library.
 
-- **New file**: `src/components/admin/routes/RouteMap.tsx`
-  - Renders a Leaflet map centered on Nashville (36.1627, -86.7816)
-  - Plots job locations using client `lat`/`lng` from the `clients` table (already in schema)
-  - Color-coded markers by zone (Belle Meade = amber, Green Hills = violet, etc.) matching existing `ZONE_COLORS`
-  - Marker popups showing client name, service, and assigned tech
-  - Polylines connecting jobs in sequence per technician
-- **RoutesTab.tsx**: Add a map toggle button and render `RouteMap` when active
-- **Dependencies**: `leaflet` + `react-leaflet` + types
-- **Sample data update**: Migration to set `lat`/`lng` on existing sample clients (Nashville coordinates)
+### 2. Add map to Employee Dashboard
 
-## 3. Careers Page — Add Navbar/Footer + Job-Specific Applications
+Add a small map card in `EmployeeDashboard.tsx` showing today's job locations with numbered markers for the job sequence. Uses same plain Leaflet + MapTiler approach.
 
-**Header/Footer**: The Careers page currently has a custom inline header instead of the shared `Navbar` and `Footer`. Fix:
-- Import and render `Navbar` at top and `Footer` at bottom of `Careers.tsx`
-- Remove the custom inline header
+### 3. Delete clients feature
 
-**Apply to specific job**: 
-- Add an "Apply Now" button on each job posting card that scrolls to the form and pre-selects that job
-- Add a `job_posting_id` column (nullable UUID, FK to `job_postings`) to the `applicants` table so applications are linked to specific postings
-- Show a dropdown/indicator in the form showing which position they're applying for (or "General Application")
-- In `HiringTab.tsx`, show the linked job posting title on each applicant
+- **Database migration**: Add DELETE RLS policy on `clients` table for admin role
+- **`ClientsTab.tsx`**: Add a "Delete" button in the client detail panel with a confirmation dialog. Calls `supabase.from("clients").delete().eq("id", id)`.
+
+### 4. Delete employees feature
+
+- **Database migration**: Add DELETE RLS policy on `employees` table for admin role
+- **`TeamTab.tsx`**: Add a "Delete" button on employee records with confirmation. Calls `supabase.from("employees").delete().eq("id", id)`.
+
+### 5. MapTiler API key
+
+The secret `MapTiler` exists as a runtime secret. Since map tile URLs are loaded client-side, we need it as a build-time env var. Add `VITE_MAPTILER_KEY` to the `.env` by reading the existing secret value, or reference it directly in code. Since it's a publishable key, it's safe to store in the codebase.
+
+---
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| Migration SQL | Enable realtime on jobs, add lat/lng to sample clients, add `job_posting_id` to applicants |
-| `src/components/admin/RoutesTab.tsx` | Realtime subscription + toast, map toggle |
-| `src/components/admin/routes/RouteMap.tsx` | New — Leaflet map with zone-colored pins and tech route lines |
-| `src/pages/Careers.tsx` | Add Navbar + Footer, "Apply Now" per posting, job_posting_id in form state |
-| `src/components/admin/HiringTab.tsx` | Show linked job posting on applicant cards |
-| `package.json` | Add leaflet, react-leaflet, @types/leaflet |
+| Migration SQL | DELETE RLS policies for `clients` and `employees` |
+| `src/components/admin/routes/RouteMap.tsx` | Rewrite with plain Leaflet + MapTiler tiles |
+| `src/pages/EmployeeDashboard.tsx` | Add job location map using plain Leaflet |
+| `src/components/admin/ClientsTab.tsx` | Add delete button with confirmation |
+| `src/components/admin/TeamTab.tsx` | Add delete button with confirmation |
+| `package.json` | Remove `react-leaflet` |
 
