@@ -78,10 +78,13 @@ export default function JobsTab() {
   });
 
   useEffect(() => {
-    fetchJobs();
     fetchClients();
     fetchEmployees();
   }, []);
+
+  useEffect(() => {
+    if (employees.length > 0) fetchJobs();
+  }, [employees]);
 
   const fetchJobs = async () => {
     setLoading(true);
