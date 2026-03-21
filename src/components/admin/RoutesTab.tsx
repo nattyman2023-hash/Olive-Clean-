@@ -55,7 +55,39 @@ export default function RoutesTab() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [groupMode, setGroupMode] = useState<GroupMode>("technician");
   const [draggedJob, setDraggedJob] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
   const queryClient = useQueryClient();
+
+  // Real-time subscription for job status changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("route-jobs-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "jobs" },
+        (payload) => {
+          const newJob = payload.new as any;
+          const oldJob = payload.old as any;
+          if (newJob.status !== oldJob.status) {
+            queryClient.invalidateQueries({ queryKey: ["route-jobs", selectedDate] });
+            const statusLabels: Record<string, string> = {
+              accepted: "Accepted",
+              on_route: "On Route",
+              on_site: "On Site",
+              in_progress: "In Progress",
+              complete: "Complete",
+            };
+            toast({
+              title: "Job Status Updated",
+              description: `Status changed to ${statusLabels[newJob.status] || newJob.status}`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedDate, queryClient]);
 
   const { data: jobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ["route-jobs", selectedDate],
