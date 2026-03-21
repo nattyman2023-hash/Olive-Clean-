@@ -58,10 +58,10 @@ export default function HiringTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("applicants")
-        .select("*")
+        .select("*, job_postings(title)")
         .order("applied_at", { ascending: false });
       if (error) throw error;
-      return data as Applicant[];
+      return data as unknown as Applicant[];
     },
   });
 
