@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
 
     if (existingUser) {
       authUserId = existingUser.id;
-      await adminClient.auth.resetPasswordForEmail(email, {
-        redirectTo: `${supabaseUrl.replace(".supabase.co", ".lovable.app")}/reset-password`,
+      await adminClient.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo,
       });
     } else {
       const { data: invited, error: inviteError } =
