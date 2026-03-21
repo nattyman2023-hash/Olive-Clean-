@@ -254,6 +254,13 @@ export default function RoutesTab() {
         </div>
       )}
 
+      {/* Map */}
+      {showMap && !jobsLoading && totalJobs > 0 && (
+        <div className="mb-8">
+          <RouteMap jobs={jobs} employees={employees} employeeMap={employeeMap} />
+        </div>
+      )}
+
       {jobsLoading ? (
         <div className="text-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
