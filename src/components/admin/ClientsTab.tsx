@@ -387,6 +387,49 @@ export default function ClientsTab() {
                   </Button>
                 </div>
               )}
+              <div className="border-t border-border pt-4">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 active:scale-[0.97]"
+                      disabled={deleting}
+                    >
+                      {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                      Delete Client
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {selected.name}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete this client and cannot be undone. Any associated jobs will remain but lose their client reference.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={async () => {
+                          setDeleting(true);
+                          const { error } = await supabase.from("clients").delete().eq("id", selected.id);
+                          setDeleting(false);
+                          if (error) {
+                            toast.error("Failed to delete client.");
+                            return;
+                          }
+                          toast.success("Client deleted.");
+                          setSelected(null);
+                          fetchClients();
+                        }}
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           ) : (
             <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">

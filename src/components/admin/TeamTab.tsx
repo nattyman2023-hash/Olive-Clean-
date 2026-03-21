@@ -343,6 +343,42 @@ export default function TeamTab() {
                   Send Login Invite
                 </Button>
               )}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-full text-destructive hover:text-destructive hover:bg-destructive/10 active:scale-[0.97] transition-transform"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Delete Employee
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {profileEmployee.name}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove this employee record and cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={async () => {
+                        const { error } = await supabase.from("employees").delete().eq("id", profileEmployee.id);
+                        if (error) {
+                          toast.error("Failed to delete employee.");
+                          return;
+                        }
+                        toast.success("Employee deleted.");
+                        setProfileEmployee(null);
+                        queryClient.invalidateQueries({ queryKey: ["employees"] });
+                      }}
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
 
