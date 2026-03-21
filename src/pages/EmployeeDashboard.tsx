@@ -382,3 +382,112 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
     </Card>
   );
 }
+
+function EmployeeExpenses({ employeeId }: { employeeId: string }) {
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("supplies");
+  const [description, setDescription] = useState("");
+  const receiptRef = useRef<HTMLInputElement>(null);
+
+  const fetchExpenses = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("expenses").select("*").eq("employee_id", employeeId).order("submitted_at", { ascending: false });
+    setLoading(false);
+    setExpenses(data || []);
+  };
+
+  useEffect(() => { fetchExpenses(); }, [employeeId]);
+
+  const submit = async () => {
+    if (!amount || !description) { toast.error("Amount and description required."); return; }
+    setSaving(true);
+
+    let receiptUrl: string | null = null;
+    const file = receiptRef.current?.files?.[0];
+    if (file) {
+      const path = `${employeeId}/${crypto.randomUUID()}.${file.name.split(".").pop()}`;
+      const { error: upErr } = await supabase.storage.from("receipts").upload(path, file);
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(path);
+        receiptUrl = urlData.publicUrl;
+      }
+    }
+
+    const { error } = await supabase.from("expenses").insert({
+      employee_id: employeeId,
+      amount: parseFloat(amount),
+      category,
+      description,
+      receipt_url: receiptUrl,
+    });
+    setSaving(false);
+    if (error) { toast.error("Failed to submit expense."); return; }
+    toast.success("Expense submitted.");
+    setShowForm(false);
+    setAmount(""); setDescription("");
+    fetchExpenses();
+  };
+
+  const statusStyle: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-800",
+    approved: "bg-emerald-100 text-emerald-800",
+    rejected: "bg-red-100 text-red-800",
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-sm flex items-center gap-2"><Receipt className="h-4 w-4 text-primary" />Expenses</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)} className="h-7 text-xs rounded-lg"><Plus className="h-3 w-3 mr-1" />Add</Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {showForm && (
+          <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-border">
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Amount ($)" value={amount} onChange={(e) => setAmount(e.target.value)} className="rounded-lg text-sm" />
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+                <option value="fuel">Fuel</option>
+                <option value="supplies">Supplies</option>
+                <option value="equipment">Equipment</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <Input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="rounded-lg text-sm" />
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => receiptRef.current?.click()} className="text-xs rounded-lg h-7"><Upload className="h-3 w-3 mr-1" />Receipt</Button>
+              <input ref={receiptRef} type="file" accept="image/*,.pdf" className="hidden" />
+            </div>
+            <Button size="sm" onClick={submit} disabled={saving} className="w-full rounded-lg">
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />} Submit Expense
+            </Button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
+        ) : expenses.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No expenses submitted yet.</p>
+        ) : (
+          expenses.map((e) => (
+            <div key={e.id} className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/30 border border-border">
+              <div>
+                <p className="font-medium text-foreground">{e.description}</p>
+                <p className="text-muted-foreground">{e.category} · {format(new Date(e.submitted_at), "MMM d")}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-foreground">${Number(e.amount).toFixed(2)}</span>
+                <span className={`text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full capitalize ${statusStyle[e.status] || statusStyle.pending}`}>{e.status}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
