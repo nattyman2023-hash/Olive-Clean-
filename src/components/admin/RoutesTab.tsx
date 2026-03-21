@@ -8,6 +8,9 @@ import { Loader2, MapPin, Clock, User, Calendar, Shield, Zap, GripVertical, Layo
 import { toast } from "@/hooks/use-toast";
 import RouteJobCard from "./routes/RouteJobCard";
 import RouteTechHeader from "./routes/RouteTechHeader";
+import AutoAssignButton from "./dispatch/AutoAssignButton";
+import RecurringScheduleButton from "./dispatch/RecurringScheduleButton";
+import ConstraintWarning from "./dispatch/ConstraintWarning";
 
 export interface RouteJob {
   id: string;
