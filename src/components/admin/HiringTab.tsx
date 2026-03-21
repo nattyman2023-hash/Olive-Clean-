@@ -49,6 +49,7 @@ export default function HiringTab() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<Applicant | null>(null);
   const [noteText, setNoteText] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data: applicants = [], isLoading } = useQuery({
     queryKey: ["applicants"],
