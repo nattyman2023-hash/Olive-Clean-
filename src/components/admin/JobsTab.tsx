@@ -32,7 +32,7 @@ interface Job {
   notes: string | null;
   created_at: string;
   clients?: { name: string; neighborhood: string | null } | null;
-  employees?: { name: string; photo_url: string | null } | null;
+  employees?: { name: string; photo_url: string | null }[] | { name: string; photo_url: string | null } | null;
 }
 
 interface ClientOption {
