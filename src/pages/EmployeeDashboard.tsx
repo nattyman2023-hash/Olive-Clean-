@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   LogOut, Loader2, MapPin, Clock, Star, CheckCircle2,
   ChevronDown, ChevronUp, Camera, AlertTriangle, Package,
-  Navigation, Home, Play
+  Navigation, Home, Play, Receipt, Plus, Upload
 } from "lucide-react";
 import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
 import { format, startOfDay, endOfDay } from "date-fns";
