@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, MapPin, Clock, User, Calendar, Shield, Zap, GripVertical, LayoutGrid, Map } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import RouteMap from "./routes/RouteMap";
+const RouteMap = lazy(() => import("./routes/RouteMap"));
 import RouteJobCard from "./routes/RouteJobCard";
 import RouteTechHeader from "./routes/RouteTechHeader";
 import AutoAssignButton from "./dispatch/AutoAssignButton";
