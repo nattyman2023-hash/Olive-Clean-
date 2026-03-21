@@ -91,11 +91,24 @@ export default function BookingsTab() {
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     if (selected?.id === id) setSelected({ ...selected, status });
 
-    // Auto-invite client when status set to confirmed
     if (status === "confirmed") {
       const booking = bookings.find((b) => b.id === id);
       if (booking) {
+        // Auto-invite client
         inviteClient(booking);
+        // Auto-create a scheduled job (unassigned — manager assigns later)
+        const { error: jobErr } = await supabase.from("jobs").insert({
+          client_id: "", // Will be linked when client record exists
+          service: booking.service,
+          scheduled_at: new Date().toISOString(), // Placeholder — manager reschedules
+          status: "scheduled",
+          notes: `Auto-created from booking. ${booking.bedrooms} bed / ${booking.bathrooms} bath, ${booking.frequency}. ${booking.notes || ""}`.trim(),
+        });
+        if (jobErr) {
+          console.error("Failed to auto-create job from booking:", jobErr);
+        } else {
+          toast.success("Job created from booking — assign a technician in the Jobs tab.");
+        }
       }
     }
   };
