@@ -96,18 +96,36 @@ export default function BookingsTab() {
       if (booking) {
         // Auto-invite client
         inviteClient(booking);
-        // Auto-create a scheduled job (unassigned — manager assigns later)
-        const { error: jobErr } = await supabase.from("jobs").insert({
-          client_id: "", // Will be linked when client record exists
-          service: booking.service,
-          scheduled_at: new Date().toISOString(), // Placeholder — manager reschedules
-          status: "scheduled",
-          notes: `Auto-created from booking. ${booking.bedrooms} bed / ${booking.bathrooms} bath, ${booking.frequency}. ${booking.notes || ""}`.trim(),
-        });
-        if (jobErr) {
-          console.error("Failed to auto-create job from booking:", jobErr);
+        // Find or create client record, then create a scheduled job
+        let clientId: string | null = null;
+        const { data: existingClient } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("email", booking.email)
+          .maybeSingle();
+        if (existingClient) {
+          clientId = existingClient.id;
         } else {
-          toast.success("Job created from booking — assign a technician in the Jobs tab.");
+          const { data: newClient } = await supabase
+            .from("clients")
+            .insert({ name: booking.name, email: booking.email, phone: booking.phone, address: booking.address })
+            .select("id")
+            .single();
+          clientId = newClient?.id || null;
+        }
+        if (clientId) {
+          const { error: jobErr } = await supabase.from("jobs").insert({
+            client_id: clientId,
+            service: booking.service,
+            scheduled_at: new Date().toISOString(),
+            status: "scheduled",
+            notes: `From booking. ${booking.bedrooms} bed / ${booking.bathrooms} bath, ${booking.frequency}. ${booking.notes || ""}`.trim(),
+          });
+          if (jobErr) {
+            console.error("Failed to auto-create job:", jobErr);
+          } else {
+            toast.success("Job created — assign a technician in the Jobs tab.");
+          }
         }
       }
     }
