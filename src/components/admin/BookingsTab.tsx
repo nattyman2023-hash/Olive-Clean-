@@ -91,11 +91,42 @@ export default function BookingsTab() {
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     if (selected?.id === id) setSelected({ ...selected, status });
 
-    // Auto-invite client when status set to confirmed
     if (status === "confirmed") {
       const booking = bookings.find((b) => b.id === id);
       if (booking) {
+        // Auto-invite client
         inviteClient(booking);
+        // Find or create client record, then create a scheduled job
+        let clientId: string | null = null;
+        const { data: existingClient } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("email", booking.email)
+          .maybeSingle();
+        if (existingClient) {
+          clientId = existingClient.id;
+        } else {
+          const { data: newClient } = await supabase
+            .from("clients")
+            .insert({ name: booking.name, email: booking.email, phone: booking.phone, address: booking.address })
+            .select("id")
+            .single();
+          clientId = newClient?.id || null;
+        }
+        if (clientId) {
+          const { error: jobErr } = await supabase.from("jobs").insert({
+            client_id: clientId,
+            service: booking.service,
+            scheduled_at: new Date().toISOString(),
+            status: "scheduled",
+            notes: `From booking. ${booking.bedrooms} bed / ${booking.bathrooms} bath, ${booking.frequency}. ${booking.notes || ""}`.trim(),
+          });
+          if (jobErr) {
+            console.error("Failed to auto-create job:", jobErr);
+          } else {
+            toast.success("Job created — assign a technician in the Jobs tab.");
+          }
+        }
       }
     }
   };
