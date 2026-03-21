@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     // Link employee record to auth user
     await adminClient
       .from("employees")
-      .update({ user_id: authUserId, email })
+      .update({ user_id: authUserId, email: trimmedEmail })
       .eq("id", employee_id);
 
     return new Response(
