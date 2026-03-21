@@ -116,6 +116,24 @@ export default function HiringTab() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const addApplicantMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone: string; cover_note: string }) => {
+      const { error } = await supabase.from("applicants").insert({
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        cover_note: data.cover_note || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applicants"] });
+      setAddOpen(false);
+      toast.success("Applicant added manually");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const filtered = applicants.filter((a) => {
     const matchesSearch =
       !search ||
