@@ -186,6 +186,9 @@ export default function EmployeeDashboard() {
             <CardContent><div className="flex flex-wrap gap-2">{(employee.certifications as string[]).map((c) => <Badge key={c} variant="secondary" className="text-[0.65rem]">{c}</Badge>)}</div></CardContent>
           </Card>
         )}
+
+        {/* Expenses */}
+        {employee && <EmployeeExpenses employeeId={employee.id} />}
       </main>
     </div>
   );
