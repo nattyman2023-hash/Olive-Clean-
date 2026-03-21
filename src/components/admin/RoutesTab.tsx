@@ -321,7 +321,11 @@ export default function RoutesTab() {
               : null;
 
             return (
-              <div key={groupName}>
+              <div
+                key={groupName}
+                onDragOver={(e) => { e.preventDefault(); setDragOverGroup(groupName); }}
+                onDragLeave={() => setDragOverGroup(null)}
+              >
                 <RouteTechHeader
                   name={groupName}
                   jobCount={groupJobs.length}
@@ -341,8 +345,9 @@ export default function RoutesTab() {
                           index={i}
                           zoneColors={ZONE_COLORS}
                           defaultZone={DEFAULT_ZONE}
-                          onDragStart={() => setDraggedJob(j.id)}
+                          onDragStart={() => { setDraggedJob(j.id); setDragSourceGroup(groupName); }}
                           onDrop={() => handleDrop(groupName, i)}
+                          onDragEnd={clearDragState}
                           isDragging={draggedJob === j.id}
                         />
                         <ConstraintWarning job={j} employee={assignedEmp} />
@@ -350,6 +355,20 @@ export default function RoutesTab() {
                     );
                   })}
                 </div>
+                {/* Drop zone for cross-tech assignment */}
+                {draggedJob && dragSourceGroup !== groupName && groupMode === "technician" && (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); handleDrop(groupName, groupJobs.length); }}
+                    className={`mt-2 border-2 border-dashed rounded-xl p-4 text-center text-xs font-medium transition-colors ${
+                      dragOverGroup === groupName
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-muted-foreground/30 text-muted-foreground"
+                    }`}
+                  >
+                    Drop here to assign to {groupName}
+                  </div>
+                )}
               </div>
             );
           })}
