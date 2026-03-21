@@ -261,6 +261,122 @@ export type Database = {
         }
         Relationships: []
       }
+      estimates: {
+        Row: {
+          client_id: string
+          converted_invoice_id: string | null
+          created_at: string
+          estimate_number: string
+          id: string
+          items: Json
+          notes: string | null
+          status: string
+          subtotal: number
+          tax_amount: number
+          tax_rate: number
+          total: number
+          valid_until: string | null
+        }
+        Insert: {
+          client_id: string
+          converted_invoice_id?: string | null
+          created_at?: string
+          estimate_number: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total?: number
+          valid_until?: string | null
+        }
+        Update: {
+          client_id?: string
+          converted_invoice_id?: string | null
+          created_at?: string
+          estimate_number?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total?: number
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_converted_invoice_id_fkey"
+            columns: ["converted_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          employee_id: string
+          id: string
+          notes: string | null
+          receipt_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          description: string
+          employee_id: string
+          id?: string
+          notes?: string | null
+          receipt_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string
+          employee_id?: string
+          id?: string
+          notes?: string | null
+          receipt_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback: {
         Row: {
           client_id: string
@@ -296,6 +412,78 @@ export type Database = {
           },
           {
             foreignKeyName: "feedback_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          client_id: string
+          created_at: string
+          due_date: string | null
+          estimate_id: string | null
+          id: string
+          invoice_number: string
+          issued_at: string | null
+          items: Json
+          job_id: string | null
+          notes: string | null
+          paid_at: string | null
+          status: string
+          subtotal: number
+          tax_amount: number
+          tax_rate: number
+          total: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          due_date?: string | null
+          estimate_id?: string | null
+          id?: string
+          invoice_number: string
+          issued_at?: string | null
+          items?: Json
+          job_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          due_date?: string | null
+          estimate_id?: string | null
+          id?: string
+          invoice_number?: string
+          issued_at?: string | null
+          items?: Json
+          job_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
@@ -433,6 +621,65 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payslips: {
+        Row: {
+          additions: Json | null
+          calculated_amount: number
+          created_at: string
+          custom_amount: number | null
+          deductions: Json | null
+          employee_id: string
+          hourly_rate: number
+          hours_worked: number
+          id: string
+          net_pay: number
+          notes: string | null
+          period_end: string
+          period_start: string
+          status: string
+        }
+        Insert: {
+          additions?: Json | null
+          calculated_amount?: number
+          created_at?: string
+          custom_amount?: number | null
+          deductions?: Json | null
+          employee_id: string
+          hourly_rate?: number
+          hours_worked?: number
+          id?: string
+          net_pay?: number
+          notes?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+        }
+        Update: {
+          additions?: Json | null
+          calculated_amount?: number
+          created_at?: string
+          custom_amount?: number | null
+          deductions?: Json | null
+          employee_id?: string
+          hourly_rate?: number
+          hours_worked?: number
+          id?: string
+          net_pay?: number
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslips_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]

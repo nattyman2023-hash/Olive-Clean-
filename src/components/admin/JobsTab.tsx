@@ -16,7 +16,10 @@ import {
   Loader2,
   Copy,
   UserCircle,
+  List,
+  Map as MapIcon,
 } from "lucide-react";
+import JobsMap from "./jobs/JobsMap";
 
 interface Job {
   id: string;
@@ -31,7 +34,7 @@ interface Job {
   price: number | null;
   notes: string | null;
   created_at: string;
-  clients?: { name: string; neighborhood: string | null } | null;
+  clients?: { name: string; neighborhood: string | null; lat: number | null; lng: number | null } | null;
   employees?: { name: string; photo_url: string | null } | null;
 }
 
@@ -66,6 +69,7 @@ export default function JobsTab() {
   const [selected, setSelected] = useState<Job | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   const [form, setForm] = useState({
     client_id: "",
@@ -90,7 +94,7 @@ export default function JobsTab() {
     setLoading(true);
     const { data, error } = await supabase
       .from("jobs")
-      .select("*, clients(name, neighborhood)")
+      .select("*, clients(name, neighborhood, lat, lng)")
       .order("scheduled_at", { ascending: false });
     setLoading(false);
     if (error) {
@@ -212,6 +216,10 @@ export default function JobsTab() {
               {s === "all" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
             </button>
           ))}
+          <div className="flex bg-card border border-border rounded-lg p-0.5">
+            <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><List className="h-4 w-4" /></button>
+            <button onClick={() => setViewMode("map")} className={`p-1.5 rounded-md transition-colors ${viewMode === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><MapIcon className="h-4 w-4" /></button>
+          </div>
           <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg active:scale-[0.97]">
             <Plus className="h-4 w-4 mr-1" /> New Job
           </Button>
@@ -269,75 +277,79 @@ export default function JobsTab() {
         </div>
       )}
 
-      {/* Job List */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-3">
-          {loading ? (
-            <div className="text-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-12 text-center">
-              <p className="text-muted-foreground text-sm">No jobs found.</p>
-            </div>
-          ) : (
-            filtered.map((j) => {
-              const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
-              const Icon = sc.icon;
-              return (
-                <button
-                  key={j.id}
-                  onClick={() => setSelected(j)}
-                  className={`w-full text-left bg-card rounded-xl border p-5 transition-all hover:shadow-md active:scale-[0.99] ${
-                    selected?.id === j.id ? "border-primary shadow-md" : "border-border shadow-sm"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-foreground text-sm truncate">{j.clients?.name || "Unknown Client"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </p>
-                      {j.employees?.name && (
-                        <div className="flex items-center gap-1.5 mt-1.5">
-                          <Avatar className="h-4 w-4">
-                            {j.employees.photo_url && <AvatarImage src={j.employees.photo_url} alt={j.employees.name} />}
-                            <AvatarFallback className="text-[0.4rem] bg-primary/10 text-primary">{getInitials(j.employees.name)}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-[0.65rem] text-muted-foreground">{j.employees.name}</span>
-                        </div>
-                      )}
+      {/* Map or List View */}
+      {viewMode === "map" ? (
+        <JobsMap jobs={filtered} />
+      ) : (
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-3">
+            {loading ? (
+              <div className="text-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="bg-card rounded-xl border border-border p-12 text-center">
+                <p className="text-muted-foreground text-sm">No jobs found.</p>
+              </div>
+            ) : (
+              filtered.map((j) => {
+                const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
+                const Icon = sc.icon;
+                return (
+                  <button
+                    key={j.id}
+                    onClick={() => setSelected(j)}
+                    className={`w-full text-left bg-card rounded-xl border p-5 transition-all hover:shadow-md active:scale-[0.99] ${
+                      selected?.id === j.id ? "border-primary shadow-md" : "border-border shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-foreground text-sm truncate">{j.clients?.name || "Unknown Client"}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                        {j.employees?.name && (
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <Avatar className="h-4 w-4">
+                              {j.employees.photo_url && <AvatarImage src={j.employees.photo_url} alt={j.employees.name} />}
+                              <AvatarFallback className="text-[0.4rem] bg-primary/10 text-primary">{getInitials(j.employees.name)}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-[0.65rem] text-muted-foreground">{j.employees.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
+                        <Icon className="h-3 w-3" />
+                        {sc.label}
+                      </div>
                     </div>
-                    <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
-                      <Icon className="h-3 w-3" />
-                      {sc.label}
-                    </div>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
 
-        {/* Detail */}
-        <div className="lg:col-span-1">
-          {selected ? (
-            <JobDetailPanel
-              job={selected}
-              employees={employees}
-              onStatusChange={updateJobStatus}
-              onReassign={reassignJob}
-              onLogDuration={logDuration}
-              getInitials={getInitials}
-            />
-          ) : (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
-              <Briefcase className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Select a job to view details</p>
-            </div>
-          )}
+          {/* Detail */}
+          <div className="lg:col-span-1">
+            {selected ? (
+              <JobDetailPanel
+                job={selected}
+                employees={employees}
+                onStatusChange={updateJobStatus}
+                onReassign={reassignJob}
+                onLogDuration={logDuration}
+                getInitials={getInitials}
+              />
+            ) : (
+              <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
+                <Briefcase className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Select a job to view details</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
