@@ -44,6 +44,7 @@ interface EmployeeOption {
   id: string;
   name: string;
   photo_url: string | null;
+  user_id: string;
 }
 
 const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; className: string }> = {
