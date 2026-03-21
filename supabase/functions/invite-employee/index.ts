@@ -55,6 +55,14 @@ Deno.serve(async (req) => {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(trimmedEmail)) {
+      return new Response(JSON.stringify({ error: "Please enter a valid email address" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const origin = req.headers.get("origin") || req.headers.get("referer")?.replace(/\/$/, "") || "https://olive-sanctuary-stack.lovable.app";
     const redirectTo = `${origin}/reset-password`;
 

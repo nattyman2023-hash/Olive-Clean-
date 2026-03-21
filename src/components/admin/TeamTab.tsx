@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2 } from "lucide-react";
+import { z } from "zod";
 
 interface Employee {
   id: string;
@@ -60,6 +61,30 @@ const CHECKLIST_LABELS: Record<string, string> = {
   training: "Training Completed",
   policy_agreement: "Policy Agreement Signed",
   supplies_issued: "Supplies Issued",
+};
+
+const employeeEmailSchema = z.string().trim().email("Please enter a valid email address");
+
+const normalizeEmployeeEmail = (value: string | null | undefined) => {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return normalized.length > 0 ? normalized : null;
+};
+
+const getOptionalEmployeeEmail = (value: string | null | undefined) => {
+  const normalized = normalizeEmployeeEmail(value);
+  if (!normalized) {
+    return { success: true as const, email: null };
+  }
+
+  const parsed = employeeEmailSchema.safeParse(normalized);
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: parsed.error.issues[0]?.message ?? "Please enter a valid email address",
+    };
+  }
+
+  return { success: true as const, email: parsed.data };
 };
 
 export default function TeamTab() {
@@ -148,9 +173,22 @@ export default function TeamTab() {
 
   const inviteMutation = useMutation({
     mutationFn: async (emp: Employee) => {
-      if (!emp.email) throw new Error("Employee needs an email address first");
+      const parsedEmail = getOptionalEmployeeEmail(emp.email);
+      if (!parsedEmail.success || !parsedEmail.email) {
+        throw new Error(parsedEmail.success ? "Employee needs a valid email address first" : parsedEmail.error);
+      }
+
+      if (parsedEmail.email !== emp.email) {
+        const { error: updateError } = await supabase
+          .from("employees")
+          .update({ email: parsedEmail.email })
+          .eq("id", emp.id);
+
+        if (updateError) throw updateError;
+      }
+
       const { data, error } = await supabase.functions.invoke("invite-employee", {
-        body: { email: emp.email, name: emp.name, employee_id: emp.id },
+        body: { email: parsedEmail.email, name: emp.name.trim(), employee_id: emp.id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -178,10 +216,17 @@ export default function TeamTab() {
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const parsedEmail = getOptionalEmployeeEmail(formEmail);
+    if (!parsedEmail.success) {
+      toast.error(parsedEmail.error);
+      return;
+    }
+
     upsertMutation.mutate({
       name: formName,
       phone: formPhone,
-      email: formEmail,
+      email: parsedEmail.email,
       user_id: crypto.randomUUID(),
       status: formStatus,
       notes: formNotes,
@@ -203,7 +248,22 @@ export default function TeamTab() {
 
   const saveProfileField = (field: string, value: any) => {
     if (!profileEmployee) return;
-    const updated = { ...profileEmployee, [field]: value };
+
+    let nextValue = value;
+
+    if (field === "email") {
+      const parsedEmail = getOptionalEmployeeEmail(value);
+      if (!parsedEmail.success) {
+        toast.error(parsedEmail.error);
+        setFormEmail(profileEmployee.email || "");
+        return;
+      }
+
+      nextValue = parsedEmail.email;
+      setFormEmail(parsedEmail.email || "");
+    }
+
+    const updated = { ...profileEmployee, [field]: nextValue };
     setProfileEmployee(updated);
     upsertMutation.mutate({
       id: updated.id,
@@ -256,6 +316,8 @@ export default function TeamTab() {
   if (profileEmployee) {
     const cl = profileEmployee.onboarding_checklist || {};
     const prog = checklistProgress(cl);
+    const inviteEmailState = getOptionalEmployeeEmail(profileEmployee.email);
+    const canSendInvite = inviteEmailState.success && !!inviteEmailState.email;
 
     return (
       <div className="space-y-6">
@@ -334,14 +396,19 @@ export default function TeamTab() {
                 />
               </div>
               {profileEmployee.email && (
-                <Button
-                  onClick={() => inviteMutation.mutate(profileEmployee)}
-                  disabled={inviteMutation.isPending}
-                  className="w-full rounded-full active:scale-[0.97] transition-transform"
-                >
-                  {inviteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Mail className="h-4 w-4 mr-1" />}
-                  Send Login Invite
-                </Button>
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => inviteMutation.mutate(profileEmployee)}
+                    disabled={inviteMutation.isPending || !canSendInvite}
+                    className="w-full rounded-full active:scale-[0.97] transition-transform"
+                  >
+                    {inviteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Mail className="h-4 w-4 mr-1" />}
+                    Send Login Invite
+                  </Button>
+                  {!canSendInvite && (
+                    <p className="text-xs text-destructive">Enter a valid email address before sending an invite.</p>
+                  )}
+                </div>
               )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -585,6 +652,9 @@ export default function TeamTab() {
               <TableBody>
                 {filtered.map((emp) => {
                   const prog = checklistProgress(emp.onboarding_checklist || {});
+                  const inviteEmailState = getOptionalEmployeeEmail(emp.email);
+                  const canSendInvite = inviteEmailState.success && !!inviteEmailState.email;
+
                   return (
                     <TableRow
                       key={emp.id}
@@ -627,8 +697,8 @@ export default function TeamTab() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              title="Send login invite"
-                              disabled={inviteMutation.isPending}
+                              title={canSendInvite ? "Send login invite" : "Add a valid email address first"}
+                              disabled={inviteMutation.isPending || !canSendInvite}
                               onClick={() => inviteMutation.mutate(emp)}
                             >
                               <Mail className="h-3.5 w-3.5" />
