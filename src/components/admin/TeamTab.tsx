@@ -37,6 +37,7 @@ interface Employee {
   onboarding_checklist: Record<string, boolean>;
   hired_at: string;
   notes: string | null;
+  photo_url: string | null;
 }
 
 interface PerformanceRecord {
