@@ -31,6 +31,8 @@ interface Applicant {
   applied_at: string;
   notes: string | null;
   screening_score: number | null;
+  job_posting_id: string | null;
+  job_postings: { title: string } | null;
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof Clock; className: string }> = {
