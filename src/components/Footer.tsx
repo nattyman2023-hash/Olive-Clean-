@@ -66,8 +66,8 @@ export default function Footer() {
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:gap-6 text-xs text-background/40">
             <Link to="/about" className="py-1 hover:text-background/60 transition-colors">About</Link>
             <Link to="/careers" className="py-1 hover:text-background/60 transition-colors">Careers</Link>
-            <Link to="/" className="py-1 hover:text-background/60 transition-colors">Privacy</Link>
-            <Link to="/" className="py-1 hover:text-background/60 transition-colors">Terms</Link>
+            <Link to="/privacy" className="py-1 hover:text-background/60 transition-colors">Privacy</Link>
+            <Link to="/terms" className="py-1 hover:text-background/60 transition-colors">Terms</Link>
             <Link to="/client/login" className="py-1 hover:text-background/60 transition-colors">Client Portal</Link>
             <Link to="/employee/login" className="py-1 hover:text-background/60 transition-colors">Employee Portal</Link>
             <Link to="/admin/login" className="py-1 hover:text-background/60 transition-colors col-span-2 sm:col-span-1 text-center sm:text-left">Staff Login</Link>

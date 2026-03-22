@@ -99,16 +99,26 @@ export default function ServicesSection() {
                 ))}
               </ul>
 
-              <Button
-                asChild
-                className={`rounded-full w-full active:scale-[0.97] transition-transform ${
-                  service.popular
-                    ? "bg-accent hover:bg-accent/90 text-accent-foreground"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                }`}
-              >
-                <Link to="/book">Book Now</Link>
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  asChild
+                  className={`rounded-full w-full active:scale-[0.97] transition-transform ${
+                    service.popular
+                      ? "bg-accent hover:bg-accent/90 text-accent-foreground"
+                      : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  }`}
+                >
+                  <Link to="/book">Book Now</Link>
+                </Button>
+                <Link
+                  to={`/services/${service.slug}`}
+                  className={`block text-center text-xs font-medium py-1 transition-colors ${
+                    service.popular ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Learn More →
+                </Link>
+              </div>
             </div>
           ))}
         </div>
