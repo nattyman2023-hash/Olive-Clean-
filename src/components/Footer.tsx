@@ -26,10 +26,10 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-background text-sm mb-4">Services</h4>
             <ul className="space-y-2.5 text-sm text-background/60">
-              <li>Essential Clean</li>
-              <li>General Clean</li>
-              <li>Signature Deep Clean</li>
-              <li>Makeover Deep Clean</li>
+              <li><Link to="/services/essential" className="hover:text-background/80 transition-colors">Essential Clean</Link></li>
+              <li><Link to="/services/general" className="hover:text-background/80 transition-colors">General Clean</Link></li>
+              <li><Link to="/services/deep-clean" className="hover:text-background/80 transition-colors">Signature Deep Clean</Link></li>
+              <li><Link to="/services/makeover" className="hover:text-background/80 transition-colors">Makeover Deep Clean</Link></li>
             </ul>
           </div>
 
@@ -37,11 +37,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-background text-sm mb-4">Service Areas</h4>
             <ul className="space-y-2.5 text-sm text-background/60">
-              <li>Belle Meade</li>
-              <li>Brentwood</li>
-              <li>Franklin</li>
-              <li>Green Hills</li>
-              <li>West Nashville</li>
+              <li><Link to="/areas/belle-meade" className="hover:text-background/80 transition-colors">Belle Meade</Link></li>
+              <li><Link to="/areas/brentwood" className="hover:text-background/80 transition-colors">Brentwood</Link></li>
+              <li><Link to="/areas/franklin" className="hover:text-background/80 transition-colors">Franklin</Link></li>
+              <li><Link to="/areas/green-hills" className="hover:text-background/80 transition-colors">Green Hills</Link></li>
+              <li><Link to="/areas/west-nashville" className="hover:text-background/80 transition-colors">West Nashville</Link></li>
             </ul>
           </div>
 
