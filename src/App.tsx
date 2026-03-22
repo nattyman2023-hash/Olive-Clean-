@@ -18,6 +18,10 @@ import Careers from "./pages/Careers.tsx";
 import Questionnaire from "./pages/Questionnaire.tsx";
 import EmployeeLogin from "./pages/EmployeeLogin.tsx";
 import EmployeeDashboard from "./pages/EmployeeDashboard.tsx";
+import ServiceDetail from "./pages/ServiceDetail.tsx";
+import AreaDetail from "./pages/AreaDetail.tsx";
+import Terms from "./pages/Terms.tsx";
+import Privacy from "./pages/Privacy.tsx";
 
 const queryClient = new QueryClient();
 
