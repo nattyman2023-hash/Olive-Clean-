@@ -26,10 +26,10 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-background text-sm mb-4">Services</h4>
             <ul className="space-y-2.5 text-sm text-background/60">
-              <li>Essential Clean</li>
-              <li>General Clean</li>
-              <li>Signature Deep Clean</li>
-              <li>Makeover Deep Clean</li>
+              <li><Link to="/services/essential" className="hover:text-background/80 transition-colors">Essential Clean</Link></li>
+              <li><Link to="/services/general" className="hover:text-background/80 transition-colors">General Clean</Link></li>
+              <li><Link to="/services/deep-clean" className="hover:text-background/80 transition-colors">Signature Deep Clean</Link></li>
+              <li><Link to="/services/makeover" className="hover:text-background/80 transition-colors">Makeover Deep Clean</Link></li>
             </ul>
           </div>
 
@@ -37,11 +37,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-background text-sm mb-4">Service Areas</h4>
             <ul className="space-y-2.5 text-sm text-background/60">
-              <li>Belle Meade</li>
-              <li>Brentwood</li>
-              <li>Franklin</li>
-              <li>Green Hills</li>
-              <li>West Nashville</li>
+              <li><Link to="/areas/belle-meade" className="hover:text-background/80 transition-colors">Belle Meade</Link></li>
+              <li><Link to="/areas/brentwood" className="hover:text-background/80 transition-colors">Brentwood</Link></li>
+              <li><Link to="/areas/franklin" className="hover:text-background/80 transition-colors">Franklin</Link></li>
+              <li><Link to="/areas/green-hills" className="hover:text-background/80 transition-colors">Green Hills</Link></li>
+              <li><Link to="/areas/west-nashville" className="hover:text-background/80 transition-colors">West Nashville</Link></li>
             </ul>
           </div>
 
@@ -66,8 +66,8 @@ export default function Footer() {
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:gap-6 text-xs text-background/40">
             <Link to="/about" className="py-1 hover:text-background/60 transition-colors">About</Link>
             <Link to="/careers" className="py-1 hover:text-background/60 transition-colors">Careers</Link>
-            <Link to="/" className="py-1 hover:text-background/60 transition-colors">Privacy</Link>
-            <Link to="/" className="py-1 hover:text-background/60 transition-colors">Terms</Link>
+            <Link to="/privacy" className="py-1 hover:text-background/60 transition-colors">Privacy</Link>
+            <Link to="/terms" className="py-1 hover:text-background/60 transition-colors">Terms</Link>
             <Link to="/client/login" className="py-1 hover:text-background/60 transition-colors">Client Portal</Link>
             <Link to="/employee/login" className="py-1 hover:text-background/60 transition-colors">Employee Portal</Link>
             <Link to="/admin/login" className="py-1 hover:text-background/60 transition-colors col-span-2 sm:col-span-1 text-center sm:text-left">Staff Login</Link>

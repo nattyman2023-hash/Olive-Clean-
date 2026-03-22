@@ -18,6 +18,10 @@ import Careers from "./pages/Careers.tsx";
 import Questionnaire from "./pages/Questionnaire.tsx";
 import EmployeeLogin from "./pages/EmployeeLogin.tsx";
 import EmployeeDashboard from "./pages/EmployeeDashboard.tsx";
+import ServiceDetail from "./pages/ServiceDetail.tsx";
+import AreaDetail from "./pages/AreaDetail.tsx";
+import Terms from "./pages/Terms.tsx";
+import Privacy from "./pages/Privacy.tsx";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +46,10 @@ const App = () => (
             <Route path="/questionnaire/:clientId" element={<Questionnaire />} />
             <Route path="/employee/login" element={<EmployeeLogin />} />
             <Route path="/employee" element={<EmployeeDashboard />} />
+            <Route path="/services/:slug" element={<ServiceDetail />} />
+            <Route path="/areas/:slug" element={<AreaDetail />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

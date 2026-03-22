@@ -6,6 +6,7 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 const services = [
   {
     name: "The Essential Clean",
+    slug: "essential",
     price: "$120",
     description: "Basic maintenance for regularly cleaned homes.",
     features: ["Surface dusting", "Floor vacuuming & mopping", "Trash removal", "Kitchen & bath wipe-down"],
@@ -13,6 +14,7 @@ const services = [
   },
   {
     name: "General Clean",
+    slug: "general",
     price: "$180",
     description: "Routine standard for a consistently fresh home.",
     features: ["Everything in Essential", "Decorative item dusting", "Appliance exteriors", "Spot cleaning walls", "Mirror polishing"],
@@ -20,6 +22,7 @@ const services = [
   },
   {
     name: "Signature Deep Clean",
+    slug: "deep-clean",
     price: "$320",
     description: "Deluxe detail for homes needing extra attention.",
     features: ["Everything in General", "Inside appliances", "Window interiors", "Baseboards & door frames", "Light fixture dusting"],
@@ -27,6 +30,7 @@ const services = [
   },
   {
     name: "Makeover Deep Clean",
+    slug: "makeover",
     price: "$450+",
     description: "The full premium treatment, tailored to you.",
     features: ["Everything in Signature", "Polishing fixtures", "Hand-washing blinds", "Custom priority tasks", "Cabinet interiors"],
@@ -95,16 +99,26 @@ export default function ServicesSection() {
                 ))}
               </ul>
 
-              <Button
-                asChild
-                className={`rounded-full w-full active:scale-[0.97] transition-transform ${
-                  service.popular
-                    ? "bg-accent hover:bg-accent/90 text-accent-foreground"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                }`}
-              >
-                <Link to="/book">Book Now</Link>
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  asChild
+                  className={`rounded-full w-full active:scale-[0.97] transition-transform ${
+                    service.popular
+                      ? "bg-accent hover:bg-accent/90 text-accent-foreground"
+                      : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  }`}
+                >
+                  <Link to="/book">Book Now</Link>
+                </Button>
+                <Link
+                  to={`/services/${service.slug}`}
+                  className={`block text-center text-xs font-medium py-1 transition-colors ${
+                    service.popular ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Learn More →
+                </Link>
+              </div>
             </div>
           ))}
         </div>
