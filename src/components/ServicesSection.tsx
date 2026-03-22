@@ -6,6 +6,7 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 const services = [
   {
     name: "The Essential Clean",
+    slug: "essential",
     price: "$120",
     description: "Basic maintenance for regularly cleaned homes.",
     features: ["Surface dusting", "Floor vacuuming & mopping", "Trash removal", "Kitchen & bath wipe-down"],
@@ -13,6 +14,7 @@ const services = [
   },
   {
     name: "General Clean",
+    slug: "general",
     price: "$180",
     description: "Routine standard for a consistently fresh home.",
     features: ["Everything in Essential", "Decorative item dusting", "Appliance exteriors", "Spot cleaning walls", "Mirror polishing"],
@@ -20,6 +22,7 @@ const services = [
   },
   {
     name: "Signature Deep Clean",
+    slug: "deep-clean",
     price: "$320",
     description: "Deluxe detail for homes needing extra attention.",
     features: ["Everything in General", "Inside appliances", "Window interiors", "Baseboards & door frames", "Light fixture dusting"],
@@ -27,6 +30,7 @@ const services = [
   },
   {
     name: "Makeover Deep Clean",
+    slug: "makeover",
     price: "$450+",
     description: "The full premium treatment, tailored to you.",
     features: ["Everything in Signature", "Polishing fixtures", "Hand-washing blinds", "Custom priority tasks", "Cabinet interiors"],
