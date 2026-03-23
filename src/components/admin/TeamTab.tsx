@@ -23,9 +23,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2, Camera } from "lucide-react";
+import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2, Camera, KeyRound } from "lucide-react";
 import { z } from "zod";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import SetPasswordDialog from "./SetPasswordDialog";
 
 interface Employee {
   id: string;
@@ -95,6 +96,7 @@ export default function TeamTab() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -451,6 +453,19 @@ export default function TeamTab() {
                   )}
                 </div>
               )}
+              <Button
+                variant="outline"
+                onClick={() => setPasswordDialogOpen(true)}
+                className="w-full rounded-full active:scale-[0.97] transition-transform"
+              >
+                <KeyRound className="h-4 w-4 mr-1" /> Set Password
+              </Button>
+              <SetPasswordDialog
+                open={passwordDialogOpen}
+                onOpenChange={setPasswordDialogOpen}
+                userId={profileEmployee.user_id}
+                userName={profileEmployee.name}
+              />
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
