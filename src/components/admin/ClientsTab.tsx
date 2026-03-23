@@ -362,6 +362,22 @@ export default function ClientsTab() {
                   <p className="text-sm text-foreground">{selected.notes}</p>
                 </div>
               )}
+              {selected.client_user_id && (
+                <div className="border-t border-border pt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full rounded-lg active:scale-[0.97] mb-2"
+                    onClick={() => {
+                      setPasswordTarget({ userId: selected.client_user_id!, name: selected.name });
+                      setPasswordDialogOpen(true);
+                    }}
+                  >
+                    <KeyRound className="h-4 w-4 mr-1" />
+                    Set Password
+                  </Button>
+                </div>
+              )}
               {!selected.client_user_id && selected.email && (
                 <div className="border-t border-border pt-4">
                   <Button
