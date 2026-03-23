@@ -459,6 +459,14 @@ export default function ClientsTab() {
           )}
         </div>
       </div>
+      {passwordTarget && (
+        <SetPasswordDialog
+          open={passwordDialogOpen}
+          onOpenChange={setPasswordDialogOpen}
+          userId={passwordTarget.userId}
+          userName={passwordTarget.name}
+        />
+      )}
     </div>
   );
 }
