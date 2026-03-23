@@ -57,6 +57,8 @@ export default function ClientsTab() {
   const [deleting, setDeleting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordTarget, setPasswordTarget] = useState<{ userId: string; name: string } | null>(null);
 
   // Form state
   const [form, setForm] = useState({
