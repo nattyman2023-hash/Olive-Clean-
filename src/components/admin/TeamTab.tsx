@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2, Camera, KeyRound } from "lucide-react";
 import { z } from "zod";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import SetPasswordDialog from "./SetPasswordDialog";
 
 interface Employee {
   id: string;
