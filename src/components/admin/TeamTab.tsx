@@ -453,6 +453,19 @@ export default function TeamTab() {
                   )}
                 </div>
               )}
+              <Button
+                variant="outline"
+                onClick={() => setPasswordDialogOpen(true)}
+                className="w-full rounded-full active:scale-[0.97] transition-transform"
+              >
+                <KeyRound className="h-4 w-4 mr-1" /> Set Password
+              </Button>
+              <SetPasswordDialog
+                open={passwordDialogOpen}
+                onOpenChange={setPasswordDialogOpen}
+                userId={profileEmployee.user_id}
+                userName={profileEmployee.name}
+              />
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
