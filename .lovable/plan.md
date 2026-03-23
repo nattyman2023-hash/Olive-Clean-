@@ -1,67 +1,36 @@
 
 
-# Plan: Dedicated Pages for Areas, Services, Terms & Privacy
+# Plan: Admin Set Custom Password for Customers & Employees
 
-## New Pages to Create
+## Approach
 
-### 1. Service Detail Pages
-Create a reusable `ServicePage` component and 4 routes — one per cleaning package. Each page will have Navbar + Footer, a hero section with the service name/price/description, a detailed features list, FAQs specific to that service, and a CTA to book.
+Create a backend function that uses the Supabase Admin API (`updateUserById`) to set a password for any user. The admin dashboard will expose a "Set Password" action on both the Clients and Team tabs for users who have linked auth accounts.
 
-**Slugs:** `/services/essential`, `/services/general`, `/services/deep-clean`, `/services/makeover`
+## Changes
 
-**New file:** `src/pages/ServiceDetail.tsx`
-- Accepts a slug param, looks up service data from a static map
-- Sections: hero with price, what's included checklist, ideal-for blurb, FAQ, CTA
-- Reuses the existing `About.tsx` layout pattern (Navbar + RevealSection + Footer)
+### 1. New Edge Function: `set-user-password`
+**File:** `supabase/functions/set-user-password/index.ts`
+- Accepts `{ user_id, password }` in the request body
+- Validates the caller is an admin (same pattern as `invite-employee`)
+- Uses `adminClient.auth.admin.updateUserById(user_id, { password })` to set the password
+- Validates password length (minimum 6 characters)
 
-### 2. Area Pages
-Create a reusable `AreaPage` component and 5 routes — one per service area.
+### 2. Admin ClientsTab — Add "Set Password" button
+**File:** `src/components/admin/ClientsTab.tsx`
+- For clients with a `client_user_id` (linked auth account), show a key/lock icon button
+- Opens a dialog with a password input field and confirm button
+- Calls the `set-user-password` edge function with the client's `client_user_id`
 
-**Slugs:** `/areas/belle-meade`, `/areas/brentwood`, `/areas/franklin`, `/areas/green-hills`, `/areas/west-nashville`
+### 3. Admin TeamTab — Add "Set Password" button
+**File:** `src/components/admin/TeamTab.tsx`
+- For employees with a `user_id`, show the same set-password dialog
+- Calls the edge function with the employee's `user_id`
 
-**New file:** `src/pages/AreaDetail.tsx`
-- Accepts a slug param, looks up area data from a static map
-- Sections: hero with area name, description of the neighborhood, services available, CTA to book
-- Mention area-specific details (e.g., "Serving Belle Meade's historic estates")
-
-### 3. Terms of Service Page
-**New file:** `src/pages/Terms.tsx`
-- Standard terms of service content with Navbar + Footer
-- Sections: acceptance, services description, booking/cancellation policy, liability, payment terms, privacy reference
-
-### 4. Privacy Policy Page
-**New file:** `src/pages/Privacy.tsx`
-- Standard privacy policy content with Navbar + Footer
-- Sections: data collection, usage, cookies, third parties, rights, contact
-
-## Updates to Existing Files
-
-### `src/App.tsx`
-Add routes:
-- `/services/:slug` → `ServiceDetail`
-- `/areas/:slug` → `AreaDetail`
-- `/terms` → `Terms`
-- `/privacy` → `Privacy`
-
-### `src/components/Footer.tsx`
-- Service list items → `<Link to="/services/essential">` etc.
-- Area list items → `<Link to="/areas/belle-meade">` etc.
-- Privacy link → `/privacy`, Terms link → `/terms`
-
-### `src/components/ServicesSection.tsx`
-- Add a "Learn More" link under each service card pointing to `/services/{slug}`
-
-## Files Summary
-
-| File | Action |
-|------|--------|
-| `src/pages/ServiceDetail.tsx` | Create — dynamic service detail page |
-| `src/pages/AreaDetail.tsx` | Create — dynamic area detail page |
-| `src/pages/Terms.tsx` | Create — terms of service |
-| `src/pages/Privacy.tsx` | Create — privacy policy |
-| `src/App.tsx` | Add 4 new routes |
-| `src/components/Footer.tsx` | Link services, areas, terms, privacy |
-| `src/components/ServicesSection.tsx` | Add "Learn More" links |
+### 4. Shared Dialog Component
+**File:** `src/components/admin/SetPasswordDialog.tsx`
+- Reusable dialog: takes `userId`, `userName`, `open`, `onOpenChange`
+- Password + confirm password fields with validation (min 6 chars, must match)
+- Calls the edge function and shows success/error toast
 
 No database changes needed.
 
