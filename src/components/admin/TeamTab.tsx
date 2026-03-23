@@ -96,6 +96,7 @@ export default function TeamTab() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   // Form state
   const [formName, setFormName] = useState("");
