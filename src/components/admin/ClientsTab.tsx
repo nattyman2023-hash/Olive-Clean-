@@ -27,7 +27,9 @@ import {
   Loader2,
   Trash2,
   Send,
+  KeyRound,
 } from "lucide-react";
+import SetPasswordDialog from "./SetPasswordDialog";
 
 interface Client {
   id: string;
