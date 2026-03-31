@@ -520,7 +520,7 @@ export default function ClientDashboard() {
           </TabsContent>
 
           <TabsContent value="account">
-            <ClientAccountSettings />
+            <ClientAccountSettings client={client as any} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["client_record"] })} />
           </TabsContent>
         </Tabs>
       </main>
