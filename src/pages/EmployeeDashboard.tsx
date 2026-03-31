@@ -216,10 +216,35 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
       if (newStatus === "complete") update.completed_at = new Date().toISOString();
       const { error } = await supabase.from("jobs").update(update).eq("id", job.id);
       if (error) throw error;
+      return newStatus;
     },
-    onSuccess: () => {
+    onSuccess: (newStatus) => {
       queryClient.invalidateQueries({ queryKey: ["my-jobs-today"] });
       toast.success("Status updated");
+
+      // Send job-completed email when marking complete
+      if (newStatus === "complete" && client?.name) {
+        const clientEmail = (client as any)?.email;
+        // We need to fetch client email from the clients table
+        supabase.from("clients").select("email, name").eq("id", job.client_id).maybeSingle().then(({ data: cl }) => {
+          if (cl?.email) {
+            const siteUrl = window.location.origin;
+            supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "job-completed",
+                recipientEmail: cl.email,
+                idempotencyKey: `job-complete-${job.id}`,
+                templateData: {
+                  name: cl.name,
+                  service: job.service,
+                  date: format(new Date(job.scheduled_at), "MMMM d, yyyy"),
+                  feedbackUrl: `${siteUrl}/feedback/${job.id}`,
+                },
+              },
+            });
+          }
+        });
+      }
     },
     onError: () => toast.error("Failed to update status"),
   });

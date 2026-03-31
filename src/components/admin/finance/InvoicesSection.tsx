@@ -50,9 +50,35 @@ export default function InvoicesSection() {
   const updateStatus = async (id: string, status: string) => {
     const update: any = { status };
     if (status === "paid") update.paid_at = new Date().toISOString();
+    if (status === "sent") update.issued_at = new Date().toISOString();
     const { error } = await supabase.from("invoices").update(update).eq("id", id);
     if (error) { toast.error("Failed to update."); return; }
     toast.success(`Invoice marked as ${status}.`);
+
+    // Send invoice-issued email when marking as sent
+    if (status === "sent") {
+      const inv = invoices.find((i) => i.id === id);
+      if (inv?.client_id) {
+        supabase.from("clients").select("email, name").eq("id", inv.client_id).maybeSingle().then(({ data: cl }) => {
+          if (cl?.email) {
+            supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "invoice-issued",
+                recipientEmail: cl.email,
+                idempotencyKey: `invoice-issued-${id}`,
+                templateData: {
+                  name: cl.name,
+                  invoiceNumber: inv.invoice_number,
+                  total: `$${Number(inv.total).toFixed(2)}`,
+                  dueDate: inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : undefined,
+                },
+              },
+            });
+          }
+        });
+      }
+    }
+
     fetch_();
   };
 
