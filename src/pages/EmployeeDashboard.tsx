@@ -8,14 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LogOut, Loader2, MapPin, Clock, Star, CheckCircle2,
   ChevronDown, ChevronUp, Camera, AlertTriangle, Package,
-  Navigation, Home, Play, Receipt, Plus, Upload
+  Navigation, Home, Play, Receipt, Plus, Upload, MessageSquare,
+  ChevronLeft, ChevronRight, CalendarDays
 } from "lucide-react";
 import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
 import TimeOffManager from "@/components/admin/TimeOffManager";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay, addDays, subDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 
 const STATUS_FLOW = ["scheduled", "accepted", "on_route", "on_site", "complete"] as const;
@@ -45,6 +47,7 @@ export default function EmployeeDashboard() {
   const { user, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
     if (!authLoading && !rolesLoading && (!user || !isStaff)) navigate("/employee/login");
@@ -60,20 +63,43 @@ export default function EmployeeDashboard() {
     },
   });
 
-  const today = new Date();
-  const { data: todayJobs = [], isLoading: jobsLoading } = useQuery({
-    queryKey: ["my-jobs-today", user?.id],
+  const { data: dayJobs = [], isLoading: jobsLoading } = useQuery({
+    queryKey: ["my-jobs-day", user?.id, format(selectedDate, "yyyy-MM-dd")],
     enabled: !!user && !!employee,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("jobs")
         .select("*, clients(name, address, neighborhood, preferences, lat, lng)")
         .eq("assigned_to", employee!.user_id)
-        .gte("scheduled_at", startOfDay(today).toISOString())
-        .lte("scheduled_at", endOfDay(today).toISOString())
+        .gte("scheduled_at", startOfDay(selectedDate).toISOString())
+        .lte("scheduled_at", endOfDay(selectedDate).toISOString())
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Week-at-a-glance: job counts for 7 days
+  const weekStart = subDays(selectedDate, 3);
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const { data: weekJobCounts = {} } = useQuery({
+    queryKey: ["my-jobs-week", user?.id, format(weekStart, "yyyy-MM-dd")],
+    enabled: !!user && !!employee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("scheduled_at")
+        .eq("assigned_to", employee!.user_id)
+        .gte("scheduled_at", startOfDay(weekDays[0]).toISOString())
+        .lte("scheduled_at", endOfDay(weekDays[6]).toISOString());
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      (data || []).forEach((j: any) => {
+        const key = format(new Date(j.scheduled_at), "yyyy-MM-dd");
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      return counts;
     },
   });
 
@@ -87,6 +113,21 @@ export default function EmployeeDashboard() {
     },
   });
 
+  // Team messages
+  const { data: teamMessages = [] } = useQuery({
+    queryKey: ["team_messages_employee"],
+    enabled: !!user && isStaff,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_messages" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
   if (authLoading || empLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-muted/30"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
@@ -95,6 +136,7 @@ export default function EmployeeDashboard() {
   const checklist = (employee?.onboarding_checklist as Record<string, boolean>) || {};
   const checklistDone = Object.values(checklist).filter(Boolean).length;
   const checklistTotal = Object.keys(checklist).length;
+  const isToday = isSameDay(selectedDate, new Date());
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -119,25 +161,88 @@ export default function EmployeeDashboard() {
       </header>
 
       <main className="container py-6 max-w-2xl space-y-4">
+        {/* Week-at-a-glance strip */}
+        <div className="flex items-center gap-1 justify-between">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex gap-1 flex-1 justify-center">
+            {weekDays.map((day) => {
+              const key = format(day, "yyyy-MM-dd");
+              const count = (weekJobCounts as Record<string, number>)[key] || 0;
+              const isSelected = isSameDay(day, selectedDate);
+              const isDayToday = isSameDay(day, new Date());
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSelectedDate(day)}
+                  className={`flex flex-col items-center px-2 py-1.5 rounded-lg transition-colors min-w-[40px] ${
+                    isSelected ? "bg-primary text-primary-foreground" : isDayToday ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-[0.55rem] font-medium uppercase">{format(day, "EEE")}</span>
+                  <span className="text-sm font-semibold tabular-nums">{format(day, "d")}</span>
+                  {count > 0 && (
+                    <span className={`text-[0.5rem] font-bold ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                      {count} job{count !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {!isToday && (
+          <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => setSelectedDate(new Date())}>
+            <CalendarDays className="h-3 w-3 mr-1" /> Back to Today
+          </Button>
+        )}
+
         <h2 className="text-base font-semibold flex items-center gap-2">
           <Clock className="h-4 w-4 text-primary" />
-          {format(today, "EEEE, MMMM d")} — {todayJobs.length} job{todayJobs.length !== 1 ? "s" : ""}
+          {format(selectedDate, "EEEE, MMMM d")} — {dayJobs.length} job{dayJobs.length !== 1 ? "s" : ""}
         </h2>
 
         {jobsLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" /></div>
-        ) : todayJobs.length === 0 ? (
-          <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No jobs scheduled today. Enjoy your day off!</CardContent></Card>
+        ) : dayJobs.length === 0 ? (
+          <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
+            {isToday ? "No jobs scheduled today. Enjoy your day off!" : "No jobs scheduled for this day."}
+          </CardContent></Card>
         ) : (
-          todayJobs.map((job: any, idx: number) => (
+          dayJobs.map((job: any, idx: number) => (
             <JobCard key={job.id} job={job} index={idx} queryClient={queryClient} employeeId={employee?.id} />
           ))
         )}
 
         {/* Map */}
-        {!jobsLoading && todayJobs.length > 0 && (
-          <EmployeeJobMap jobs={todayJobs} />
+        {!jobsLoading && dayJobs.length > 0 && (
+          <EmployeeJobMap jobs={dayJobs} />
         )}
+
+        {/* Team Messages */}
+        {teamMessages.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2"><MessageSquare className="h-4 w-4 text-primary" />Team Announcements</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {teamMessages.map((msg: any) => (
+                <div key={msg.id} className="p-3 rounded-lg bg-muted/50 border border-border">
+                  <p className="text-xs text-foreground">{msg.message}</p>
+                  <p className="text-[0.6rem] text-muted-foreground mt-1">{format(new Date(msg.created_at), "MMM d, h:mm a")}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Supply Request */}
+        {employee && <SupplyRequestForm employeeId={employee.id} />}
 
         {/* Performance */}
         {performance.length > 0 && (
@@ -198,6 +303,107 @@ export default function EmployeeDashboard() {
   );
 }
 
+function SupplyRequestForm({ employeeId }: { employeeId: string }) {
+  const [showForm, setShowForm] = useState(false);
+  const [itemId, setItemId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: supplyItems = [] } = useQuery({
+    queryKey: ["supply_items_list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("supply_items").select("id, name, unit").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: myRequests = [] } = useQuery({
+    queryKey: ["my_supply_requests", employeeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("supply_requests" as any)
+        .select("*, supply_items(name)")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  const submit = async () => {
+    if (!itemId || !quantity) { toast.error("Select an item and quantity."); return; }
+    setSaving(true);
+    const { error } = await supabase.from("supply_requests" as any).insert({
+      employee_id: employeeId,
+      supply_item_id: itemId,
+      quantity: parseInt(quantity),
+      notes: notes.trim() || null,
+    });
+    setSaving(false);
+    if (error) { toast.error("Failed to submit request."); return; }
+    toast.success("Supply request submitted.");
+    setShowForm(false);
+    setItemId("");
+    setQuantity("1");
+    setNotes("");
+    queryClient.invalidateQueries({ queryKey: ["my_supply_requests"] });
+  };
+
+  const statusStyle: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-800",
+    approved: "bg-emerald-100 text-emerald-800",
+    fulfilled: "bg-blue-100 text-blue-800",
+    denied: "bg-red-100 text-red-800",
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-sm flex items-center gap-2"><Package className="h-4 w-4 text-primary" />Supply Requests</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)} className="h-7 text-xs rounded-lg"><Plus className="h-3 w-3 mr-1" />Request</Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {showForm && (
+          <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-border">
+            <Select value={itemId} onValueChange={setItemId}>
+              <SelectTrigger className="rounded-lg text-sm"><SelectValue placeholder="Select supply item" /></SelectTrigger>
+              <SelectContent>
+                {supplyItems.map((item: any) => (
+                  <SelectItem key={item.id} value={item.id}>{item.name} ({item.unit})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input placeholder="Quantity" type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="rounded-lg text-sm" />
+            <Input placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="rounded-lg text-sm" />
+            <Button size="sm" onClick={submit} disabled={saving} className="w-full rounded-lg">
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}Submit Request
+            </Button>
+          </div>
+        )}
+        {myRequests.length === 0 && !showForm ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No supply requests yet.</p>
+        ) : (
+          myRequests.map((r: any) => (
+            <div key={r.id} className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/30 border border-border">
+              <div>
+                <p className="font-medium text-foreground">{(r.supply_items as any)?.name || "Item"} × {r.quantity}</p>
+                {r.notes && <p className="text-muted-foreground">{r.notes}</p>}
+              </div>
+              <span className={`text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full capitalize ${statusStyle[r.status] || statusStyle.pending}`}>{r.status}</span>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function JobCard({ job, index, queryClient, employeeId }: { job: any; index: number; queryClient: any; employeeId?: string }) {
   const [expanded, setExpanded] = useState(false);
   const [incidentOpen, setIncidentOpen] = useState(false);
@@ -223,13 +429,11 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
       return newStatus;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ["my-jobs-today"] });
+      queryClient.invalidateQueries({ queryKey: ["my-jobs-day"] });
+      queryClient.invalidateQueries({ queryKey: ["my-jobs-week"] });
       toast.success("Status updated");
 
-      // Send job-completed email when marking complete
       if (newStatus === "complete" && client?.name) {
-        const clientEmail = (client as any)?.email;
-        // We need to fetch client email from the clients table
         supabase.from("clients").select("email, name").eq("id", job.client_id).maybeSingle().then(({ data: cl }) => {
           if (cl?.email) {
             const siteUrl = window.location.origin;
@@ -258,7 +462,7 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
       const { error } = await supabase.from("jobs").update({ checklist_state: newState as any }).eq("id", job.id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-jobs-today"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-jobs-day"] }),
   });
 
   const toggleCheckItem = (item: string) => {
@@ -272,7 +476,6 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
     const { error } = await supabase.storage.from(bucket).upload(path, file);
     if (error) { toast.error("Upload failed"); return; }
 
-    // Record metadata in job_attachments
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("job_attachments" as any).insert({
@@ -296,7 +499,7 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-jobs-today"] });
+      queryClient.invalidateQueries({ queryKey: ["my-jobs-day"] });
       toast.success("Incident reported");
       setIncidentText("");
       setIncidentOpen(false);
@@ -333,7 +536,6 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
             <p className="text-xs font-medium text-foreground mb-2">Status</p>
             <div className="flex gap-1">
               {STATUS_FLOW.map((s, i) => {
-                const info = STATUS_LABELS[s];
                 const isActive = i <= currentIdx;
                 return (
                   <div key={s} className={`flex-1 h-2 rounded-full ${isActive ? "bg-primary" : "bg-muted"}`} />
