@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star, FileText, User } from "lucide-react";
+import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star, FileText, User, X, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import BookingSection from "@/components/client/BookingSection";
 import TechnicianAvatar from "@/components/client/TechnicianAvatar";
 import ClientInvoices from "@/components/client/ClientInvoices";
@@ -63,6 +67,16 @@ export default function ClientDashboard() {
   const [newPrefKey, setNewPrefKey] = useState("");
   const [newPrefValue, setNewPrefValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Reschedule state
+  const [rescheduleJobId, setRescheduleJobId] = useState<string | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>();
+  const [rescheduleTime, setRescheduleTime] = useState("09:00");
+
+  // Inline rating state
+  const [ratingJobId, setRatingJobId] = useState<string | null>(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingHover, setRatingHover] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -149,6 +163,50 @@ export default function ClientDashboard() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase.from("jobs").update({ status: "cancelled" }).eq("id", jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client_jobs"] });
+      toast.success("Appointment cancelled");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ jobId, newDate }: { jobId: string; newDate: string }) => {
+      const { error } = await supabase.from("jobs").update({ scheduled_at: newDate }).eq("id", jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client_jobs"] });
+      toast.success("Appointment rescheduled");
+      setRescheduleJobId(null);
+      setRescheduleDate(undefined);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const inlineRatingMutation = useMutation({
+    mutationFn: async ({ jobId, rating }: { jobId: string; rating: number }) => {
+      const { error } = await supabase.from("feedback").insert({
+        job_id: jobId,
+        client_id: client!.id,
+        rating,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client_feedback"] });
+      toast.success("Thanks for your rating!");
+      setRatingJobId(null);
+      setRatingValue(0);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const addPreference = () => {
     if (!newPrefKey.trim()) return;
     const current = (client?.preferences || {}) as Record<string, string>;
@@ -161,6 +219,14 @@ export default function ClientDashboard() {
     const current = { ...((client?.preferences || {}) as Record<string, string>) };
     delete current[key];
     prefsMutation.mutate(current);
+  };
+
+  const handleRescheduleConfirm = () => {
+    if (!rescheduleJobId || !rescheduleDate) return;
+    const [hours, minutes] = rescheduleTime.split(":").map(Number);
+    const dt = new Date(rescheduleDate);
+    dt.setHours(hours, minutes, 0, 0);
+    rescheduleMutation.mutate({ jobId: rescheduleJobId, newDate: dt.toISOString() });
   };
 
   if (authLoading || clientLoading) {
@@ -252,24 +318,56 @@ export default function ClientDashboard() {
                 <div className="space-y-3">
                   {upcomingJobs.map((job) => {
                     const tech = job.assigned_to ? techByUserId[job.assigned_to] : null;
+                    const canModify = job.status === "scheduled";
                     return (
                       <Card key={job.id}>
-                        <CardContent className="py-4 flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-sm">{job.service}</p>
-                            <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
-                            {tech && (
-                              <div className="mt-1.5">
-                                <TechnicianAvatar name={tech.name} photoUrl={tech.photo_url} />
-                              </div>
-                            )}
+                        <CardContent className="py-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm">{job.service}</p>
+                              <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
+                              {tech && (
+                                <div className="mt-1.5">
+                                  <TechnicianAvatar name={tech.name} photoUrl={tech.photo_url} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {job.price && <span className="text-sm font-semibold tabular-nums">${Number(job.price).toFixed(0)}</span>}
+                              <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
+                                {job.status.replace(/_/g, " ")}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            {job.price && <span className="text-sm font-semibold tabular-nums">${Number(job.price).toFixed(0)}</span>}
-                            <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
-                              {job.status.replace(/_/g, " ")}
-                            </span>
-                          </div>
+                          {canModify && (
+                            <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs rounded-lg flex-1"
+                                onClick={() => {
+                                  setRescheduleJobId(job.id);
+                                  setRescheduleDate(new Date(job.scheduled_at));
+                                  setRescheduleTime(format(new Date(job.scheduled_at), "HH:mm"));
+                                }}
+                              >
+                                <CalendarIcon className="h-3 w-3 mr-1" /> Reschedule
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+                                disabled={cancelMutation.isPending}
+                                onClick={() => {
+                                  if (confirm("Are you sure you want to cancel this appointment?")) {
+                                    cancelMutation.mutate(job.id);
+                                  }
+                                }}
+                              >
+                                <X className="h-3 w-3 mr-1" /> Cancel
+                              </Button>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     );
@@ -304,6 +402,8 @@ export default function ClientDashboard() {
                   {filteredPastJobs.slice(0, 20).map((job) => {
                     const fb = feedbackByJob[job.id];
                     const tech = job.assigned_to ? techByUserId[job.assigned_to] : null;
+                    const isCompleted = job.status === "completed" || job.status === "complete";
+                    const showInlineRating = isCompleted && !fb;
                     return (
                       <Card key={job.id}>
                         <CardContent className="py-4 flex items-center justify-between gap-4">
@@ -322,10 +422,31 @@ export default function ClientDashboard() {
                                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                                 <span className="text-xs font-medium tabular-nums">{fb.rating}</span>
                               </div>
-                            ) : (job.status === "completed" || job.status === "complete") ? (
-                              <Button asChild variant="ghost" size="sm" className="text-xs h-7">
-                                <Link to={`/feedback/${job.id}`}>Leave Review</Link>
-                              </Button>
+                            ) : showInlineRating ? (
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                  <button
+                                    key={s}
+                                    disabled={inlineRatingMutation.isPending}
+                                    onClick={() => {
+                                      setRatingJobId(job.id);
+                                      setRatingValue(s);
+                                      inlineRatingMutation.mutate({ jobId: job.id, rating: s });
+                                    }}
+                                    onMouseEnter={() => { setRatingJobId(job.id); setRatingHover(s); }}
+                                    onMouseLeave={() => setRatingHover(0)}
+                                    className="transition-transform active:scale-90"
+                                  >
+                                    <Star
+                                      className={`h-4 w-4 transition-colors ${
+                                        s <= (ratingJobId === job.id ? (ratingHover || ratingValue) : 0)
+                                          ? "fill-primary text-primary"
+                                          : "text-muted-foreground/30"
+                                      }`}
+                                    />
+                                  </button>
+                                ))}
+                              </div>
                             ) : null}
                             <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
                               {job.status}
@@ -395,25 +516,49 @@ export default function ClientDashboard() {
           </TabsContent>
 
           <TabsContent value="invoices">
-            <div className="flex items-center gap-2 mb-4">
-              <FileText className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">My Invoices</h2>
-            </div>
             <ClientInvoices clientId={client.id} />
           </TabsContent>
 
           <TabsContent value="account">
-            <div className="flex items-center gap-2 mb-4">
-              <User className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Account Settings</h2>
-            </div>
-            <ClientAccountSettings
-              client={client}
-              onUpdate={() => queryClient.invalidateQueries({ queryKey: ["client_record"] })}
-            />
+            <ClientAccountSettings />
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Reschedule Dialog */}
+      <Dialog open={!!rescheduleJobId} onOpenChange={(o) => { if (!o) setRescheduleJobId(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Reschedule Appointment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <Calendar
+              mode="single"
+              selected={rescheduleDate}
+              onSelect={setRescheduleDate}
+              disabled={(date) => date < new Date()}
+              className={cn("p-3 pointer-events-auto rounded-xl border border-border")}
+            />
+            <div>
+              <label className="text-xs text-muted-foreground">Time</label>
+              <Input
+                type="time"
+                value={rescheduleTime}
+                onChange={(e) => setRescheduleTime(e.target.value)}
+                className="rounded-xl mt-1"
+              />
+            </div>
+            <Button
+              onClick={handleRescheduleConfirm}
+              disabled={!rescheduleDate || rescheduleMutation.isPending}
+              className="w-full rounded-xl"
+            >
+              {rescheduleMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Confirm New Date
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
