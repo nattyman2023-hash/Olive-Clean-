@@ -42,17 +42,17 @@ const getChecklist = (service: string): string[] => {
 };
 
 export default function EmployeeDashboard() {
-  const { user, isStaff, loading: authLoading, signOut } = useAuth();
+  const { user, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!authLoading && (!user || !isStaff)) navigate("/employee/login");
-  }, [authLoading, user, isStaff, navigate]);
+    if (!authLoading && !rolesLoading && (!user || !isStaff)) navigate("/employee/login");
+  }, [authLoading, rolesLoading, user, isStaff, navigate]);
 
   const { data: employee, isLoading: empLoading } = useQuery({
     queryKey: ["my-employee-record", user?.id],
-    enabled: !!user,
+    enabled: !!user && !rolesLoading && isStaff,
     queryFn: async () => {
       const { data, error } = await supabase.from("employees").select("*").eq("user_id", user!.id).maybeSingle();
       if (error) throw error;

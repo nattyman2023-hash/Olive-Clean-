@@ -22,7 +22,7 @@ export default function AdminLogin() {
       toast.error(error.message);
       return;
     }
-    navigate("/admin");
+    navigate("/admin", { replace: true });
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {

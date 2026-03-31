@@ -22,7 +22,7 @@ export default function ClientLogin() {
       toast.error(error.message);
       return;
     }
-    navigate("/client");
+    navigate("/client", { replace: true });
   };
 
   const handleSignUp = async (e: React.FormEvent) => {

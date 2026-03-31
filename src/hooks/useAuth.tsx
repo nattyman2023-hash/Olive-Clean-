@@ -34,71 +34,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isClient, setIsClient] = useState(false);
   const resolvedUserIdRef = useRef<string | null>(null);
 
-  const checkRoles = async (userId: string, attempt = 0) => {
-    try {
-      const [adminRes, staffRes, clientRes] = await Promise.all([
-        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-        supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
-        supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
-      ]);
-      setIsAdmin(!!adminRes.data);
-      setIsStaff(!!staffRes.data);
-      setIsClient(!!clientRes.data);
-      resolvedUserIdRef.current = userId;
-    } catch {
-      if (attempt < 2) {
-        await new Promise((r) => setTimeout(r, 1500));
-        return checkRoles(userId, attempt + 1);
-      }
-    } finally {
-      setRolesLoading(false);
-    }
-  };
-
+  // Synchronous-only auth listener — no Supabase calls inside
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
 
-        if (event === "SIGNED_OUT" || !session?.user) {
-          setIsAdmin(false);
-          setIsStaff(false);
-          setIsClient(false);
-          resolvedUserIdRef.current = null;
-          setRolesLoading(false);
-          setLoading(false);
-          return;
-        }
-
-        // TOKEN_REFRESHED for the same user — skip entirely
-        if (event === "TOKEN_REFRESHED" && resolvedUserIdRef.current === session.user.id) {
-          setLoading(false);
-          return;
-        }
-
-        // SIGNED_IN for the same user already resolved — skip
-        if (event === "SIGNED_IN" && resolvedUserIdRef.current === session.user.id) {
-          setLoading(false);
-          return;
-        }
-
-        // INITIAL_SESSION or SIGNED_IN for a new/different user — resolve roles
-        if (
-          event === "INITIAL_SESSION" ||
-          event === "SIGNED_IN" ||
-          resolvedUserIdRef.current !== session.user.id
-        ) {
-          setRolesLoading(true);
-          await checkRoles(session.user.id);
-        }
-
-        setLoading(false);
+      if (!session?.user) {
+        resolvedUserIdRef.current = null;
+        setIsAdmin(false);
+        setIsStaff(false);
+        setIsClient(false);
+        setRolesLoading(false);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Separate effect for role resolution — safe to call supabase.rpc here
+  useEffect(() => {
+    if (!user) return;
+    if (resolvedUserIdRef.current === user.id) {
+      setRolesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRolesLoading(true);
+
+    (async () => {
+      try {
+        const [adminRes, staffRes, clientRes] = await Promise.all([
+          supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "staff" }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "client" as never }),
+        ]);
+        if (cancelled) return;
+        setIsAdmin(!!adminRes.data);
+        setIsStaff(!!staffRes.data);
+        setIsClient(!!clientRes.data);
+        resolvedUserIdRef.current = user.id;
+      } catch {
+        // roles stay false on failure
+      } finally {
+        if (!cancelled) setRolesLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
