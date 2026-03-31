@@ -223,19 +223,9 @@ function TemplatesPreviewView() {
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["email-template-previews"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/preview-transactional-email`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        }
-      );
-      if (!res.ok) throw new Error("Failed to fetch previews");
-      const json = await res.json();
-      return (json.templates || []) as TemplatePreview[];
+      const { data, error } = await supabase.functions.invoke("preview-transactional-email", { method: "GET" });
+      if (error) throw new Error("Failed to fetch previews");
+      return (data?.templates || []) as TemplatePreview[];
     },
   });
 
