@@ -18,6 +18,7 @@ import SuppliesTab from "@/components/admin/SuppliesTab";
 import FinanceTab from "@/components/admin/FinanceTab";
 import CalendarTab from "@/components/admin/CalendarTab";
 import TimeOffManager from "@/components/admin/TimeOffManager";
+import EmailsTab from "@/components/admin/EmailsTab";
 
 const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
@@ -32,6 +33,7 @@ const ADMIN_TABS = [
   { value: "finance", label: "Finance", adminOnly: true },
   { value: "calendar", label: "Calendar", adminOnly: true },
   { value: "time-off", label: "Time Off", adminOnly: true },
+  { value: "emails", label: "Emails", adminOnly: true },
 ];
 
 function AdminGate() {
@@ -126,6 +128,7 @@ export default function AdminDashboard() {
           <TabsContent value="finance">{isAdmin ? <FinanceTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="calendar">{isAdmin ? <CalendarTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="time-off">{isAdmin ? <TimeOffManager isAdmin /> : <AdminGate />}</TabsContent>
+          <TabsContent value="emails">{isAdmin ? <EmailsTab /> : <AdminGate />}</TabsContent>
         </Tabs>
       </main>
     </div>

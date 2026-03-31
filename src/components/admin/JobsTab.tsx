@@ -48,6 +48,7 @@ interface EmployeeOption {
   name: string;
   photo_url: string | null;
   user_id: string;
+  email: string | null;
 }
 
 const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; className: string }> = {
@@ -116,7 +117,7 @@ export default function JobsTab() {
   };
 
   const fetchEmployees = async () => {
-    const { data } = await supabase.from("employees").select("id, name, photo_url, user_id").eq("status", "active").order("name");
+    const { data } = await supabase.from("employees").select("id, name, photo_url, user_id, email").eq("status", "active").order("name");
     setEmployees(data || []);
   };
 
@@ -141,6 +142,28 @@ export default function JobsTab() {
       return;
     }
     toast.success("Job created.");
+
+    // Send job-assigned email if assigned
+    if (form.assigned_to) {
+      const emp = employees.find((e) => e.id === form.assigned_to);
+      const client = clients.find((c) => c.id === form.client_id);
+      if (emp?.email) {
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "job-assigned",
+            recipientEmail: emp.email,
+            idempotencyKey: `job-assigned-new-${form.client_id}-${form.scheduled_at}-${form.assigned_to}`,
+            templateData: {
+              employeeName: emp.name,
+              clientName: client?.name,
+              service: form.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+              date: new Date(form.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+            },
+          },
+        });
+      }
+    }
+
     setShowForm(false);
     setForm({ client_id: "", assigned_to: "", service: "essential", scheduled_at: "", duration_minutes: "120", price: "", notes: "" });
     fetchJobs();
@@ -166,6 +189,28 @@ export default function JobsTab() {
       return;
     }
     toast.success(employeeId ? "Job reassigned." : "Assignment removed.");
+
+    // Send job-assigned email to the employee
+    if (employeeId) {
+      const emp = employees.find((e) => e.id === employeeId);
+      const job = jobs.find((j) => j.id === jobId);
+      if (emp?.email && job) {
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "job-assigned",
+            recipientEmail: emp.email,
+            idempotencyKey: `job-assigned-${jobId}-${employeeId}`,
+            templateData: {
+              employeeName: emp.name,
+              clientName: job.clients?.name,
+              service: job.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+              date: new Date(job.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+            },
+          },
+        });
+      }
+    }
+
     fetchJobs();
   };
 
