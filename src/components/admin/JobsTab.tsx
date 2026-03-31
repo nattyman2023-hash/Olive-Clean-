@@ -223,7 +223,7 @@ export default function JobsTab() {
 
     // Send job-assigned email to the employee
     if (employeeId) {
-      const emp = employees.find((e) => e.id === employeeId);
+      const emp = employees.find((e) => e.user_id === employeeId);
       const job = jobs.find((j) => j.id === jobId);
       if (emp?.email && job) {
         supabase.functions.invoke("send-transactional-email", {
