@@ -36,6 +36,7 @@ const ADMIN_TABS = [
   { value: "calendar", label: "Calendar", adminOnly: true },
   { value: "time-off", label: "Time Off", adminOnly: true },
   { value: "emails", label: "Emails", adminOnly: true },
+  { value: "photos", label: "Photos", adminOnly: true },
 ];
 
 function AdminGate() {
