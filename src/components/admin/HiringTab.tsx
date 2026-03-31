@@ -109,10 +109,21 @@ export default function HiringTab() {
         .eq("id", applicant.id);
       if (appErr) throw appErr;
     },
-    onSuccess: () => {
+    onSuccess: (_, applicant) => {
       queryClient.invalidateQueries({ queryKey: ["applicants"] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       toast.success("Applicant moved to team!");
+      // Send hired email
+      if (applicant.email) {
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "applicant-hired",
+            recipientEmail: applicant.email,
+            idempotencyKey: `applicant-hired-${applicant.id}`,
+            templateData: { name: applicant.name },
+          },
+        });
+      }
       setSelected(null);
     },
     onError: (err: Error) => toast.error(err.message),

@@ -73,7 +73,9 @@ export default function Careers() {
         const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(path);
         resume_url = urlData.publicUrl;
       }
+      const appId = crypto.randomUUID();
       const { error } = await supabase.from("applicants").insert({
+        id: appId,
         name: form.name,
         email: form.email,
         phone: form.phone || null,
@@ -85,6 +87,18 @@ export default function Careers() {
         job_posting_id: form.job_posting_id,
       } as any);
       if (error) throw error;
+      // Send confirmation email
+      supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "application-received",
+          recipientEmail: form.email,
+          idempotencyKey: `app-received-${appId}`,
+          templateData: {
+            name: form.name,
+            position: selectedPosting?.title,
+          },
+        },
+      });
       setSubmitted(true);
     } catch (err: any) {
       toast.error(err.message || "Something went wrong.");

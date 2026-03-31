@@ -49,7 +49,9 @@ export default function BookPage() {
 
   const handleSubmit = async () => {
     setLoading(true);
+    const id = crypto.randomUUID();
     const { error } = await supabase.from("booking_requests").insert({
+      id,
       service: form.service,
       home_type: form.homeType,
       bedrooms: parseInt(form.bedrooms),
@@ -66,6 +68,18 @@ export default function BookPage() {
       toast.error("Something went wrong. Please try again.");
       return;
     }
+    // Send confirmation email
+    supabase.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "booking-request-received",
+        recipientEmail: form.email,
+        idempotencyKey: `booking-req-${id}`,
+        templateData: {
+          name: form.name,
+          service: serviceTiers.find((t) => t.id === form.service)?.name || form.service,
+        },
+      },
+    });
     setSubmitted(true);
   };
 
