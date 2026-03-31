@@ -48,6 +48,7 @@ interface EmployeeOption {
   name: string;
   photo_url: string | null;
   user_id: string;
+  email: string | null;
 }
 
 const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; className: string }> = {
