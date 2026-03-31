@@ -18,6 +18,7 @@ import {
   UserCircle,
   List,
   Map as MapIcon,
+  Filter,
 } from "lucide-react";
 import JobsMap from "./jobs/JobsMap";
 
