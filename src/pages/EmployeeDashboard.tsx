@@ -189,6 +189,9 @@ export default function EmployeeDashboard() {
 
         {/* Expenses */}
         {employee && <EmployeeExpenses employeeId={employee.id} />}
+
+        {/* Time Off */}
+        {employee && <TimeOffManager employeeId={employee.id} />}
       </main>
     </div>
   );
