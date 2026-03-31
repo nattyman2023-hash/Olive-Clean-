@@ -1,36 +1,27 @@
 
 
-# Add Advanced Filtering to Jobs Tab
+# Fix Email Sender Display Name
 
-## Current State
-The Jobs tab has a text search and status filter buttons. No date range, employee, service, or location filters exist.
+## Problem
+The `From:` header in sent emails shows **olive-sanctuary-stack** instead of **Olive Clean** because the `SITE_NAME` constant in the send function was set to the project slug during scaffolding.
 
-## Plan
+## Fix
 
-### Changes to `src/components/admin/JobsTab.tsx`
+### `supabase/functions/send-transactional-email/index.ts`
+Change line:
+```typescript
+const SITE_NAME = "olive-sanctuary-stack"
+```
+to:
+```typescript
+const SITE_NAME = "Olive Clean"
+```
 
-Add a collapsible filter bar below the existing toolbar with:
+This single change updates the `From:` header (`Olive Clean <noreply@oliveclean.co>`) for all future transactional emails.
 
-1. **Date range filter** — Two date inputs (from/to) using native `input[type="date"]` to filter `scheduled_at`
-2. **Employee filter** — A `<select>` dropdown populated from the existing `employees` state, filtering by `assigned_to`
-3. **Service filter** — A `<select>` dropdown using the existing `SERVICES` array
-4. **Location filter** — A `<select>` dropdown of unique neighborhoods from `clients` data (already fetched via jobs query which includes `clients(neighborhood)`)
+### Redeploy
+Deploy the updated edge function so the change takes effect.
 
-New state variables:
-- `dateFrom`, `dateTo` (strings)
-- `employeeFilter` (string, default `"all"`)
-- `serviceFilter` (string, default `"all"`)
-- `neighborhoodFilter` (string, default `"all"`)
-
-Update the `filtered` computation to apply all filters alongside the existing search and status filter.
-
-Add a "Filters" toggle button with a `Filter` icon next to the existing toolbar. Show an active filter count badge. Add a "Clear filters" button when any filter is active.
-
-### UI Layout
-- Filter row appears between toolbar and content when toggled
-- Styled consistently with existing card/border patterns
-- Responsive: stacks on mobile, inline on desktop
-
-### Files Modified
-- `src/components/admin/JobsTab.tsx` — Add filter state, filter UI, update filtering logic
+### Files modified
+- `supabase/functions/send-transactional-email/index.ts`
 
