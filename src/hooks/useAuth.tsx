@@ -56,50 +56,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    let initialized = false;
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
-        if (session?.user) {
-          // Only re-check roles on SIGNED_IN or initial load, skip TOKEN_REFRESHED if same user
-          if (_event === 'SIGNED_IN' || !initialized) {
-            setRolesLoading(true);
-            await checkRoles(session.user.id);
-          } else if (_event === 'TOKEN_REFRESHED' && resolvedUserIdRef.current === session.user.id) {
-            // Same user, skip role re-check — no flickering
-          } else if (resolvedUserIdRef.current !== session.user.id) {
-            // Different user (edge case), re-check
-            setRolesLoading(true);
-            await checkRoles(session.user.id);
-          }
-        } else {
+        if (event === "SIGNED_OUT" || !session?.user) {
           setIsAdmin(false);
           setIsStaff(false);
           setIsClient(false);
           resolvedUserIdRef.current = null;
           setRolesLoading(false);
+          setLoading(false);
+          return;
         }
-        initialized = true;
+
+        // TOKEN_REFRESHED for the same user — skip entirely
+        if (event === "TOKEN_REFRESHED" && resolvedUserIdRef.current === session.user.id) {
+          setLoading(false);
+          return;
+        }
+
+        // SIGNED_IN for the same user already resolved — skip
+        if (event === "SIGNED_IN" && resolvedUserIdRef.current === session.user.id) {
+          setLoading(false);
+          return;
+        }
+
+        // INITIAL_SESSION or SIGNED_IN for a new/different user — resolve roles
+        if (
+          event === "INITIAL_SESSION" ||
+          event === "SIGNED_IN" ||
+          resolvedUserIdRef.current !== session.user.id
+        ) {
+          setRolesLoading(true);
+          await checkRoles(session.user.id);
+        }
+
         setLoading(false);
       }
     );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!initialized) {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setRolesLoading(true);
-          checkRoles(session.user.id).then(() => setLoading(false));
-        } else {
-          setRolesLoading(false);
-          setLoading(false);
-        }
-      }
-    });
 
     return () => subscription.unsubscribe();
   }, []);
