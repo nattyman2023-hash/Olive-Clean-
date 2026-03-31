@@ -187,6 +187,50 @@ export default function JobsTab() {
     }
     toast.success(`Job marked as ${status}.`);
 
+    // Auto-increment loyalty cleanings on completion
+    if (status === "completed") {
+      const job = jobs.find((j) => j.id === id);
+      if (job?.client_id) {
+        const { data: member } = await supabase
+          .from("perks_members")
+          .select("id, cleanings_completed, free_cleanings_earned, program_type")
+          .eq("client_id", job.client_id)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (member) {
+          const newCount = (member.cleanings_completed || 0) + 1;
+          const updateData: any = { cleanings_completed: newCount };
+
+          // Check if threshold reached for free cleaning
+          // Fetch program to get interval
+          const PROGRAM_KEY_MAP: Record<string, string> = {
+            loyalty_club: "Loyalty Club", friends_family: "Friends & Family",
+            veterans: "Veterans", retired: "Retired",
+          };
+          const progName = PROGRAM_KEY_MAP[member.program_type] || member.program_type;
+          const { data: prog } = await supabase
+            .from("loyalty_programs")
+            .select("benefits")
+            .eq("name", progName)
+            .maybeSingle();
+
+          const interval = (prog as any)?.benefits?.free_cleaning_interval || 10;
+          if (newCount > 0 && newCount % interval === 0) {
+            updateData.free_cleanings_earned = (member.free_cleanings_earned || 0) + 1;
+            // Insert milestone
+            await supabase.from("loyalty_milestones").insert({
+              member_id: member.id,
+              milestone_type: "free_cleaning",
+              notes: `Earned after ${newCount} cleanings`,
+            });
+          }
+
+          await supabase.from("perks_members").update(updateData).eq("id", member.id);
+        }
+      }
+    }
+
     // Send job-update email to client for cancellations/rescheduling
     if (status === "cancelled") {
       const job = jobs.find((j) => j.id === id);
