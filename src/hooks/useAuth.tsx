@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext, useContext, ReactNode } from "react";
+import { useEffect, useState, useRef, createContext, useContext, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const resolvedUserIdRef = useRef<string | null>(null);
 
   const checkRoles = async (userId: string, attempt = 0) => {
     try {
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(!!adminRes.data);
       setIsStaff(!!staffRes.data);
       setIsClient(!!clientRes.data);
+      resolvedUserIdRef.current = userId;
     } catch {
       if (attempt < 2) {
         await new Promise((r) => setTimeout(r, 1500));
@@ -60,8 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+
         if (session?.user) {
+          // Only re-check roles on SIGNED_IN or initial load, skip TOKEN_REFRESHED if same user
           if (_event === 'SIGNED_IN' || !initialized) {
+            setRolesLoading(true);
+            await checkRoles(session.user.id);
+          } else if (_event === 'TOKEN_REFRESHED' && resolvedUserIdRef.current === session.user.id) {
+            // Same user, skip role re-check — no flickering
+          } else if (resolvedUserIdRef.current !== session.user.id) {
+            // Different user (edge case), re-check
             setRolesLoading(true);
             await checkRoles(session.user.id);
           }
@@ -69,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsAdmin(false);
           setIsStaff(false);
           setIsClient(false);
+          resolvedUserIdRef.current = null;
           setRolesLoading(false);
         }
         initialized = true;

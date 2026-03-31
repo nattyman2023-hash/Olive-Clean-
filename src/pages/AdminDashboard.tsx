@@ -56,7 +56,14 @@ export default function AdminDashboard() {
     }
   }, [authLoading, user, navigate]);
 
-  if (authLoading) {
+  useEffect(() => {
+    if (!authLoading && !rolesLoading && user && !isAdmin && !useAuth_isStaff) {
+      toast("You don't have access to this dashboard.");
+      navigate("/");
+    }
+  }, [authLoading, rolesLoading, user, isAdmin, useAuth_isStaff, navigate]);
+
+  if (authLoading || rolesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -64,7 +71,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!user) return null;
+  if (!user || (!isAdmin && !useAuth_isStaff)) return null;
 
   return (
     <div className="min-h-screen bg-muted/30">
