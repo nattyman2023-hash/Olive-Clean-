@@ -257,6 +257,12 @@ export default function JobsTab() {
     fetchJobs();
   };
 
+  const neighborhoods = Array.from(new Set(jobs.map((j) => j.clients?.neighborhood).filter(Boolean) as string[])).sort();
+
+  const activeFilterCount = [dateFrom, dateTo, employeeFilter !== "all" ? employeeFilter : "", serviceFilter !== "all" ? serviceFilter : "", neighborhoodFilter !== "all" ? neighborhoodFilter : ""].filter(Boolean).length;
+
+  const clearFilters = () => { setDateFrom(""); setDateTo(""); setEmployeeFilter("all"); setServiceFilter("all"); setNeighborhoodFilter("all"); };
+
   const filtered = jobs.filter((j) => {
     const clientName = j.clients?.name || "";
     const empName = j.employees?.name || "";
@@ -266,7 +272,12 @@ export default function JobsTab() {
       empName.toLowerCase().includes(search.toLowerCase()) ||
       j.service.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || j.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesDateFrom = !dateFrom || j.scheduled_at >= dateFrom;
+    const matchesDateTo = !dateTo || j.scheduled_at.slice(0, 10) <= dateTo;
+    const matchesEmployee = employeeFilter === "all" || j.assigned_to === employeeFilter;
+    const matchesService = serviceFilter === "all" || j.service === serviceFilter;
+    const matchesNeighborhood = neighborhoodFilter === "all" || j.clients?.neighborhood === neighborhoodFilter;
+    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesEmployee && matchesService && matchesNeighborhood;
   });
 
   const getInitials = (name: string) =>
