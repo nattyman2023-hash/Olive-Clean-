@@ -400,7 +400,7 @@ export default function JobsTab() {
             >
               <option value="">Assign To (optional)</option>
               {employees.map((e) => (
-                <option key={e.id} value={e.id}>{e.name}</option>
+                <option key={e.id} value={e.user_id}>{e.name}</option>
               ))}
             </select>
             <select
