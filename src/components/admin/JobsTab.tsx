@@ -18,6 +18,7 @@ import {
   UserCircle,
   List,
   Map as MapIcon,
+  Filter,
 } from "lucide-react";
 import JobsMap from "./jobs/JobsMap";
 
@@ -71,6 +72,12 @@ export default function JobsTab() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
 
   const [form, setForm] = useState({
     client_id: "",
@@ -250,6 +257,12 @@ export default function JobsTab() {
     fetchJobs();
   };
 
+  const neighborhoods = Array.from(new Set(jobs.map((j) => j.clients?.neighborhood).filter(Boolean) as string[])).sort();
+
+  const activeFilterCount = [dateFrom, dateTo, employeeFilter !== "all" ? employeeFilter : "", serviceFilter !== "all" ? serviceFilter : "", neighborhoodFilter !== "all" ? neighborhoodFilter : ""].filter(Boolean).length;
+
+  const clearFilters = () => { setDateFrom(""); setDateTo(""); setEmployeeFilter("all"); setServiceFilter("all"); setNeighborhoodFilter("all"); };
+
   const filtered = jobs.filter((j) => {
     const clientName = j.clients?.name || "";
     const empName = j.employees?.name || "";
@@ -259,7 +272,12 @@ export default function JobsTab() {
       empName.toLowerCase().includes(search.toLowerCase()) ||
       j.service.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || j.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesDateFrom = !dateFrom || j.scheduled_at >= dateFrom;
+    const matchesDateTo = !dateTo || j.scheduled_at.slice(0, 10) <= dateTo;
+    const matchesEmployee = employeeFilter === "all" || j.assigned_to === employeeFilter;
+    const matchesService = serviceFilter === "all" || j.service === serviceFilter;
+    const matchesNeighborhood = neighborhoodFilter === "all" || j.clients?.neighborhood === neighborhoodFilter;
+    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesEmployee && matchesService && matchesNeighborhood;
   });
 
   const getInitials = (name: string) =>
@@ -289,11 +307,71 @@ export default function JobsTab() {
             <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><List className="h-4 w-4" /></button>
             <button onClick={() => setViewMode("map")} className={`p-1.5 rounded-md transition-colors ${viewMode === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><MapIcon className="h-4 w-4" /></button>
           </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-2 rounded-lg transition-colors relative ${showFilters ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            <Filter className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[0.6rem] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
           <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg active:scale-[0.97]">
             <Plus className="h-4 w-4 mr-1" /> New Job
           </Button>
         </div>
       </div>
+
+      {/* Filter Bar */}
+      {showFilters && (
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Filters</p>
+            {activeFilterCount > 0 && (
+              <button onClick={clearFilters} className="text-xs text-primary hover:underline">Clear all</button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">From Date</label>
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">To Date</label>
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Employee</label>
+              <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} className="w-full px-3 py-2 rounded-lg text-xs bg-background border border-border text-foreground">
+                <option value="all">All Employees</option>
+                {employees.map((e) => (
+                  <option key={e.user_id} value={e.user_id}>{e.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Service</label>
+              <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className="w-full px-3 py-2 rounded-lg text-xs bg-background border border-border text-foreground">
+                <option value="all">All Services</option>
+                {SERVICES.map((s) => (
+                  <option key={s} value={s}>{s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Location</label>
+              <select value={neighborhoodFilter} onChange={(e) => setNeighborhoodFilter(e.target.value)} className="w-full px-3 py-2 rounded-lg text-xs bg-background border border-border text-foreground">
+                <option value="all">All Locations</option>
+                {neighborhoods.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Form */}
       {showForm && (
