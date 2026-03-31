@@ -67,6 +67,22 @@ export default function ClientLogin() {
         user_id: authData.user.id,
         role: "client" as never,
       });
+
+      // Send welcome email
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("name")
+        .eq("id", existingClient.id)
+        .maybeSingle();
+
+      await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "welcome",
+          recipientEmail: email,
+          idempotencyKey: `welcome-${authData.user.id}`,
+          templateData: { name: clientData?.name || "" },
+        },
+      });
     }
 
     toast.success("Account created! Check your email to verify, then sign in.");
