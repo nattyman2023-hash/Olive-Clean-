@@ -22,6 +22,7 @@ import ServiceDetail from "./pages/ServiceDetail.tsx";
 import AreaDetail from "./pages/AreaDetail.tsx";
 import Terms from "./pages/Terms.tsx";
 import Privacy from "./pages/Privacy.tsx";
+import Unsubscribe from "./pages/Unsubscribe.tsx";
 
 const queryClient = new QueryClient();
 
