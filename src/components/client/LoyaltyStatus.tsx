@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Award, Gift, Copy, Users } from "lucide-react";
+import { Award, Gift, Copy, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface LoyaltyStatusProps {
@@ -10,6 +11,8 @@ interface LoyaltyStatusProps {
 }
 
 export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
+  const queryClient = useQueryClient();
+
   const { data: membership } = useQuery({
     queryKey: ["loyalty_membership", clientId],
     queryFn: async () => {
@@ -57,6 +60,21 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
       if (error) throw error;
       return data as any;
     },
+  });
+
+  const redeemMutation = useMutation({
+    mutationFn: async (milestoneId: string) => {
+      const { error } = await supabase
+        .from("loyalty_milestones")
+        .update({ redeemed: true })
+        .eq("id", milestoneId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loyalty_milestones_client"] });
+      toast.success("Reward redeemed! We'll apply it to your next service.");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   if (!membership) return null;
@@ -125,7 +143,15 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
               {unredeemed.map((ms: any) => (
                 <div key={ms.id} className="flex items-center justify-between bg-primary/5 rounded-lg px-3 py-2">
                   <p className="text-xs font-medium text-foreground">{ms.milestone_type.replace(/_/g, " ")}</p>
-                  <span className="text-[0.6rem] font-medium text-olive-gold bg-olive-gold/10 px-2 py-0.5 rounded-full">Available</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[0.65rem] rounded-full px-3"
+                    disabled={redeemMutation.isPending}
+                    onClick={() => redeemMutation.mutate(ms.id)}
+                  >
+                    {redeemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Redeem"}
+                  </Button>
                 </div>
               ))}
             </div>
