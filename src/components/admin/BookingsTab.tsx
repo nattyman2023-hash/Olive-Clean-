@@ -131,6 +131,31 @@ export default function BookingsTab() {
           clientId = newClient?.id || null;
         }
         if (clientId) {
+          // Link referral code: if booking has a referral code, find the referring member and set referred_by
+          if ((booking as any).referral_code) {
+            const { data: referrer } = await supabase
+              .from("perks_members")
+              .select("id")
+              .eq("referral_code", (booking as any).referral_code)
+              .eq("status", "active")
+              .maybeSingle();
+            if (referrer) {
+              // Check if this new client already has a perks membership
+              const { data: existingMember } = await supabase
+                .from("perks_members")
+                .select("id")
+                .eq("client_id", clientId)
+                .maybeSingle();
+              if (existingMember) {
+                await supabase
+                  .from("perks_members")
+                  .update({ referred_by: referrer.id })
+                  .eq("id", existingMember.id);
+              }
+              // If not yet a member, the referred_by will be set when admin enrolls them in Perks
+            }
+          }
+
           const { error: jobErr } = await supabase.from("jobs").insert({
             client_id: clientId,
             service: booking.service,
