@@ -117,7 +117,7 @@ export default function JobsTab() {
   };
 
   const fetchEmployees = async () => {
-    const { data } = await supabase.from("employees").select("id, name, photo_url, user_id").eq("status", "active").order("name");
+    const { data } = await supabase.from("employees").select("id, name, photo_url, user_id, email").eq("status", "active").order("name");
     setEmployees(data || []);
   };
 
