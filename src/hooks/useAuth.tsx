@@ -35,21 +35,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkRoles = async (userId: string, attempt = 0) => {
     try {
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 5000)
-      );
-      const roleCheck = Promise.all([
+      const [adminRes, staffRes, clientRes] = await Promise.all([
         supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
         supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
         supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
       ]);
-      const [adminRes, staffRes, clientRes] = (await Promise.race([roleCheck, timeout])) as any;
       setIsAdmin(!!adminRes.data);
       setIsStaff(!!staffRes.data);
       setIsClient(!!clientRes.data);
     } catch {
       if (attempt < 2) {
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 1500));
         return checkRoles(userId, attempt + 1);
       }
     } finally {
