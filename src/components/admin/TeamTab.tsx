@@ -778,3 +778,101 @@ export default function TeamTab() {
     </div>
   );
 }
+
+function TeamAnnouncements() {
+  const queryClient = useQueryClient();
+  const [newMessage, setNewMessage] = useState("");
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ["team_messages_admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_messages" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  const postMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("team_messages" as any).insert({
+        author_id: user.id,
+        message,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team_messages_admin"] });
+      toast.success("Announcement posted");
+      setNewMessage("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("team_messages" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team_messages_admin"] });
+      toast.success("Message deleted");
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">Team Announcements</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-2">
+          <Textarea
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Post an announcement to your team..."
+            className="rounded-xl text-sm min-h-[60px] flex-1"
+          />
+        </div>
+        <Button
+          size="sm"
+          onClick={() => postMutation.mutate(newMessage.trim())}
+          disabled={!newMessage.trim() || postMutation.isPending}
+          className="rounded-full active:scale-[0.97] transition-transform"
+        >
+          {postMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+          Post Announcement
+        </Button>
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
+        ) : messages.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No announcements yet.</p>
+        ) : (
+          messages.map((msg: any) => (
+            <div key={msg.id} className="flex items-start justify-between p-3 rounded-lg bg-muted/50 border border-border">
+              <div>
+                <p className="text-xs text-foreground">{msg.message}</p>
+                <p className="text-[0.6rem] text-muted-foreground mt-1">
+                  {new Date(msg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                onClick={() => deleteMutation.mutate(msg.id)}
+              >
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </Button>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
