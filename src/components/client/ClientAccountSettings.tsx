@@ -53,6 +53,16 @@ export default function ClientAccountSettings({ client, onUpdate }: { client: Cl
       const { error } = await supabase.auth.updateUser({ password: newPw });
       if (error) throw error;
       toast.success("Password updated");
+      // Send security notification
+      if (user?.email) {
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "password-changed",
+            recipientEmail: user.email,
+            idempotencyKey: `pw-changed-${user.id}-${Date.now()}`,
+          },
+        });
+      }
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");

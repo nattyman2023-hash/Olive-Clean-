@@ -178,6 +178,30 @@ export default function JobsTab() {
       return;
     }
     toast.success(`Job marked as ${status}.`);
+
+    // Send job-update email to client for cancellations/rescheduling
+    if (status === "cancelled") {
+      const job = jobs.find((j) => j.id === id);
+      if (job?.client_id) {
+        const { data: clientData } = await supabase.from("clients").select("email, name").eq("id", job.client_id).single();
+        if (clientData?.email) {
+          supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "job-update",
+              recipientEmail: clientData.email,
+              idempotencyKey: `job-update-${id}-${status}`,
+              templateData: {
+                clientName: clientData.name,
+                service: job.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+                status,
+                date: new Date(job.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+              },
+            },
+          });
+        }
+      }
+    }
+
     fetchJobs();
     if (selected?.id === id) setSelected({ ...selected, ...update });
   };
