@@ -88,6 +88,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
         bedrooms,
         bathrooms,
         notes: item.notes || null,
+        referral_code: referralCode.trim() || null,
       }));
       const { error } = await supabase.from("booking_requests").insert(rows);
       if (error) throw error;

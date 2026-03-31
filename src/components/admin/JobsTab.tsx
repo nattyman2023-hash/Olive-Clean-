@@ -193,7 +193,7 @@ export default function JobsTab() {
       if (job?.client_id) {
         const { data: member } = await supabase
           .from("perks_members")
-          .select("id, cleanings_completed, free_cleanings_earned, program_type")
+          .select("id, cleanings_completed, free_cleanings_earned, program_type, joined_at, referred_by")
           .eq("client_id", job.client_id)
           .eq("status", "active")
           .maybeSingle();
@@ -202,7 +202,6 @@ export default function JobsTab() {
           const newCount = (member.cleanings_completed || 0) + 1;
           const updateData: any = { cleanings_completed: newCount };
 
-          // Check if threshold reached for free cleaning
           // Fetch program to get interval
           const PROGRAM_KEY_MAP: Record<string, string> = {
             loyalty_club: "Loyalty Club", friends_family: "Friends & Family",
@@ -218,12 +217,51 @@ export default function JobsTab() {
           const interval = (prog as any)?.benefits?.free_cleaning_interval || 10;
           if (newCount > 0 && newCount % interval === 0) {
             updateData.free_cleanings_earned = (member.free_cleanings_earned || 0) + 1;
-            // Insert milestone
             await supabase.from("loyalty_milestones").insert({
               member_id: member.id,
               milestone_type: "free_cleaning",
               notes: `Earned after ${newCount} cleanings`,
             });
+          }
+
+          // 6-month complimentary dusting check
+          if (member.joined_at) {
+            const joinedDate = new Date(member.joined_at);
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            if (joinedDate <= sixMonthsAgo) {
+              const { data: existingDusting } = await supabase
+                .from("loyalty_milestones")
+                .select("id")
+                .eq("member_id", member.id)
+                .eq("milestone_type", "complimentary_dusting")
+                .maybeSingle();
+              if (!existingDusting) {
+                await supabase.from("loyalty_milestones").insert({
+                  member_id: member.id,
+                  milestone_type: "complimentary_dusting",
+                  notes: "Auto-awarded at 6 months membership",
+                });
+              }
+            }
+          }
+
+          // Referral reward: if this member was referred, award referrer on first completed cleaning
+          if (member.referred_by && newCount === 1) {
+            const { data: existingReward } = await supabase
+              .from("loyalty_milestones")
+              .select("id")
+              .eq("member_id", member.referred_by)
+              .eq("milestone_type", "referral_reward")
+              .eq("notes", `Referral: member ${member.id}`)
+              .maybeSingle();
+            if (!existingReward) {
+              await supabase.from("loyalty_milestones").insert({
+                member_id: member.referred_by,
+                milestone_type: "referral_reward",
+                notes: `Referral: member ${member.id}`,
+              });
+            }
           }
 
           await supabase.from("perks_members").update(updateData).eq("id", member.id);
