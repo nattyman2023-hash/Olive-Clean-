@@ -17,6 +17,10 @@ import { template as welcome } from './welcome.tsx'
 import { template as jobAssigned } from './job-assigned.tsx'
 import { template as timeOffApproved } from './time-off-approved.tsx'
 import { template as adminDailyDigest } from './admin-daily-digest.tsx'
+import { template as employeeWelcome } from './employee-welcome.tsx'
+import { template as clientAdded } from './client-added.tsx'
+import { template as timeOffDenied } from './time-off-denied.tsx'
+import { template as estimateSent } from './estimate-sent.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'booking-confirmation': bookingConfirmation,
@@ -27,4 +31,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'job-assigned': jobAssigned,
   'time-off-approved': timeOffApproved,
   'admin-daily-digest': adminDailyDigest,
+  'employee-welcome': employeeWelcome,
+  'client-added': clientAdded,
+  'time-off-denied': timeOffDenied,
+  'estimate-sent': estimateSent,
 }
