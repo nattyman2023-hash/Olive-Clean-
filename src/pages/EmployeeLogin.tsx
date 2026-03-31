@@ -16,32 +16,13 @@ export default function EmployeeLogin() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
     if (error) {
-      setLoading(false);
       toast.error(error.message);
       return;
     }
-    if (data.user) {
-      const [adminRes, staffRes, clientRes] = await Promise.all([
-        supabase.rpc("has_role", { _user_id: data.user.id, _role: "admin" }),
-        supabase.rpc("has_role", { _user_id: data.user.id, _role: "staff" }),
-        supabase.rpc("has_role", { _user_id: data.user.id, _role: "client" as never }),
-      ]);
-      setLoading(false);
-      if (adminRes.data) {
-        navigate("/admin");
-      } else if (staffRes.data) {
-        navigate("/employee");
-      } else if (clientRes.data) {
-        navigate("/client");
-      } else {
-        toast.error("No role assigned to this account.");
-      }
-    } else {
-      setLoading(false);
-      navigate("/employee");
-    }
+    navigate("/employee");
   };
 
   const handleForgot = async (e: React.FormEvent) => {

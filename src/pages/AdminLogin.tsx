@@ -16,31 +16,13 @@ export default function AdminLogin() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
     if (error) {
-      setLoading(false);
       toast.error(error.message);
       return;
     }
-    const userId = data.user?.id;
-    if (userId) {
-      const [adminRes, staffRes, clientRes] = await Promise.all([
-        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-        supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
-        supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
-      ]);
-      setLoading(false);
-      if (adminRes.data || staffRes.data) {
-        navigate("/admin");
-      } else if (clientRes.data) {
-        navigate("/client");
-      } else {
-        toast.error("No role assigned to this account.");
-      }
-    } else {
-      setLoading(false);
-      navigate("/admin");
-    }
+    navigate("/admin");
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
