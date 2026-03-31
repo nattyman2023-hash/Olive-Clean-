@@ -197,6 +197,17 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
               <Plus className="h-3 w-3" /> Add Another Service
             </Button>
 
+            {/* Referral Code */}
+            <div>
+              <Label className="text-xs">Referral Code (optional)</Label>
+              <Input
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                placeholder="e.g. OLV-ABC123"
+                className="rounded-xl mt-1 text-sm"
+              />
+            </div>
+
             {/* Home details */}
             <div className="grid grid-cols-2 gap-3">
               <div>

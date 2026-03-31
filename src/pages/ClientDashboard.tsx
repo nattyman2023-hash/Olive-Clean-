@@ -234,6 +234,9 @@ export default function ClientDashboard() {
           </TabsList>
 
           <TabsContent value="home" className="space-y-8">
+            {/* Loyalty Status */}
+            <LoyaltyStatus clientId={client.id} />
+
             {/* Book a Cleaning */}
             <BookingSection client={{ name: client.name, email: client.email, phone: client.phone, address: client.address }} />
 
