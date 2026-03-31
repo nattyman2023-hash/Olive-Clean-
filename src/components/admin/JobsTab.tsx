@@ -585,6 +585,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
         </div>
       )}
 
+      {/* Photos */}
+      <div className="border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground mb-2">Photos</p>
+        <JobPhotosGallery jobId={job.id} />
+      </div>
+
       {/* Log actual duration */}
       {job.status === "completed" && !job.actual_duration_minutes && (
         <div className="border-t border-border pt-4">
