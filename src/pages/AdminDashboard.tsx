@@ -20,6 +20,7 @@ import FinanceTab from "@/components/admin/FinanceTab";
 import CalendarTab from "@/components/admin/CalendarTab";
 import TimeOffManager from "@/components/admin/TimeOffManager";
 import EmailsTab from "@/components/admin/EmailsTab";
+import RecentUploads from "@/components/admin/RecentUploads";
 
 const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
