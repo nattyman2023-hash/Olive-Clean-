@@ -71,6 +71,9 @@ export default function AdminLogin() {
               <button type="button" onClick={() => setMode("forgot")} className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Forgot password?
               </button>
+              <a href="/" className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors mt-1">
+                ← Back to website
+              </a>
             </form>
           ) : (
             <form onSubmit={handleForgotPassword} className="space-y-4">
@@ -85,6 +88,9 @@ export default function AdminLogin() {
               <button type="button" onClick={() => setMode("login")} className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Back to sign in
               </button>
+              <a href="/" className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors mt-1">
+                ← Back to website
+              </a>
             </form>
           )}
         </div>
