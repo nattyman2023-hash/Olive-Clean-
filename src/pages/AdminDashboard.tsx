@@ -93,28 +93,20 @@ export default function AdminDashboard() {
 
       <main className="container py-8 max-w-6xl">
         <Tabs defaultValue="bookings" className="space-y-6">
-          {rolesLoading ? (
-            <div className="flex gap-1 p-1">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-8 w-20 rounded-lg" />
+          <ScrollArea className="w-full">
+            <TabsList className="bg-card border border-border rounded-xl p-1 h-auto inline-flex w-max min-w-full">
+              {ADMIN_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="rounded-lg text-xs whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {tab.label}
+                </TabsTrigger>
               ))}
-            </div>
-          ) : (
-            <ScrollArea className="w-full">
-              <TabsList className="bg-card border border-border rounded-xl p-1 h-auto inline-flex w-max min-w-full">
-                {ADMIN_TABS.map((tab) => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="rounded-lg text-xs whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          )}
+            </TabsList>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
           <TabsContent value="bookings"><BookingsTab /></TabsContent>
           <TabsContent value="clients"><ClientsTab /></TabsContent>
