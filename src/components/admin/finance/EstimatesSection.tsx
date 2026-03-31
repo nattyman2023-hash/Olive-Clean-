@@ -52,6 +52,30 @@ export default function EstimatesSection() {
     const { error } = await supabase.from("estimates").update({ status }).eq("id", id);
     if (error) { toast.error("Failed to update."); return; }
     toast.success(`Estimate marked as ${status}.`);
+
+    // Send estimate-sent email when marking as "sent"
+    if (status === "sent") {
+      const est = estimates.find((e) => e.id === id);
+      if (est) {
+        const { data: client } = await supabase.from("clients").select("email, name").eq("id", est.client_id).maybeSingle();
+        if (client?.email) {
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "estimate-sent",
+              recipientEmail: client.email,
+              idempotencyKey: `estimate-sent-${id}`,
+              templateData: {
+                clientName: client.name,
+                estimateNumber: est.estimate_number,
+                total: Number(est.total).toFixed(2),
+                validUntil: est.valid_until ? new Date(est.valid_until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : undefined,
+              },
+            },
+          });
+        }
+      }
+    }
+
     fetch_();
   };
 

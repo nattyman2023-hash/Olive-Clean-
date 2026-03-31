@@ -118,6 +118,16 @@ Deno.serve(async (req) => {
       .update({ user_id: authUserId, email: trimmedEmail })
       .eq("id", employee_id);
 
+    // Send employee welcome email
+    await adminClient.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "employee-welcome",
+        recipientEmail: trimmedEmail,
+        idempotencyKey: `employee-welcome-${authUserId}`,
+        templateData: { name },
+      },
+    });
+
     return new Response(
       JSON.stringify({ success: true, user_id: authUserId }),
       {
