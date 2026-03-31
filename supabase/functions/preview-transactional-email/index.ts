@@ -1,35 +1,45 @@
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-// Renders all registered templates with their previewData.
-// Gated by LOVABLE_API_KEY — only the Go API calls this.
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: 'Server configuration error' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
-  }
-
-  // Verify the caller is authorized with LOVABLE_API_KEY
+  // Authenticate the caller — accept either a valid user JWT (admin) or LOVABLE_API_KEY
   const authHeader = req.headers.get('Authorization')
   const token = authHeader?.replace(/^Bearer\s+/i, '')
-  if (token !== apiKey) {
+
+  let authorized = false
+
+  // Check LOVABLE_API_KEY first
+  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  if (apiKey && token === apiKey) {
+    authorized = true
+  }
+
+  // Fall back to JWT auth — verify the user has admin role
+  if (!authorized && token) {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+    const { data } = await supabase.auth.getUser()
+    if (data?.user) {
+      const { data: roleCheck } = await supabase.rpc('has_role', { _user_id: data.user.id, _role: 'admin' })
+      if (roleCheck) authorized = true
+    }
+  }
+
+  if (!authorized) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

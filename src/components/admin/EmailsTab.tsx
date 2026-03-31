@@ -226,9 +226,6 @@ function TemplatesPreviewView() {
       const { data, error } = await supabase.functions.invoke("preview-transactional-email", { method: "GET" });
       if (error) throw new Error("Failed to fetch previews");
       return (data?.templates || []) as TemplatePreview[];
-      if (!res.ok) throw new Error("Failed to fetch previews");
-      const json = await res.json();
-      return (json.templates || []) as TemplatePreview[];
     },
   });
 
