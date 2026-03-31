@@ -131,6 +131,7 @@ export default function AdminDashboard() {
           <TabsContent value="calendar">{isAdmin ? <CalendarTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="time-off">{isAdmin ? <TimeOffManager isAdmin /> : <AdminGate />}</TabsContent>
           <TabsContent value="emails">{isAdmin ? <EmailsTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="photos">{isAdmin ? <RecentUploads /> : <AdminGate />}</TabsContent>
         </Tabs>
       </main>
     </div>
