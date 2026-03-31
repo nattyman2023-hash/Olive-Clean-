@@ -15,6 +15,7 @@ import BookingSection from "@/components/client/BookingSection";
 import TechnicianAvatar from "@/components/client/TechnicianAvatar";
 import ClientInvoices from "@/components/client/ClientInvoices";
 import ClientAccountSettings from "@/components/client/ClientAccountSettings";
+import LoyaltyStatus from "@/components/client/LoyaltyStatus";
 
 interface ClientRecord {
   id: string;
