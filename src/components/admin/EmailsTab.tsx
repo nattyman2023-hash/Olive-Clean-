@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -217,15 +218,31 @@ function EmailLogsView() {
 
 /* ─── Templates Preview View ─── */
 function TemplatesPreviewView() {
+  const { session, isAdmin, rolesLoading } = useAuth();
   const [selected, setSelected] = useState<TemplatePreview | null>(null);
   const [sendingTest, setSendingTest] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery({
-    queryKey: ["email-template-previews"],
+    queryKey: ["email-template-previews", session?.access_token],
+    enabled: !!session?.access_token && isAdmin && !rolesLoading,
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("preview-transactional-email", { method: "GET" });
-      if (error) throw new Error("Failed to fetch previews");
-      return (data?.templates || []) as TemplatePreview[];
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/preview-transactional-email`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token ?? ""}`,
+          },
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.error || json?.message || "Failed to fetch previews");
+      }
+
+      return (json?.templates || []) as TemplatePreview[];
     },
   });
 
@@ -250,7 +267,17 @@ function TemplatesPreviewView() {
     }
   };
 
-  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+  if (rolesLoading || isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          You need admin access to preview app emails.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
