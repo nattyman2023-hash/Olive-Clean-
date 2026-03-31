@@ -71,6 +71,12 @@ export default function JobsTab() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
 
   const [form, setForm] = useState({
     client_id: "",
