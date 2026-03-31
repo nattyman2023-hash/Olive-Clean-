@@ -13,23 +13,40 @@ export default function ClientLogin() {
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const navigate = useNavigate();
 
+  const redirectByRole = async (userId: string) => {
+    const [adminRes, staffRes, clientRes] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
+    ]);
+    if (clientRes.data) {
+      navigate("/client");
+    } else if (adminRes.data || staffRes.data) {
+      navigate("/admin");
+    } else {
+      toast.error("No role assigned to this account.");
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      setLoading(false);
       toast.error(error.message);
       return;
     }
-    navigate("/client");
+    if (data.user) {
+      await redirectByRole(data.user.id);
+    }
+    setLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Check if a client record exists for this email
     const { data: existingClient } = await supabase
       .from("clients")
       .select("id")
@@ -42,7 +59,6 @@ export default function ClientLogin() {
       return;
     }
 
-    // Create auth user
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -56,19 +72,16 @@ export default function ClientLogin() {
     }
 
     if (authData.user) {
-      // Link client record to auth user
       await supabase
         .from("clients")
         .update({ client_user_id: authData.user.id } as never)
         .eq("id", existingClient.id);
 
-      // Assign client role
       await supabase.from("user_roles").insert({
         user_id: authData.user.id,
         role: "client" as never,
       });
 
-      // Send welcome email
       const { data: clientData } = await supabase
         .from("clients")
         .select("name")

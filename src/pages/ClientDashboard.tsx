@@ -56,7 +56,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function ClientDashboard() {
-  const { user, isClient, loading: authLoading, signOut } = useAuth();
+  const { user, isClient, loading: authLoading, rolesLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [newPrefKey, setNewPrefKey] = useState("");
@@ -68,6 +68,13 @@ export default function ClientDashboard() {
       navigate("/client/login");
     }
   }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && !rolesLoading && user && !isClient) {
+      toast("You don't have access to this dashboard.");
+      navigate("/");
+    }
+  }, [authLoading, rolesLoading, user, isClient, navigate]);
 
   const { data: client, isLoading: clientLoading } = useQuery({
     queryKey: ["client_record", user?.id],

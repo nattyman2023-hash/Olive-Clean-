@@ -16,13 +16,31 @@ export default function AdminLogin() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      setLoading(false);
       toast.error(error.message);
       return;
     }
-    navigate("/admin");
+    const userId = data.user?.id;
+    if (userId) {
+      const [adminRes, staffRes, clientRes] = await Promise.all([
+        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "client" as never }),
+      ]);
+      setLoading(false);
+      if (adminRes.data || staffRes.data) {
+        navigate("/admin");
+      } else if (clientRes.data) {
+        navigate("/client");
+      } else {
+        toast.error("No role assigned to this account.");
+      }
+    } else {
+      setLoading(false);
+      navigate("/admin");
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -43,7 +61,6 @@ export default function AdminLogin() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm">
-        {/* Brand */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 mx-auto rounded-full bg-primary flex items-center justify-center mb-3">
             <span className="text-primary-foreground text-lg font-bold">O</span>
@@ -59,39 +76,17 @@ export default function AdminLogin() {
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@oliveclean.com"
-                  required
-                  className="rounded-xl"
-                />
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@oliveclean.com" required className="rounded-xl" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="rounded-xl"
-                />
+                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="rounded-xl" />
               </div>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-full bg-primary hover:bg-primary/90 active:scale-[0.97] transition-transform"
-              >
+              <Button type="submit" disabled={loading} className="w-full rounded-full bg-primary hover:bg-primary/90 active:scale-[0.97] transition-transform">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Sign In
               </Button>
-              <button
-                type="button"
-                onClick={() => setMode("forgot")}
-                className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <button type="button" onClick={() => setMode("forgot")} className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Forgot password?
               </button>
             </form>
@@ -99,28 +94,13 @@ export default function AdminLogin() {
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@oliveclean.com"
-                  required
-                  className="rounded-xl"
-                />
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@oliveclean.com" required className="rounded-xl" />
               </div>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-full bg-primary hover:bg-primary/90 active:scale-[0.97] transition-transform"
-              >
+              <Button type="submit" disabled={loading} className="w-full rounded-full bg-primary hover:bg-primary/90 active:scale-[0.97] transition-transform">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Send Reset Link
               </Button>
-              <button
-                type="button"
-                onClick={() => setMode("login")}
-                className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <button type="button" onClick={() => setMode("login")} className="block w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Back to sign in
               </button>
             </form>
