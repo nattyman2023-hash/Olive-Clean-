@@ -1,69 +1,97 @@
 
 
-# Job Attachments System — Photos Visible to Admin
+# Phase 1 — Loyalty & Special Programs
 
-## Overview
-Currently, employees and clients upload photos directly to `before_photos` and `after_photos` storage buckets with no metadata tracking. Admins have no way to see these photos. This plan adds a `job_attachments` table, wires up existing upload flows to record metadata, builds a photo gallery in the Admin job detail panel, and adds a "Recent Uploads" feed.
+## What Exists Today
+- **perks_members** table with `client_id`, `discount_percent`, `flexibility_zone`, `status`, `notes`
+- **perks_offers** table for gap-filling cancelled slots to perks members
+- Admin **PerksTab** for enrolling members, managing status, and a Gap Filler tool
+- Public **PerksSection** on the homepage marketing the Olive Perks Club
+- No tracking of completed cleanings count, no referral system, no program categories, no milestone rewards
 
-## Database
+## What We're Building
 
-### New table: `job_attachments`
-```sql
-CREATE TABLE public.job_attachments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id UUID NOT NULL,
-  uploader_id UUID NOT NULL,
-  uploader_role TEXT NOT NULL DEFAULT 'staff',   -- 'staff', 'client'
-  file_path TEXT NOT NULL,
-  bucket TEXT NOT NULL,                          -- 'before_photos', 'after_photos'
-  category TEXT NOT NULL DEFAULT 'other',        -- 'before', 'after', 'issue'
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+### A. Database Changes
 
-ALTER TABLE public.job_attachments ENABLE ROW LEVEL SECURITY;
-```
+**1. New table: `loyalty_programs`**
+Defines the special programs (Friends & Family, Veterans, Retired, Loyalty Club) with their discount rules and benefits.
 
-### RLS Policies
-- **Admin full access** (ALL) — `has_role(auth.uid(), 'admin')`
-- **Staff can insert own** (INSERT) — `uploader_id = auth.uid()`
-- **Staff can view job attachments** (SELECT) — `has_role(auth.uid(), 'staff')`
-- **Clients can insert own** (INSERT) — `uploader_id = auth.uid()`
-- **Clients can view own job attachments** (SELECT) — job_id in client's jobs
+| Column | Type | Purpose |
+|---|---|---|
+| id | UUID PK | |
+| name | TEXT | "Friends & Family", "Veterans", "Retired", "Loyalty Club" |
+| discount_percent | INTEGER | Default discount for this program |
+| description | TEXT | Admin-facing description |
+| benefits | JSONB | Structured list of perks (free cleaning interval, referral reward, milestone rewards) |
+| is_active | BOOLEAN | Enable/disable program |
 
-## Code Changes
+**2. Extend `perks_members` table**
+- Add `program_type` TEXT column (default `'loyalty_club'`) — links to program name
+- Add `cleanings_completed` INTEGER (default 0) — tracks paid cleanings toward free cleaning milestone
+- Add `free_cleanings_earned` INTEGER (default 0) — accumulated free cleanings
+- Add `free_cleanings_used` INTEGER (default 0)
+- Add `referral_code` TEXT (unique) — auto-generated for referral tracking
+- Add `referred_by` UUID (nullable) — links to the member who referred them
 
-### 1. `src/pages/EmployeeDashboard.tsx` — Update `uploadPhoto`
-After successful storage upload, insert a row into `job_attachments` with:
-- `job_id`, `uploader_id` (from auth), `uploader_role: 'staff'`
-- `bucket` name, `file_path`, `category` derived from bucket (`before_photos` → `'before'`, `after_photos` → `'after'`)
+**3. New table: `loyalty_milestones`**
+Tracks milestone events (free cleaning earned, 6-month dusting reward, referral credited).
 
-### 2. `src/pages/FeedbackForm.tsx` — Update photo upload loop
-After each successful storage upload, insert into `job_attachments` with `uploader_role: 'client'`, `category: 'after'`.
+| Column | Type |
+|---|---|
+| id | UUID PK |
+| member_id | UUID |
+| milestone_type | TEXT | `'free_cleaning'`, `'complimentary_dusting'`, `'referral_reward'` |
+| triggered_at | TIMESTAMPTZ |
+| redeemed | BOOLEAN |
+| job_id | UUID (nullable) |
 
-### 3. New: `src/components/admin/JobPhotosGallery.tsx`
-- Accepts `jobId` prop
-- Queries `job_attachments` for that job, ordered by `created_at`
-- For each attachment, builds the public URL from `bucket` + `file_path`
-- Renders a grid of thumbnails grouped by category (Before / After)
-- Shows uploader role and timestamp
-- Clicking a thumbnail opens a lightbox (dialog with full-size image)
+### B. Admin UI Changes — PerksTab Overhaul
 
-### 4. `src/components/admin/JobsTab.tsx` — Integrate gallery
-Add a "Photos" section in `JobDetailPanel` (after Notes, before Log Duration) that renders `<JobPhotosGallery jobId={job.id} />`.
+**Program Management Section**
+- Dropdown/tabs to filter members by program type
+- Enroll form gets a "Program" selector (Loyalty Club, Friends & Family, Veterans, Retired)
+- Each program shows its discount rate and benefits
 
-### 5. New: `src/components/admin/RecentUploads.tsx`
-- Queries latest 20 `job_attachments` joined with jobs/clients
-- Shows thumbnail grid with job link, timestamp, uploader info
-- Integrate into `AdminDashboard.tsx` as a new tab or a section within the Analytics tab
+**Member Detail Panel Enhancements**
+- Show `cleanings_completed` / threshold for next free cleaning
+- Show earned vs used free cleanings
+- Show referral code and count of successful referrals
+- Show milestone history (complimentary dusting at 6 months, etc.)
+- Button to manually award a free cleaning or milestone
+
+**Loyalty Tracker**
+- When a job is marked "completed" for a loyalty member, auto-increment `cleanings_completed`
+- When threshold is reached (e.g., every 10 cleanings), auto-increment `free_cleanings_earned` and insert a milestone record
+- At 6 months membership, auto-create a "complimentary dusting" milestone
+
+### C. Client Portal — Loyalty Status
+
+Add a "Loyalty" section to the Client Dashboard Home tab:
+- Current program name and discount
+- Progress bar toward next free cleaning
+- Referral code with copy button
+- List of earned rewards and redemption status
+
+### D. Referral System
+
+- Each member gets a unique referral code on enrollment
+- New booking form accepts an optional referral code field
+- When a referred client completes their first paid cleaning, the referrer earns a reward (tracked via milestone)
 
 ## Files Modified / Created
+
 | File | Action |
 |---|---|
-| `migration: create_job_attachments` | New — table + RLS |
-| `src/pages/EmployeeDashboard.tsx` | Edit — insert attachment record on upload |
-| `src/pages/FeedbackForm.tsx` | Edit — insert attachment record on upload |
-| `src/components/admin/JobPhotosGallery.tsx` | New — photo gallery component |
-| `src/components/admin/RecentUploads.tsx` | New — recent uploads feed |
-| `src/components/admin/JobsTab.tsx` | Edit — embed gallery in detail panel |
-| `src/pages/AdminDashboard.tsx` | Edit — add Recent Uploads section |
+| Migration: `create_loyalty_programs` | New — programs table, extend perks_members, milestones table |
+| `src/components/admin/PerksTab.tsx` | Major edit — program filter, enhanced detail panel, milestone display |
+| `src/pages/ClientDashboard.tsx` | Edit — add Loyalty status section |
+| `src/components/client/BookingSection.tsx` | Edit — add referral code field |
+| `src/components/admin/JobsTab.tsx` | Edit — increment loyalty counter on job completion |
+
+## Implementation Order
+1. Database migration (tables + columns + RLS)
+2. Admin PerksTab overhaul (program management, milestones, enhanced detail)
+3. Auto-increment logic on job completion
+4. Client portal loyalty section
+5. Referral code on booking form
 
