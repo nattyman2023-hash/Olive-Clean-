@@ -22,7 +22,7 @@ export default function EmployeeLogin() {
       toast.error(error.message);
       return;
     }
-    navigate("/employee");
+    navigate("/employee", { replace: true });
   };
 
   const handleForgot = async (e: React.FormEvent) => {
