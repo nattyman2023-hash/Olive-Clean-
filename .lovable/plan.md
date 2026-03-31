@@ -1,110 +1,74 @@
 
 
-# Next Phase: Dashboard Role Guards, Auth Stability, and Missing Emails
+# Email Touchpoint Audit — Complete Results
 
-## Overview
+## Currently Wired (13 triggers working)
 
-Three workstreams: (1) enforce role-based access on dashboards and login pages, (2) eliminate auth flickering by caching roles across token refreshes, (3) create and wire four missing email templates plus a daily job reminder cron.
-
----
-
-## 1. Dashboard Role Guards
-
-### `src/hooks/useAuth.tsx` — Cache roles, skip TOKEN_REFRESHED
-- Track `resolvedUserId` ref to know which user's roles are cached
-- On `TOKEN_REFRESHED` (same user), skip `checkRoles` entirely — no `rolesLoading` toggle
-- On `SIGNED_IN` with a different user, re-check roles
-- On `SIGNED_OUT`, clear roles and `resolvedUserId`
-
-### `src/pages/AdminDashboard.tsx` — Role guard
-- Wait for both `authLoading` and `rolesLoading` to finish
-- If user is logged in but lacks `isAdmin` AND `isStaff`, redirect to `/` with toast "You don't have access to this dashboard"
-
-### `src/pages/ClientDashboard.tsx` — Role guard
-- Wait for both `authLoading` and `rolesLoading` to finish
-- If user is logged in but lacks `isClient`, redirect to `/` with toast
-
-### `src/pages/EmployeeDashboard.tsx` — Already guarded (no change)
-
-### Login pages — Role-aware redirect after sign-in
-
-**`AdminLogin.tsx`**: After `signInWithPassword` succeeds, call `has_role` RPC for admin and staff. Redirect to `/admin` if admin/staff, `/client` if client role, `/employee` if staff. Show error if no role found.
-
-**`ClientLogin.tsx`**: After login, check client role. If admin/staff instead, redirect to `/admin`. If no role, show error.
-
-**`EmployeeLogin.tsx`**: After login, check staff role. If client, redirect to `/client`. If admin, redirect to `/admin`.
+| Touchpoint | Template | Triggered From |
+|---|---|---|
+| Booking confirmed by admin | `booking-confirmation` | BookingsTab |
+| Client self-books | `booking-confirmation` | BookingSection |
+| Client signs up | `welcome` | ClientLogin |
+| Client added by admin | `client-added` | ClientsTab |
+| Employee invited | `employee-welcome` | invite-employee Edge Function |
+| Job assigned to employee | `job-assigned` | JobsTab (create + reassign) |
+| Job completed | `job-completed` | EmployeeDashboard |
+| Invoice sent | `invoice-issued` | InvoicesSection |
+| Estimate sent | `estimate-sent` | EstimatesSection |
+| Time-off approved | `time-off-approved` | TimeOffManager |
+| Time-off denied | `time-off-denied` | TimeOffManager |
+| Job reminder (24h before) | `job-reminder` | send-job-reminders cron |
+| Admin daily digest | `admin-daily-digest` | send-admin-digest cron |
 
 ---
 
-## 2. Missing Email Templates
+## Missing Email Triggers (7 gaps found)
 
-Four new templates in `supabase/functions/_shared/transactional-email-templates/`, all matching the existing Olive Clean brand style (same colors, fonts, layout as `welcome.tsx`).
+### 1. **Booking request submitted (public form)** — `BookPage.tsx`
+When a prospect submits the public booking form, they get a toast but no confirmation email. Should send a "We received your request" email to the submitter.
+- Template needed: `booking-request-received`
+- Trigger: after successful insert in `BookPage.tsx`
 
-### a) `employee-welcome.tsx`
-- Subject: "Welcome to the Olive Clean team!"
-- Content: greeting with employee name, instructions to set up portal password
-- Triggered in `supabase/functions/invite-employee/index.ts` after successful account creation/invite, using `send-transactional-email`
+### 2. **Job application submitted** — `Careers.tsx`
+Applicants submit a resume and cover note but receive no confirmation. Should send "We received your application" email.
+- Template needed: `application-received`
+- Trigger: after successful insert in `Careers.tsx`
 
-### b) `client-added.tsx`
-- Subject: "Welcome to Olive Clean!"
-- Content: greeting, info about client portal availability
-- Triggered in `src/components/admin/ClientsTab.tsx` `saveClient()` when creating a new client (not editing), only if client has an email
+### 3. **Applicant hired / moved to team** — `HiringTab.tsx`
+When admin clicks "Move to Team", the applicant is converted to an employee record but gets no notification. Should send "Congratulations, you've been hired" email.
+- Template needed: `applicant-hired`
+- Trigger: in `moveToTeamMutation` onSuccess in `HiringTab.tsx`
 
-### c) `time-off-denied.tsx`
-- Subject: "Time-off request update"
-- Content: "Your request for [start] - [end] was not approved", with optional reason
-- Currently `TimeOffManager.tsx` already sends `time-off-approved` template for ALL status changes (approve and deny). Fix: send `time-off-denied` template when status is "denied", keep `time-off-approved` for "approved"
+### 4. **Feedback submitted by client** — `FeedbackForm.tsx`
+After a client submits a rating + comments, there's no acknowledgment email. Should send "Thanks for your feedback" email.
+- Template needed: `feedback-thank-you`
+- Trigger: after successful insert in `FeedbackForm.tsx`
 
-### d) `estimate-sent.tsx`
-- Subject: "You have a new estimate from Olive Clean"
-- Content: estimate number, total, valid-until date, CTA to view
-- Triggered in `src/components/admin/finance/EstimatesSection.tsx` `updateStatus()` when status changes to "sent". Need to look up client email from the estimate's `client_id`
+### 5. **Questionnaire completed** — `Questionnaire.tsx`
+Client fills out home details (gate codes, pets, etc.) but gets no confirmation. Should send "We've saved your home details" email.
+- Template needed: `questionnaire-completed`
+- Trigger: after successful update in `Questionnaire.tsx`
 
-### Registry update
-- Add all four templates to `registry.ts`
+### 6. **Password changed** — `ClientAccountSettings.tsx` and `ResetPassword.tsx`
+When a user changes their password via account settings or the reset flow, no confirmation email is sent. Should send a security notification.
+- Template needed: `password-changed`
+- Trigger: after successful `updateUser({ password })` in both files
 
----
-
-## 3. Job Reminder Cron
-
-### `supabase/functions/send-job-reminders/index.ts` (new)
-- Query jobs scheduled in the next 24 hours with status "scheduled"
-- For each job, look up client email via `client_id`
-- Call `send-transactional-email` with `job-reminder` template (already exists)
-- Use `idempotencyKey: job-reminder-${job.id}` to prevent duplicates
-
-### `supabase/functions/send-job-reminders/deno.json` (new)
-- Empty config `{}`
-
-### `supabase/config.toml`
-- Add `[functions.send-job-reminders]` with `verify_jwt = true`
-
-### Database: pg_cron job
-- Schedule daily at 7 AM CT to invoke `send-job-reminders`
+### 7. **Job cancelled or rescheduled** — `JobsTab.tsx`
+Jobs can be updated (status changes, reassigned) but there's no email to the client when their job is rescheduled or cancelled. Should notify the client.
+- Template needed: `job-update`
+- Trigger: when job status changes or scheduled date is modified in `JobsTab.tsx`
 
 ---
 
-## Files Changed Summary
+## Implementation Summary
 
-| File | Change |
-|------|--------|
-| `src/hooks/useAuth.tsx` | Cache roles, skip re-check on TOKEN_REFRESHED |
-| `src/pages/AdminDashboard.tsx` | Add role guard redirect |
-| `src/pages/ClientDashboard.tsx` | Add role guard redirect |
-| `src/pages/AdminLogin.tsx` | Role-aware post-login redirect |
-| `src/pages/ClientLogin.tsx` | Role-aware post-login redirect |
-| `src/pages/EmployeeLogin.tsx` | Role-aware post-login redirect |
-| `_shared/transactional-email-templates/employee-welcome.tsx` | New |
-| `_shared/transactional-email-templates/client-added.tsx` | New |
-| `_shared/transactional-email-templates/time-off-denied.tsx` | New |
-| `_shared/transactional-email-templates/estimate-sent.tsx` | New |
-| `_shared/transactional-email-templates/registry.ts` | Register 4 new templates |
-| `supabase/functions/invite-employee/index.ts` | Trigger employee-welcome email |
-| `src/components/admin/ClientsTab.tsx` | Trigger client-added email on create |
-| `src/components/admin/TimeOffManager.tsx` | Send denied template on deny |
-| `src/components/admin/finance/EstimatesSection.tsx` | Trigger estimate-sent email |
-| `supabase/functions/send-job-reminders/index.ts` | New cron function |
-| `supabase/functions/send-job-reminders/deno.json` | New |
-| `supabase/config.toml` | Add send-job-reminders config |
-| DB (via insert tool) | pg_cron job for daily 7 AM reminder |
+| Action | Files |
+|---|---|
+| Create 7 new email templates | `_shared/transactional-email-templates/` |
+| Update registry | `registry.ts` — add 7 new entries |
+| Wire triggers | `BookPage.tsx`, `Careers.tsx`, `HiringTab.tsx`, `FeedbackForm.tsx`, `Questionnaire.tsx`, `ClientAccountSettings.tsx`, `ResetPassword.tsx`, `JobsTab.tsx` |
+| Deploy | Redeploy `send-transactional-email` after registry update |
+
+All 7 templates will follow the existing Olive Clean brand style (same colors, layout, fonts as the current templates). Each trigger will include an `idempotencyKey` for deduplication safety.
 
