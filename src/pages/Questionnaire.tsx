@@ -39,7 +39,7 @@ export default function Questionnaire() {
       // Merge with existing preferences
       const { data: client, error: fetchErr } = await supabase
         .from("clients")
-        .select("preferences")
+        .select("preferences, email")
         .eq("id", clientId)
         .single();
 
@@ -59,7 +59,7 @@ export default function Questionnaire() {
         supabase.functions.invoke("send-transactional-email", {
           body: {
             templateName: "questionnaire-completed",
-            recipientEmail: (client as any).email || (await supabase.from("clients").select("email").eq("id", clientId).single()).data?.email,
+            recipientEmail: client.email,
             idempotencyKey: `questionnaire-${clientId}`,
           },
         });
