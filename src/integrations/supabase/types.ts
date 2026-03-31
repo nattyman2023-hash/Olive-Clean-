@@ -1085,6 +1085,51 @@ export type Database = {
         }
         Relationships: []
       }
+      supply_requests: {
+        Row: {
+          created_at: string
+          employee_id: string
+          id: string
+          notes: string | null
+          quantity: number
+          status: string
+          supply_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          status?: string
+          supply_item_id: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          status?: string
+          supply_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_requests_supply_item_id_fkey"
+            columns: ["supply_item_id"]
+            isOneToOne: false
+            referencedRelation: "supply_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supply_usage_logs: {
         Row: {
           employee_id: string | null
@@ -1158,6 +1203,27 @@ export type Database = {
         }
         Relationships: []
       }
+      team_messages: {
+        Row: {
+          author_id: string
+          created_at: string
+          id: string
+          message: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          id?: string
+          message: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+        }
+        Relationships: []
+      }
       time_off_requests: {
         Row: {
           created_at: string
@@ -1225,6 +1291,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      client_owns_job: {
+        Args: { _job_id: string; _user_id: string }
+        Returns: boolean
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
