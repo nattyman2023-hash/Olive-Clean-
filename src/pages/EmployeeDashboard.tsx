@@ -14,6 +14,7 @@ import {
   Navigation, Home, Play, Receipt, Plus, Upload
 } from "lucide-react";
 import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
+import TimeOffManager from "@/components/admin/TimeOffManager";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 
