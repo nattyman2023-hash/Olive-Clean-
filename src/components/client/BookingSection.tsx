@@ -54,6 +54,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
   const [bedrooms, setBedrooms] = useState(3);
   const [bathrooms, setBathrooms] = useState(2);
   const [submitting, setSubmitting] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
 
   const openBooking = (service: string) => {
     setItems([{ service, notes: "" }]);
