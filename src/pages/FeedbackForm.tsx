@@ -75,7 +75,17 @@ export default function FeedbackForm() {
     for (const file of photos) {
       const ext = file.name.split(".").pop();
       const path = `${jobId}/${crypto.randomUUID()}.${ext}`;
-      await supabase.storage.from("after_photos").upload(path, file);
+      const { error: uploadErr } = await supabase.storage.from("after_photos").upload(path, file);
+      if (!uploadErr) {
+        await supabase.from("job_attachments" as any).insert({
+          job_id: jobId,
+          uploader_id: job.client_id, // use client_id as uploader reference
+          uploader_role: "client",
+          file_path: path,
+          bucket: "after_photos",
+          category: "after",
+        });
+      }
     }
 
     // Send thank-you email to client

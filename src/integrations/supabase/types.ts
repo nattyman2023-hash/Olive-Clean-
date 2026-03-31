@@ -616,6 +616,39 @@ export type Database = {
           },
         ]
       }
+      job_attachments: {
+        Row: {
+          bucket: string
+          category: string
+          created_at: string
+          file_path: string
+          id: string
+          job_id: string
+          uploader_id: string
+          uploader_role: string
+        }
+        Insert: {
+          bucket: string
+          category?: string
+          created_at?: string
+          file_path: string
+          id?: string
+          job_id: string
+          uploader_id: string
+          uploader_role?: string
+        }
+        Update: {
+          bucket?: string
+          category?: string
+          created_at?: string
+          file_path?: string
+          id?: string
+          job_id?: string
+          uploader_id?: string
+          uploader_role?: string
+        }
+        Relationships: []
+      }
       job_postings: {
         Row: {
           created_at: string

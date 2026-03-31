@@ -21,6 +21,7 @@ import {
   Filter,
 } from "lucide-react";
 import JobsMap from "./jobs/JobsMap";
+import JobPhotosGallery from "./JobPhotosGallery";
 
 interface Job {
   id: string;
@@ -583,6 +584,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
           <p className="text-sm text-foreground">{job.notes}</p>
         </div>
       )}
+
+      {/* Photos */}
+      <div className="border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground mb-2">Photos</p>
+        <JobPhotosGallery jobId={job.id} />
+      </div>
 
       {/* Log actual duration */}
       {job.status === "completed" && !job.actual_duration_minutes && (
