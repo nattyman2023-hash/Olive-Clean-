@@ -142,6 +142,28 @@ export default function JobsTab() {
       return;
     }
     toast.success("Job created.");
+
+    // Send job-assigned email if assigned
+    if (form.assigned_to) {
+      const emp = employees.find((e) => e.id === form.assigned_to);
+      const client = clients.find((c) => c.id === form.client_id);
+      if (emp?.email) {
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "job-assigned",
+            recipientEmail: emp.email,
+            idempotencyKey: `job-assigned-new-${form.client_id}-${form.scheduled_at}-${form.assigned_to}`,
+            templateData: {
+              employeeName: emp.name,
+              clientName: client?.name,
+              service: form.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+              date: new Date(form.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+            },
+          },
+        });
+      }
+    }
+
     setShowForm(false);
     setForm({ client_id: "", assigned_to: "", service: "essential", scheduled_at: "", duration_minutes: "120", price: "", notes: "" });
     fetchJobs();
