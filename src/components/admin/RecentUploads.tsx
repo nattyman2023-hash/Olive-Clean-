@@ -33,7 +33,7 @@ export default function RecentUploads() {
         .order("created_at", { ascending: false })
         .limit(20);
       if (error) throw error;
-      return (data || []) as Attachment[];
+      return (data || []) as unknown as Attachment[];
     },
   });
 

@@ -32,7 +32,7 @@ export default function JobPhotosGallery({ jobId }: { jobId: string }) {
         .eq("job_id", jobId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data || []) as Attachment[];
+      return (data || []) as unknown as Attachment[];
     },
   });
 
