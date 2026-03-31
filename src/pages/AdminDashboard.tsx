@@ -16,6 +16,8 @@ import HiringTab from "@/components/admin/HiringTab";
 import RoutesTab from "@/components/admin/RoutesTab";
 import SuppliesTab from "@/components/admin/SuppliesTab";
 import FinanceTab from "@/components/admin/FinanceTab";
+import CalendarTab from "@/components/admin/CalendarTab";
+import TimeOffManager from "@/components/admin/TimeOffManager";
 
 const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
@@ -28,6 +30,8 @@ const ADMIN_TABS = [
   { value: "routes", label: "Routes", adminOnly: true },
   { value: "supplies", label: "Supplies", adminOnly: true },
   { value: "finance", label: "Finance", adminOnly: true },
+  { value: "calendar", label: "Calendar", adminOnly: true },
+  { value: "time-off", label: "Time Off", adminOnly: true },
 ];
 
 function AdminGate() {
@@ -120,6 +124,8 @@ export default function AdminDashboard() {
           <TabsContent value="routes">{isAdmin ? <RoutesTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="supplies">{isAdmin ? <SuppliesTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="finance">{isAdmin ? <FinanceTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="calendar">{isAdmin ? <CalendarTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="time-off">{isAdmin ? <TimeOffManager isAdmin /> : <AdminGate />}</TabsContent>
         </Tabs>
       </main>
     </div>

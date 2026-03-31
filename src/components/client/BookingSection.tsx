@@ -91,6 +91,27 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
       const { error } = await supabase.from("booking_requests").insert(rows);
       if (error) throw error;
       toast.success("Booking request submitted! We'll confirm shortly.");
+
+      // Send confirmation email for the first service
+      if (client.email) {
+        const confirmId = crypto.randomUUID();
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "booking-confirmation",
+            recipientEmail: client.email,
+            idempotencyKey: `booking-confirm-${confirmId}`,
+            templateData: {
+              name: client.name,
+              service: items[0].service,
+              frequency,
+              homeType,
+              bedrooms,
+              bathrooms,
+            },
+          },
+        });
+      }
+
       setDialogOpen(false);
       setItems([]);
     } catch (err: any) {

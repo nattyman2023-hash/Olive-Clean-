@@ -6,11 +6,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star } from "lucide-react";
+import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star, FileText, User } from "lucide-react";
 import { format } from "date-fns";
 import BookingSection from "@/components/client/BookingSection";
 import TechnicianAvatar from "@/components/client/TechnicianAvatar";
+import ClientInvoices from "@/components/client/ClientInvoices";
+import ClientAccountSettings from "@/components/client/ClientAccountSettings";
 
 interface ClientRecord {
   id: string;
@@ -30,6 +34,7 @@ interface Job {
   price: number | null;
   notes: string | null;
   assigned_to: string | null;
+  duration_minutes: number | null;
 }
 
 interface FeedbackRecord {
@@ -56,6 +61,7 @@ export default function ClientDashboard() {
   const queryClient = useQueryClient();
   const [newPrefKey, setNewPrefKey] = useState("");
   const [newPrefValue, setNewPrefValue] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -91,7 +97,6 @@ export default function ClientDashboard() {
     },
   });
 
-  // Fetch assigned technicians for jobs
   const assignedUserIds = [...new Set(jobs.filter((j) => j.assigned_to).map((j) => j.assigned_to!))];
   const { data: technicians = [] } = useQuery({
     queryKey: ["technicians_for_jobs", assignedUserIds],
@@ -182,6 +187,7 @@ export default function ClientDashboard() {
 
   const upcomingJobs = jobs.filter((j) => ["scheduled", "in-progress", "accepted", "on_route", "on_site"].includes(j.status));
   const pastJobs = jobs.filter((j) => j.status === "completed" || j.status === "complete" || j.status === "cancelled");
+  const filteredPastJobs = statusFilter === "all" ? pastJobs : pastJobs.filter((j) => j.status === statusFilter);
   const feedbackByJob = Object.fromEntries(feedbacks.map((f) => [f.job_id, f]));
   const prefs = (client.preferences || {}) as Record<string, string>;
 
@@ -205,143 +211,197 @@ export default function ClientDashboard() {
         </div>
       </header>
 
-      <main className="container py-8 max-w-4xl space-y-8">
-        {/* Book a Cleaning */}
-        <BookingSection client={{ name: client.name, email: client.email, phone: client.phone, address: client.address }} />
+      <main className="container py-8 max-w-4xl">
+        <Tabs defaultValue="home" className="space-y-6">
+          <TabsList className="bg-card border border-border rounded-xl p-1 h-auto">
+            <TabsTrigger value="home" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <CalendarDays className="h-3 w-3 mr-1" />Home
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <FileText className="h-3 w-3 mr-1" />Invoices
+            </TabsTrigger>
+            <TabsTrigger value="account" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <User className="h-3 w-3 mr-1" />Account
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Upcoming Jobs */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <CalendarDays className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Upcoming Appointments</h2>
-          </div>
-          {upcomingJobs.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No upcoming appointments.</CardContent></Card>
-          ) : (
-            <div className="space-y-3">
-              {upcomingJobs.map((job) => {
-                const tech = job.assigned_to ? techByUserId[job.assigned_to] : null;
-                return (
-                  <Card key={job.id}>
-                    <CardContent className="py-4 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{job.service}</p>
-                        <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
-                        {tech && (
-                          <div className="mt-1.5">
-                            <TechnicianAvatar name={tech.name} photoUrl={tech.photo_url} />
+          <TabsContent value="home" className="space-y-8">
+            {/* Book a Cleaning */}
+            <BookingSection client={{ name: client.name, email: client.email, phone: client.phone, address: client.address }} />
+
+            {/* Upcoming Jobs */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-foreground">Upcoming Appointments</h2>
+              </div>
+              {upcomingJobs.length === 0 ? (
+                <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No upcoming appointments.</CardContent></Card>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingJobs.map((job) => {
+                    const tech = job.assigned_to ? techByUserId[job.assigned_to] : null;
+                    return (
+                      <Card key={job.id}>
+                        <CardContent className="py-4 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{job.service}</p>
+                            <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
+                            {tech && (
+                              <div className="mt-1.5">
+                                <TechnicianAvatar name={tech.name} photoUrl={tech.photo_url} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {job.price && <span className="text-sm font-semibold tabular-nums">${Number(job.price).toFixed(0)}</span>}
-                        <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
-                          {job.status.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Past Jobs */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <History className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Past Appointments</h2>
-          </div>
-          {pastJobs.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No past appointments yet.</CardContent></Card>
-          ) : (
-            <div className="space-y-3">
-              {pastJobs.slice(0, 10).map((job) => {
-                const fb = feedbackByJob[job.id];
-                return (
-                  <Card key={job.id}>
-                    <CardContent className="py-4 flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm">{job.service}</p>
-                        <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "MMM d, yyyy")}</p>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {fb ? (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                            <span className="text-xs font-medium tabular-nums">{fb.rating}</span>
+                          <div className="flex items-center gap-3">
+                            {job.price && <span className="text-sm font-semibold tabular-nums">${Number(job.price).toFixed(0)}</span>}
+                            <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
+                              {job.status.replace(/_/g, " ")}
+                            </span>
                           </div>
-                        ) : (job.status === "completed" || job.status === "complete") ? (
-                          <Button asChild variant="ghost" size="sm" className="text-xs h-7">
-                            <Link to={`/feedback/${job.id}`}>Leave Review</Link>
-                          </Button>
-                        ) : null}
-                        <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
-                          {job.status}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Preferences */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Settings className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">My Preferences</h2>
-          </div>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs text-muted-foreground font-normal">
-                Let us know about gate codes, pet names, cleaning preferences, or anything else we should remember.
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {Object.entries(prefs).length > 0 && (
-                <div className="space-y-2">
-                  {Object.entries(prefs).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between bg-muted/50 rounded-xl px-4 py-2.5 group">
-                      <div>
-                        <span className="text-xs font-semibold text-foreground">{key}</span>
-                        <span className="text-xs text-muted-foreground ml-3">{value}</span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removePreference(key)}
-                      >
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Key (e.g. Gate Code)"
-                  value={newPrefKey}
-                  onChange={(e) => setNewPrefKey(e.target.value)}
-                  className="rounded-xl text-sm flex-1"
-                />
-                <Input
-                  placeholder="Value (e.g. #4821)"
-                  value={newPrefValue}
-                  onChange={(e) => setNewPrefValue(e.target.value)}
-                  className="rounded-xl text-sm flex-1"
-                />
-                <Button size="icon" onClick={addPreference} disabled={!newPrefKey.trim() || prefsMutation.isPending} className="rounded-xl shrink-0 active:scale-[0.97] transition-transform">
-                  <Plus className="h-4 w-4" />
-                </Button>
+            </section>
+
+            {/* Past Jobs with filter */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <History className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-semibold text-foreground">Past Appointments</h2>
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[130px] h-7 text-xs rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="complete">Complete</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </CardContent>
-          </Card>
-        </section>
+              {filteredPastJobs.length === 0 ? (
+                <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No past appointments yet.</CardContent></Card>
+              ) : (
+                <div className="space-y-3">
+                  {filteredPastJobs.slice(0, 20).map((job) => {
+                    const fb = feedbackByJob[job.id];
+                    const tech = job.assigned_to ? techByUserId[job.assigned_to] : null;
+                    return (
+                      <Card key={job.id}>
+                        <CardContent className="py-4 flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm">{job.service}</p>
+                            <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "MMM d, yyyy")}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                              {tech && <span className="text-xs text-muted-foreground">{tech.name}</span>}
+                              {job.duration_minutes && <span className="text-xs text-muted-foreground">{job.duration_minutes} min</span>}
+                              {job.price != null && <span className="text-xs font-medium">${Number(job.price).toFixed(0)}</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            {fb ? (
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                <span className="text-xs font-medium tabular-nums">{fb.rating}</span>
+                              </div>
+                            ) : (job.status === "completed" || job.status === "complete") ? (
+                              <Button asChild variant="ghost" size="sm" className="text-xs h-7">
+                                <Link to={`/feedback/${job.id}`}>Leave Review</Link>
+                              </Button>
+                            ) : null}
+                            <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${STATUS_BADGE[job.status] || ""}`}>
+                              {job.status}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* Preferences */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Settings className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-foreground">My Preferences</h2>
+              </div>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs text-muted-foreground font-normal">
+                    Let us know about gate codes, pet names, cleaning preferences, or anything else we should remember.
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {Object.entries(prefs).length > 0 && (
+                    <div className="space-y-2">
+                      {Object.entries(prefs).map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between bg-muted/50 rounded-xl px-4 py-2.5 group">
+                          <div>
+                            <span className="text-xs font-semibold text-foreground">{key}</span>
+                            <span className="text-xs text-muted-foreground ml-3">{value}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removePreference(key)}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Key (e.g. Gate Code)"
+                      value={newPrefKey}
+                      onChange={(e) => setNewPrefKey(e.target.value)}
+                      className="rounded-xl text-sm flex-1"
+                    />
+                    <Input
+                      placeholder="Value (e.g. #4821)"
+                      value={newPrefValue}
+                      onChange={(e) => setNewPrefValue(e.target.value)}
+                      className="rounded-xl text-sm flex-1"
+                    />
+                    <Button size="icon" onClick={addPreference} disabled={!newPrefKey.trim() || prefsMutation.isPending} className="rounded-xl shrink-0 active:scale-[0.97] transition-transform">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="invoices">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">My Invoices</h2>
+            </div>
+            <ClientInvoices clientId={client.id} />
+          </TabsContent>
+
+          <TabsContent value="account">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Account Settings</h2>
+            </div>
+            <ClientAccountSettings
+              client={client}
+              onUpdate={() => queryClient.invalidateQueries({ queryKey: ["client_record"] })}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
