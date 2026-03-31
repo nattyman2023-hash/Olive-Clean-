@@ -152,7 +152,7 @@ export default function JobsTab() {
 
     // Send job-assigned email if assigned
     if (form.assigned_to) {
-      const emp = employees.find((e) => e.id === form.assigned_to);
+      const emp = employees.find((e) => e.user_id === form.assigned_to);
       const client = clients.find((c) => c.id === form.client_id);
       if (emp?.email) {
         supabase.functions.invoke("send-transactional-email", {
@@ -223,7 +223,7 @@ export default function JobsTab() {
 
     // Send job-assigned email to the employee
     if (employeeId) {
-      const emp = employees.find((e) => e.id === employeeId);
+      const emp = employees.find((e) => e.user_id === employeeId);
       const job = jobs.find((j) => j.id === jobId);
       if (emp?.email && job) {
         supabase.functions.invoke("send-transactional-email", {
@@ -400,7 +400,7 @@ export default function JobsTab() {
             >
               <option value="">Assign To (optional)</option>
               {employees.map((e) => (
-                <option key={e.id} value={e.id}>{e.name}</option>
+                <option key={e.id} value={e.user_id}>{e.name}</option>
               ))}
             </select>
             <select
@@ -546,7 +546,7 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
         >
           <option value="">Unassigned</option>
           {employees.map((e) => (
-            <option key={e.id} value={e.id}>{e.name}</option>
+            <option key={e.id} value={e.user_id}>{e.name}</option>
           ))}
         </select>
       </div>
