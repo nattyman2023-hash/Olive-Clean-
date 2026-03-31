@@ -60,7 +60,9 @@ export default function FeedbackForm() {
     const { data: job } = await supabase.from("jobs").select("client_id").eq("id", jobId).single();
     if (!job) { toast.error("Job not found."); setSubmitting(false); return; }
 
+    const fbId = crypto.randomUUID();
     const { error: fbErr } = await supabase.from("feedback").insert({
+      id: fbId,
       job_id: jobId,
       client_id: job.client_id,
       rating,
@@ -74,6 +76,26 @@ export default function FeedbackForm() {
       const ext = file.name.split(".").pop();
       const path = `${jobId}/${crypto.randomUUID()}.${ext}`;
       await supabase.storage.from("after_photos").upload(path, file);
+    }
+
+    // Send thank-you email to client
+    const { data: clientData } = await supabase
+      .from("clients")
+      .select("email")
+      .eq("id", job.client_id)
+      .single();
+    if (clientData?.email) {
+      supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "feedback-thank-you",
+          recipientEmail: clientData.email,
+          idempotencyKey: `feedback-thanks-${fbId}`,
+          templateData: {
+            rating,
+            service: jobInfo?.service,
+          },
+        },
+      });
     }
 
     setSubmitting(false);

@@ -39,7 +39,7 @@ export default function Questionnaire() {
       // Merge with existing preferences
       const { data: client, error: fetchErr } = await supabase
         .from("clients")
-        .select("preferences")
+        .select("preferences, email")
         .eq("id", clientId)
         .single();
 
@@ -53,6 +53,18 @@ export default function Questionnaire() {
         .eq("id", clientId);
 
       if (error) throw error;
+
+      // Send confirmation email if client has email
+      if (client?.email) {
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "questionnaire-completed",
+            recipientEmail: client.email,
+            idempotencyKey: `questionnaire-${clientId}`,
+          },
+        });
+      }
+
       setSubmitted(true);
     } catch (err: any) {
       toast.error("Failed to save. Please try again.");

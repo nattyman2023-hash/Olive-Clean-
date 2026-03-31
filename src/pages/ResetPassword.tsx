@@ -76,6 +76,18 @@ export default function ResetPassword() {
     }
     toast.success("Password updated successfully!");
 
+    // Send security notification
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.email) {
+      supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "password-changed",
+          recipientEmail: currentUser.email,
+          idempotencyKey: `pw-changed-${currentUser.id}-${Date.now()}`,
+        },
+      });
+    }
+
     // Redirect based on role
     const { data: isClient } = await supabase.rpc("has_role", {
       _user_id: (await supabase.auth.getUser()).data.user!.id,
