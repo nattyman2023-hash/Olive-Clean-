@@ -142,7 +142,20 @@ export default function ClientsTab() {
     if (editingId) {
       ({ error } = await supabase.from("clients").update(payload).eq("id", editingId));
     } else {
-      ({ error } = await supabase.from("clients").insert(payload));
+      const newId = crypto.randomUUID();
+      ({ error } = await supabase.from("clients").insert({ ...payload, id: newId }));
+
+      // Send client-added welcome email for new clients with email
+      if (!error && form.email) {
+        await supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "client-added",
+            recipientEmail: form.email,
+            idempotencyKey: `client-added-${newId}`,
+            templateData: { name: form.name },
+          },
+        });
+      }
     }
     setSaving(false);
     if (error) {

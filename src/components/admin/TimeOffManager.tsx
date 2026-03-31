@@ -84,9 +84,10 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
       if (req) {
         const { data: emp } = await supabase.from("employees").select("email, name").eq("id", req.employee_id).maybeSingle();
         if (emp?.email) {
+          const templateName = status === "denied" ? "time-off-denied" : "time-off-approved";
           await supabase.functions.invoke("send-transactional-email", {
             body: {
-              templateName: "time-off-approved",
+              templateName,
               recipientEmail: emp.email,
               idempotencyKey: `time-off-${id}-${status}`,
               templateData: {

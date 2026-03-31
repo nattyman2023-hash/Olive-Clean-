@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LogOut, Loader2, Lock } from "lucide-react";
+import { toast } from "sonner";
 import BookingsTab from "@/components/admin/BookingsTab";
 import ClientsTab from "@/components/admin/ClientsTab";
 import JobsTab from "@/components/admin/JobsTab";
@@ -47,7 +48,7 @@ function AdminGate() {
 }
 
 export default function AdminDashboard() {
-  const { user, isAdmin, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isAdmin, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,7 +57,14 @@ export default function AdminDashboard() {
     }
   }, [authLoading, user, navigate]);
 
-  if (authLoading) {
+  useEffect(() => {
+    if (!authLoading && !rolesLoading && user && !isAdmin && !isStaff) {
+      toast("You don't have access to this dashboard.");
+      navigate("/");
+    }
+  }, [authLoading, rolesLoading, user, isAdmin, isStaff, navigate]);
+
+  if (authLoading || rolesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -64,7 +72,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!user) return null;
+  if (!user || (!isAdmin && !isStaff)) return null;
 
   return (
     <div className="min-h-screen bg-muted/30">
