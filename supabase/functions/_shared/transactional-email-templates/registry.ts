@@ -13,10 +13,12 @@ import { template as bookingConfirmation } from './booking-confirmation.tsx'
 import { template as jobCompleted } from './job-completed.tsx'
 import { template as jobReminder } from './job-reminder.tsx'
 import { template as invoiceIssued } from './invoice-issued.tsx'
+import { template as welcome } from './welcome.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'booking-confirmation': bookingConfirmation,
   'job-completed': jobCompleted,
   'job-reminder': jobReminder,
   'invoice-issued': invoiceIssued,
+  'welcome': welcome,
 }
