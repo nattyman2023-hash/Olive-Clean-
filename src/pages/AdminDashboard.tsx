@@ -30,6 +30,8 @@ const ADMIN_TABS = [
   { value: "routes", label: "Routes", adminOnly: true },
   { value: "supplies", label: "Supplies", adminOnly: true },
   { value: "finance", label: "Finance", adminOnly: true },
+  { value: "calendar", label: "Calendar", adminOnly: true },
+  { value: "time-off", label: "Time Off", adminOnly: true },
 ];
 
 function AdminGate() {
