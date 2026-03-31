@@ -21,6 +21,7 @@ import {
   Filter,
 } from "lucide-react";
 import JobsMap from "./jobs/JobsMap";
+import JobPhotosGallery from "./JobPhotosGallery";
 
 interface Job {
   id: string;
