@@ -48,7 +48,7 @@ function AdminGate() {
 }
 
 export default function AdminDashboard() {
-  const { user, isAdmin, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isAdmin, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,11 +58,11 @@ export default function AdminDashboard() {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (!authLoading && !rolesLoading && user && !isAdmin && !useAuth_isStaff) {
+    if (!authLoading && !rolesLoading && user && !isAdmin && !isStaff) {
       toast("You don't have access to this dashboard.");
       navigate("/");
     }
-  }, [authLoading, rolesLoading, user, isAdmin, useAuth_isStaff, navigate]);
+  }, [authLoading, rolesLoading, user, isAdmin, isStaff, navigate]);
 
   if (authLoading || rolesLoading) {
     return (
@@ -72,7 +72,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!user || (!isAdmin && !useAuth_isStaff)) return null;
+  if (!user || (!isAdmin && !isStaff)) return null;
 
   return (
     <div className="min-h-screen bg-muted/30">
