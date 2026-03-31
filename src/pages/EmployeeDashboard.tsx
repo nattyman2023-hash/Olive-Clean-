@@ -271,6 +271,20 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
     const path = `${job.id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from(bucket).upload(path, file);
     if (error) { toast.error("Upload failed"); return; }
+
+    // Record metadata in job_attachments
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("job_attachments" as any).insert({
+        job_id: job.id,
+        uploader_id: user.id,
+        uploader_role: "staff",
+        file_path: path,
+        bucket,
+        category: bucket === "before_photos" ? "before" : "after",
+      });
+    }
+
     toast.success(`Photo uploaded to ${bucket}`);
   };
 
