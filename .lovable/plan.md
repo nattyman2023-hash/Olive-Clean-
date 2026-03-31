@@ -1,53 +1,80 @@
 
+Issue confirmed.
 
-# Fix Login Lag and Access Issues
+Do I know what the issue is? Yes.
 
-## Root Cause
+What I found:
+- The password login request is succeeding. The network log shows `POST /auth/v1/token?grant_type=password` returning `200`, so this is not a bad-credentials problem.
+- The login spinner staying stuck matches a documented Supabase client deadlock: `src/hooks/useAuth.tsx` still does an async Supabase call inside `onAuthStateChange`:
+  - the callback is `async`
+  - it awaits `checkRoles(...)`
+  - `checkRoles(...)` calls `supabase.rpc("has_role", ...)`
+- Supabase’s docs explicitly warn that calling other Supabase methods inside `onAuthStateChange` can cause the next auth call to hang. That is the exact pattern still present here.
+- There is also a secondary guard issue in `src/pages/EmployeeDashboard.tsx`: it redirects based on `isStaff` before role loading is finished, which can bounce a valid employee back to login.
 
-Two problems creating the "lag" and inaccessibility:
+Plan to fix:
 
-1. **Race condition in `useAuth.tsx`**: Both `onAuthStateChange` and `getSession()` can call `checkRoles` simultaneously because the `initialized` flag is set after an `await`, leaving a window where both paths execute. This causes double RPC calls and unpredictable `rolesLoading` toggling.
+1. Rewrite `src/hooks/useAuth.tsx` so `onAuthStateChange` is synchronous only
+- Remove all `await` logic from the auth callback
+- Do not call `supabase.rpc`, `getSession`, `getUser`, or functions inside that callback
+- Let the callback only:
+  - set `session`
+  - set `user`
+  - clear roles on sign-out / no session
+  - mark auth initialization complete
 
-2. **Redundant RPC calls on login pages**: After `signInWithPassword`, the login page calls `has_role` 3 times AND `onAuthStateChange` fires `SIGNED_IN` which calls `checkRoles` (another 3 RPCs). That's 6 concurrent RPC calls competing with each other while the user stares at a spinner.
+2. Move role resolution into a separate effect outside the auth callback
+- Add a second `useEffect` that watches `user?.id`
+- If no user:
+  - clear `isAdmin/isStaff/isClient`
+  - set `rolesLoading = false`
+- If same resolved user:
+  - skip role fetch
+- If new user:
+  - set `rolesLoading = true`
+  - call `has_role` RPCs there
+  - cache the resolved user id
+- This keeps the auth callback safe while preserving role caching
 
-## Fix
+3. Keep login pages simple
+- `AdminLogin.tsx`, `ClientLogin.tsx`, `EmployeeLogin.tsx` should continue to:
+  - call `signInWithPassword`
+  - navigate immediately on success
+- No role RPCs on the login pages
+- Use `navigate(..., { replace: true })` to reduce back-button loopiness
 
-### 1. Rewrite `src/hooks/useAuth.tsx` — Single entry point for auth
+4. Harden dashboard guards so they wait for roles
+- `AdminDashboard.tsx`: mostly already correct; keep waiting for `rolesLoading`
+- `ClientDashboard.tsx`:
+  - include `rolesLoading` in the loading gate
+  - only run client queries after roles are resolved and `isClient` is true
+- `EmployeeDashboard.tsx`:
+  - add `rolesLoading` from `useAuth`
+  - do not redirect while roles are still loading
+  - only query employee data when `!rolesLoading && isStaff`
 
-- Remove the separate `getSession()` call entirely
-- Handle everything through `onAuthStateChange` which fires `INITIAL_SESSION` on mount (guaranteed by Supabase to fire before `getSession` resolves)
-- Use `resolvedUserIdRef` to cache roles and skip redundant checks
-- Never set `rolesLoading(true)` if roles are already resolved for the same user
+5. Small cleanup to prevent future auth edge cases
+- Keep `resolvedUserIdRef`
+- Skip role fetches on token refresh by virtue of the separate role effect
+- Ensure failed role checks still end `rolesLoading` so the UI never stays blocked forever
 
-```text
-Flow:
-  INITIAL_SESSION (has user) → checkRoles → set loading=false
-  INITIAL_SESSION (no user) → set loading=false immediately
-  SIGNED_IN (same user already resolved) → skip checkRoles
-  SIGNED_IN (new user) → checkRoles
-  TOKEN_REFRESHED → always skip
-  SIGNED_OUT → clear everything
-```
+Files to update:
+- `src/hooks/useAuth.tsx`
+- `src/pages/AdminLogin.tsx`
+- `src/pages/ClientLogin.tsx`
+- `src/pages/EmployeeLogin.tsx`
+- `src/pages/ClientDashboard.tsx`
+- `src/pages/EmployeeDashboard.tsx`
 
-### 2. Simplify login page redirects — `AdminLogin.tsx`, `ClientLogin.tsx`, `EmployeeLogin.tsx`
+Expected result after this fix:
+- Admin login should stop hanging on the spinner
+- Successful logins should navigate immediately
+- Dashboard access should resolve cleanly after roles load
+- Employee login should no longer bounce back to `/employee/login` during role resolution
 
-- Remove all `has_role` RPC calls from login pages
-- After `signInWithPassword` succeeds, simply navigate to the target dashboard
-- Let the dashboard's role guard (already in place) handle the redirect if the role doesn't match
-- This eliminates the 3 redundant RPC calls and makes login feel instant
-
-For example, `ClientLogin.tsx` after login just does `navigate("/client")`. If the user is actually an admin, the `ClientDashboard` guard redirects them to `/`.
-
-### 3. Add `INITIAL_SESSION` event handling
-
-The current code only checks for `SIGNED_IN` — but Supabase v2 fires `INITIAL_SESSION` as the first event on page load. The code falls through to `!initialized` which works but is fragile. Explicitly handle `INITIAL_SESSION`.
-
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `src/hooks/useAuth.tsx` | Rewrite: remove `getSession()`, handle `INITIAL_SESSION`, cache roles properly |
-| `src/pages/AdminLogin.tsx` | Remove `has_role` RPCs, navigate directly to `/admin` |
-| `src/pages/ClientLogin.tsx` | Remove `redirectByRole`, navigate directly to `/client` |
-| `src/pages/EmployeeLogin.tsx` | Remove `has_role` RPCs, navigate directly to `/employee` |
-
+Verification checklist:
+- Log in through `/admin/login` with a valid admin account
+- Log in through `/client/login` with a valid client account
+- Log in through `/employee/login` with a valid staff account
+- Refresh each dashboard while signed in
+- Try the “wrong portal” case and confirm it redirects cleanly instead of hanging
