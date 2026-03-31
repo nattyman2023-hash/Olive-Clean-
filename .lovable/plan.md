@@ -1,97 +1,41 @@
 
 
-# Phase 1 — Loyalty & Special Programs
+# Phase 1 Enhancements — 6-Month Dusting + Referral Linking
 
-## What Exists Today
-- **perks_members** table with `client_id`, `discount_percent`, `flexibility_zone`, `status`, `notes`
-- **perks_offers** table for gap-filling cancelled slots to perks members
-- Admin **PerksTab** for enrolling members, managing status, and a Gap Filler tool
-- Public **PerksSection** on the homepage marketing the Olive Perks Club
-- No tracking of completed cleanings count, no referral system, no program categories, no milestone rewards
+## Three Changes
 
-## What We're Building
+### 1. Automatic 6-Month Complimentary Dusting Milestone
 
-### A. Database Changes
+**Where**: `src/components/admin/JobsTab.tsx` — inside the `updateJobStatus` function, after the free cleaning check (around line 229).
 
-**1. New table: `loyalty_programs`**
-Defines the special programs (Friends & Family, Veterans, Retired, Loyalty Club) with their discount rules and benefits.
+**Logic**: After incrementing `cleanings_completed`, check if the member's `joined_at` is ≥ 6 months ago. If so, query `loyalty_milestones` for an existing `complimentary_dusting` milestone for that member. If none exists, insert one automatically.
 
-| Column | Type | Purpose |
-|---|---|---|
-| id | UUID PK | |
-| name | TEXT | "Friends & Family", "Veterans", "Retired", "Loyalty Club" |
-| discount_percent | INTEGER | Default discount for this program |
-| description | TEXT | Admin-facing description |
-| benefits | JSONB | Structured list of perks (free cleaning interval, referral reward, milestone rewards) |
-| is_active | BOOLEAN | Enable/disable program |
+### 2. Store Referral Code on Booking Request + Link Referrer
 
-**2. Extend `perks_members` table**
-- Add `program_type` TEXT column (default `'loyalty_club'`) — links to program name
-- Add `cleanings_completed` INTEGER (default 0) — tracks paid cleanings toward free cleaning milestone
-- Add `free_cleanings_earned` INTEGER (default 0) — accumulated free cleanings
-- Add `free_cleanings_used` INTEGER (default 0)
-- Add `referral_code` TEXT (unique) — auto-generated for referral tracking
-- Add `referred_by` UUID (nullable) — links to the member who referred them
+**Database**: Add a `referral_code` TEXT column to `booking_requests` table (migration).
 
-**3. New table: `loyalty_milestones`**
-Tracks milestone events (free cleaning earned, 6-month dusting reward, referral credited).
+**BookingSection.tsx**: Already has the referral code input — update `handleSubmit` to include `referral_code` in the insert payload.
 
-| Column | Type |
+**BookingsTab.tsx**: When admin confirms a booking, look up the referral code in `perks_members`. If found, when the new client's first job is completed (handled in JobsTab), award a `referral_reward` milestone to the referrer.
+
+**JobsTab.tsx**: On job completion, also check if the client was referred (via `perks_members.referred_by`). If so, and if no `referral_reward` milestone exists for the referrer for this client, insert one.
+
+### 3. Wire Referral Code During Client Onboarding
+
+**BookingsTab.tsx**: When confirming a booking, if a referral code was provided, look up the referring `perks_member` and store the `referred_by` reference when auto-enrolling or when creating the client record. This links the new client to the referrer for future milestone tracking.
+
+## Files Modified
+
+| File | Change |
 |---|---|
-| id | UUID PK |
-| member_id | UUID |
-| milestone_type | TEXT | `'free_cleaning'`, `'complimentary_dusting'`, `'referral_reward'` |
-| triggered_at | TIMESTAMPTZ |
-| redeemed | BOOLEAN |
-| job_id | UUID (nullable) |
-
-### B. Admin UI Changes — PerksTab Overhaul
-
-**Program Management Section**
-- Dropdown/tabs to filter members by program type
-- Enroll form gets a "Program" selector (Loyalty Club, Friends & Family, Veterans, Retired)
-- Each program shows its discount rate and benefits
-
-**Member Detail Panel Enhancements**
-- Show `cleanings_completed` / threshold for next free cleaning
-- Show earned vs used free cleanings
-- Show referral code and count of successful referrals
-- Show milestone history (complimentary dusting at 6 months, etc.)
-- Button to manually award a free cleaning or milestone
-
-**Loyalty Tracker**
-- When a job is marked "completed" for a loyalty member, auto-increment `cleanings_completed`
-- When threshold is reached (e.g., every 10 cleanings), auto-increment `free_cleanings_earned` and insert a milestone record
-- At 6 months membership, auto-create a "complimentary dusting" milestone
-
-### C. Client Portal — Loyalty Status
-
-Add a "Loyalty" section to the Client Dashboard Home tab:
-- Current program name and discount
-- Progress bar toward next free cleaning
-- Referral code with copy button
-- List of earned rewards and redemption status
-
-### D. Referral System
-
-- Each member gets a unique referral code on enrollment
-- New booking form accepts an optional referral code field
-- When a referred client completes their first paid cleaning, the referrer earns a reward (tracked via milestone)
-
-## Files Modified / Created
-
-| File | Action |
-|---|---|
-| Migration: `create_loyalty_programs` | New — programs table, extend perks_members, milestones table |
-| `src/components/admin/PerksTab.tsx` | Major edit — program filter, enhanced detail panel, milestone display |
-| `src/pages/ClientDashboard.tsx` | Edit — add Loyalty status section |
-| `src/components/client/BookingSection.tsx` | Edit — add referral code field |
-| `src/components/admin/JobsTab.tsx` | Edit — increment loyalty counter on job completion |
+| `migration` | Add `referral_code` column to `booking_requests` |
+| `src/components/client/BookingSection.tsx` | Pass `referral_code` in insert payload |
+| `src/components/admin/JobsTab.tsx` | Add 6-month dusting check + referral reward on completion |
+| `src/components/admin/BookingsTab.tsx` | On confirm, look up referral code and link referred_by on the new perks member |
 
 ## Implementation Order
-1. Database migration (tables + columns + RLS)
-2. Admin PerksTab overhaul (program management, milestones, enhanced detail)
-3. Auto-increment logic on job completion
-4. Client portal loyalty section
-5. Referral code on booking form
+1. Database migration (add `referral_code` to `booking_requests`)
+2. BookingSection — include referral code in insert
+3. JobsTab — add 6-month dusting auto-milestone + referral reward logic
+4. BookingsTab — link referral code to referred_by on confirmation
 
