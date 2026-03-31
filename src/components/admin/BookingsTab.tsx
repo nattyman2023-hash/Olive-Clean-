@@ -29,6 +29,7 @@ interface BookingRequest {
   notes: string | null;
   status: string;
   created_at: string;
+  referral_code: string | null;
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof Clock; className: string }> = {
