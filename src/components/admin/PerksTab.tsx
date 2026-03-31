@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   Search,
@@ -13,6 +14,10 @@ import {
   Send,
   CheckCircle2,
   XCircle,
+  Gift,
+  Copy,
+  Award,
+  Users,
 } from "lucide-react";
 
 interface PerksMember {
@@ -23,7 +28,32 @@ interface PerksMember {
   flexibility_zone: string | null;
   joined_at: string;
   notes: string | null;
+  program_type: string;
+  cleanings_completed: number;
+  free_cleanings_earned: number;
+  free_cleanings_used: number;
+  referral_code: string | null;
+  referred_by: string | null;
   clients?: { name: string; neighborhood: string | null; phone: string | null } | null;
+}
+
+interface LoyaltyProgram {
+  id: string;
+  name: string;
+  discount_percent: number;
+  description: string | null;
+  benefits: any;
+  is_active: boolean;
+}
+
+interface Milestone {
+  id: string;
+  member_id: string;
+  milestone_type: string;
+  triggered_at: string;
+  redeemed: boolean;
+  job_id: string | null;
+  notes: string | null;
 }
 
 interface ClientOption {
@@ -56,18 +86,33 @@ const offerStatusBadge: Record<string, string> = {
 
 const ZONES = ["Belle Meade / West End", "Brentwood / Franklin", "Green Hills / 12 South", "West Nashville / Bellevue"];
 
+const PROGRAM_KEY_MAP: Record<string, string> = {
+  loyalty_club: "Loyalty Club",
+  friends_family: "Friends & Family",
+  veterans: "Veterans",
+  retired: "Retired",
+};
+
+function generateReferralCode(): string {
+  return "OLV-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
 export default function PerksTab() {
   const [members, setMembers] = useState<PerksMember[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [programs, setPrograms] = useState<LoyaltyProgram[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [programFilter, setProgramFilter] = useState("all");
   const [showEnroll, setShowEnroll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PerksMember | null>(null);
 
   const [form, setForm] = useState({
     client_id: "",
-    discount_percent: "40",
+    program_type: "loyalty_club",
+    discount_percent: "",
     flexibility_zone: "",
     notes: "",
   });
@@ -75,7 +120,12 @@ export default function PerksTab() {
   useEffect(() => {
     fetchMembers();
     fetchClients();
+    fetchPrograms();
   }, []);
+
+  useEffect(() => {
+    if (selected) fetchMilestones(selected.id);
+  }, [selected?.id]);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -88,12 +138,26 @@ export default function PerksTab() {
       toast.error("Failed to load Perks members.");
       return;
     }
-    setMembers(data || []);
+    setMembers((data as any[]) || []);
   };
 
   const fetchClients = async () => {
     const { data } = await supabase.from("clients").select("id, name, neighborhood").order("name");
     setClients(data || []);
+  };
+
+  const fetchPrograms = async () => {
+    const { data } = await supabase.from("loyalty_programs").select("*").order("name");
+    setPrograms((data as any[]) || []);
+  };
+
+  const fetchMilestones = async (memberId: string) => {
+    const { data } = await supabase
+      .from("loyalty_milestones")
+      .select("*")
+      .eq("member_id", memberId)
+      .order("triggered_at", { ascending: false });
+    setMilestones((data as any[]) || []);
   };
 
   const enrollMember = async () => {
@@ -102,19 +166,25 @@ export default function PerksTab() {
       return;
     }
     setSaving(true);
+    const program = programs.find((p) => p.name === PROGRAM_KEY_MAP[form.program_type]);
+    const discount = form.discount_percent ? parseInt(form.discount_percent) : (program?.discount_percent || 40);
+
     const { error } = await supabase.from("perks_members").insert({
       client_id: form.client_id,
-      discount_percent: parseInt(form.discount_percent) || 40,
+      discount_percent: discount,
       flexibility_zone: form.flexibility_zone || null,
       notes: form.notes || null,
+      program_type: form.program_type,
+      referral_code: generateReferralCode(),
     });
     setSaving(false);
     if (error) {
       toast.error("Failed to enroll member.");
       return;
     }
-    toast.success("Member enrolled in Perks Club.");
+    toast.success("Member enrolled!");
     setShowEnroll(false);
+    setForm({ client_id: "", program_type: "loyalty_club", discount_percent: "", flexibility_zone: "", notes: "" });
     fetchMembers();
   };
 
@@ -129,7 +199,29 @@ export default function PerksTab() {
     if (selected?.id === id) setSelected({ ...selected, status });
   };
 
-  // Enhanced Gap Filler
+  const awardMilestone = async (memberId: string, type: string) => {
+    const { error } = await supabase.from("loyalty_milestones").insert({
+      member_id: memberId,
+      milestone_type: type,
+      notes: "Manually awarded by admin",
+    });
+    if (error) {
+      toast.error("Failed to award milestone.");
+      return;
+    }
+    if (type === "free_cleaning") {
+      await supabase
+        .from("perks_members")
+        .update({ free_cleanings_earned: (selected?.free_cleanings_earned || 0) + 1 })
+        .eq("id", memberId);
+      if (selected) setSelected({ ...selected, free_cleanings_earned: (selected.free_cleanings_earned || 0) + 1 });
+    }
+    toast.success(`${type.replace(/_/g, " ")} awarded!`);
+    fetchMilestones(memberId);
+    fetchMembers();
+  };
+
+  // Gap Filler
   const [cancelledJobs, setCancelledJobs] = useState<any[]>([]);
   const [offers, setOffers] = useState<PerksOffer[]>([]);
   const [showGapFiller, setShowGapFiller] = useState(false);
@@ -137,12 +229,7 @@ export default function PerksTab() {
 
   const loadGapFiller = async () => {
     const [jobsRes, offersRes] = await Promise.all([
-      supabase
-        .from("jobs")
-        .select("*, clients(name, neighborhood)")
-        .eq("status", "cancelled")
-        .order("scheduled_at", { ascending: false })
-        .limit(10),
+      supabase.from("jobs").select("*, clients(name, neighborhood)").eq("status", "cancelled").order("scheduled_at", { ascending: false }).limit(10),
       supabase.from("perks_offers").select("*").order("offered_at", { ascending: false }),
     ]);
     setCancelledJobs(jobsRes.data || []);
@@ -152,54 +239,29 @@ export default function PerksTab() {
 
   const sendOffer = async (cancelledJobId: string, memberId: string) => {
     setSendingOffer(`${cancelledJobId}-${memberId}`);
-    const { error } = await supabase.from("perks_offers").insert({
-      perks_member_id: memberId,
-      cancelled_job_id: cancelledJobId,
-    });
+    const { error } = await supabase.from("perks_offers").insert({ perks_member_id: memberId, cancelled_job_id: cancelledJobId });
     setSendingOffer(null);
-    if (error) {
-      toast.error("Failed to create offer.");
-      return;
-    }
-    toast.success("Offer sent to Perks member!");
+    if (error) { toast.error("Failed to create offer."); return; }
+    toast.success("Offer sent!");
     loadGapFiller();
   };
 
   const updateOfferStatus = async (offerId: string, status: "accepted" | "declined", cancelledJob?: any, member?: PerksMember) => {
     const update: any = { status, responded_at: new Date().toISOString() };
-
     if (status === "accepted" && cancelledJob && member) {
-      // Create a new job at discounted price
       const originalPrice = cancelledJob.price ? Number(cancelledJob.price) : null;
       const discount = member.discount_percent || 40;
       const perksPrice = originalPrice ? originalPrice * (1 - discount / 100) : null;
-
-      const { data: newJob, error: jobErr } = await supabase
-        .from("jobs")
-        .insert({
-          client_id: member.client_id,
-          service: cancelledJob.service,
-          scheduled_at: cancelledJob.scheduled_at,
-          duration_minutes: cancelledJob.duration_minutes,
-          price: perksPrice,
-          notes: `Perks Club fill-in (${discount}% off). Original job cancelled.`,
-          status: "scheduled",
-        })
-        .select("id")
-        .single();
-
-      if (jobErr) {
-        toast.error("Failed to create replacement job.");
-        return;
-      }
+      const { data: newJob, error: jobErr } = await supabase.from("jobs").insert({
+        client_id: member.client_id, service: cancelledJob.service, scheduled_at: cancelledJob.scheduled_at,
+        duration_minutes: cancelledJob.duration_minutes, price: perksPrice,
+        notes: `Perks Club fill-in (${discount}% off). Original job cancelled.`, status: "scheduled",
+      }).select("id").single();
+      if (jobErr) { toast.error("Failed to create replacement job."); return; }
       update.new_job_id = newJob.id;
     }
-
     const { error } = await supabase.from("perks_offers").update(update).eq("id", offerId);
-    if (error) {
-      toast.error("Failed to update offer.");
-      return;
-    }
+    if (error) { toast.error("Failed to update offer."); return; }
     toast.success(status === "accepted" ? "Offer accepted — new job scheduled!" : "Offer declined.");
     loadGapFiller();
   };
@@ -209,8 +271,23 @@ export default function PerksTab() {
 
   const filtered = members.filter((m) => {
     const name = m.clients?.name || "";
-    return !search || name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase());
+    const matchesProgram = programFilter === "all" || m.program_type === programFilter;
+    return matchesSearch && matchesProgram;
   });
+
+  const getProgramForMember = (m: PerksMember) => {
+    const programName = PROGRAM_KEY_MAP[m.program_type] || m.program_type;
+    return programs.find((p) => p.name === programName);
+  };
+
+  const getFreeCleaningInterval = (m: PerksMember) => {
+    const prog = getProgramForMember(m);
+    return prog?.benefits?.free_cleaning_interval || 10;
+  };
+
+  const referralCount = (memberId: string) =>
+    members.filter((m) => m.referred_by === memberId).length;
 
   return (
     <div>
@@ -220,7 +297,18 @@ export default function PerksTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Perks members..." className="pl-10 rounded-xl" />
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
+          {["all", "loyalty_club", "friends_family", "veterans", "retired"].map((p) => (
+            <button
+              key={p}
+              onClick={() => setProgramFilter(p)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors active:scale-[0.97] ${
+                programFilter === p ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {p === "all" ? "All" : PROGRAM_KEY_MAP[p] || p}
+            </button>
+          ))}
           <Button variant="outline" size="sm" onClick={loadGapFiller} className="rounded-lg active:scale-[0.97]">
             <Zap className="h-4 w-4 mr-1" /> Gap Filler
           </Button>
@@ -230,7 +318,7 @@ export default function PerksTab() {
         </div>
       </div>
 
-      {/* Enhanced Gap Filler */}
+      {/* Gap Filler */}
       {showGapFiller && (
         <div className="bg-card rounded-xl border border-border shadow-sm p-6 mb-6 space-y-4">
           <div className="flex justify-between items-center">
@@ -246,9 +334,7 @@ export default function PerksTab() {
           ) : (
             cancelledJobs.map((j) => {
               const neighborhood = j.clients?.neighborhood || "";
-              const nearbyMembers = members.filter(
-                (m) => m.status === "active" && m.clients?.neighborhood === neighborhood
-              );
+              const nearbyMembers = members.filter((m) => m.status === "active" && m.clients?.neighborhood === neighborhood);
               return (
                 <div key={j.id} className="border border-border rounded-lg p-4 space-y-3">
                   <div className="flex justify-between text-sm">
@@ -259,16 +345,12 @@ export default function PerksTab() {
                       {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </span>
                   </div>
-                  {j.price && (
-                    <p className="text-xs text-muted-foreground">Original price: ${Number(j.price).toFixed(2)}</p>
-                  )}
+                  {j.price && <p className="text-xs text-muted-foreground">Original price: ${Number(j.price).toFixed(2)}</p>}
                   {nearbyMembers.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No active Perks members in {neighborhood || "this area"}.</p>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        {nearbyMembers.length} match{nearbyMembers.length > 1 ? "es" : ""} in {neighborhood}:
-                      </p>
+                      <p className="text-xs text-muted-foreground font-medium">{nearbyMembers.length} match{nearbyMembers.length > 1 ? "es" : ""} in {neighborhood}:</p>
                       {nearbyMembers.map((m) => {
                         const existing = getExistingOffer(j.id, m.id);
                         return (
@@ -284,36 +366,14 @@ export default function PerksTab() {
                                 </span>
                                 {existing.status === "offered" && (
                                   <div className="flex gap-1">
-                                    <button
-                                      onClick={() => updateOfferStatus(existing.id, "accepted", j, m)}
-                                      className="p-1 rounded-md text-primary hover:bg-primary/10 transition-colors active:scale-95"
-                                      title="Accept"
-                                    >
-                                      <CheckCircle2 className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => updateOfferStatus(existing.id, "declined")}
-                                      className="p-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors active:scale-95"
-                                      title="Decline"
-                                    >
-                                      <XCircle className="h-4 w-4" />
-                                    </button>
+                                    <button onClick={() => updateOfferStatus(existing.id, "accepted", j, m)} className="p-1 rounded-md text-primary hover:bg-primary/10 transition-colors active:scale-95" title="Accept"><CheckCircle2 className="h-4 w-4" /></button>
+                                    <button onClick={() => updateOfferStatus(existing.id, "declined")} className="p-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors active:scale-95" title="Decline"><XCircle className="h-4 w-4" /></button>
                                   </div>
                                 )}
                               </div>
                             ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg text-xs active:scale-[0.97] gap-1.5"
-                                disabled={sendingOffer === `${j.id}-${m.id}`}
-                                onClick={() => sendOffer(j.id, m.id)}
-                              >
-                                {sendingOffer === `${j.id}-${m.id}` ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Send className="h-3 w-3" />
-                                )}
+                              <Button size="sm" variant="outline" className="rounded-lg text-xs active:scale-[0.97] gap-1.5" disabled={sendingOffer === `${j.id}-${m.id}`} onClick={() => sendOffer(j.id, m.id)}>
+                                {sendingOffer === `${j.id}-${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                                 Send Offer
                               </Button>
                             )}
@@ -333,40 +393,26 @@ export default function PerksTab() {
       {showEnroll && (
         <div className="bg-card rounded-xl border border-border shadow-sm p-6 mb-6 space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-foreground">Enroll in Olive Perks Club</h3>
-            <button onClick={() => setShowEnroll(false)} className="text-muted-foreground hover:text-foreground active:scale-95">
-              <X className="h-4 w-4" />
-            </button>
+            <h3 className="font-semibold text-foreground">Enroll New Member</h3>
+            <button onClick={() => setShowEnroll(false)} className="text-muted-foreground hover:text-foreground active:scale-95"><X className="h-4 w-4" /></button>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
-            <select
-              value={form.client_id}
-              onChange={(e) => setForm({ ...form, client_id: e.target.value })}
-              className="px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground"
-            >
+            <select value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} className="px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
               <option value="">Select Client *</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <Input
-              type="number"
-              placeholder="Discount % (default 40)"
-              value={form.discount_percent}
-              onChange={(e) => setForm({ ...form, discount_percent: e.target.value })}
-              className="rounded-lg"
-            />
-            <select
-              value={form.flexibility_zone}
-              onChange={(e) => setForm({ ...form, flexibility_zone: e.target.value })}
-              className="px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground"
-            >
+            <select value={form.program_type} onChange={(e) => {
+              const prog = programs.find((p) => p.name === PROGRAM_KEY_MAP[e.target.value]);
+              setForm({ ...form, program_type: e.target.value, discount_percent: prog ? String(prog.discount_percent) : form.discount_percent });
+            }} className="px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+              {Object.entries(PROGRAM_KEY_MAP).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+            <Input type="number" placeholder="Discount % (auto from program)" value={form.discount_percent} onChange={(e) => setForm({ ...form, discount_percent: e.target.value })} className="rounded-lg" />
+            <select value={form.flexibility_zone} onChange={(e) => setForm({ ...form, flexibility_zone: e.target.value })} className="px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
               <option value="">Flexibility Zone</option>
-              {ZONES.map((z) => (
-                <option key={z} value={z}>{z}</option>
-              ))}
+              {ZONES.map((z) => <option key={z} value={z}>{z}</option>)}
             </select>
-            <Input placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-lg" />
+            <Input placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-lg sm:col-span-2" />
           </div>
           <Button onClick={enrollMember} disabled={saving} className="rounded-lg active:scale-[0.97]">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
@@ -375,16 +421,14 @@ export default function PerksTab() {
         </div>
       )}
 
-      {/* Members List */}
+      {/* Members List + Detail */}
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
           {loading ? (
-            <div className="text-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-            </div>
+            <div className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
           ) : filtered.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-12 text-center">
-              <p className="text-muted-foreground text-sm">No Perks members yet.</p>
+              <p className="text-muted-foreground text-sm">No Perks members found.</p>
             </div>
           ) : (
             filtered.map((m) => (
@@ -398,7 +442,9 @@ export default function PerksTab() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-foreground text-sm truncate">{m.clients?.name || "Unknown"}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{m.flexibility_zone || "No zone"} · {m.discount_percent}% off</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {PROGRAM_KEY_MAP[m.program_type] || m.program_type} · {m.discount_percent}% off · {m.cleanings_completed} cleanings
+                    </p>
                   </div>
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${statusBadge[m.status] || statusBadge.active}`}>
                     {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
@@ -409,16 +455,48 @@ export default function PerksTab() {
           )}
         </div>
 
-        {/* Detail */}
+        {/* Detail Panel */}
         <div className="lg:col-span-1">
           {selected ? (
             <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">{selected.clients?.name || "Unknown"}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Joined {new Date(selected.joined_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  {PROGRAM_KEY_MAP[selected.program_type] || selected.program_type} · Joined {new Date(selected.joined_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                 </p>
               </div>
+
+              {/* Cleaning Progress */}
+              <div className="border-t border-border pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-1"><Award className="h-3.5 w-3.5" /> Free Cleaning Progress</span>
+                  <span className="font-medium text-foreground tabular-nums">{selected.cleanings_completed} / {getFreeCleaningInterval(selected)}</span>
+                </div>
+                <Progress value={(selected.cleanings_completed / getFreeCleaningInterval(selected)) * 100} className="h-2" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Earned: {selected.free_cleanings_earned}</span>
+                  <span>Used: {selected.free_cleanings_used}</span>
+                  <span className="font-medium text-primary">Available: {selected.free_cleanings_earned - selected.free_cleanings_used}</span>
+                </div>
+              </div>
+
+              {/* Referral */}
+              <div className="border-t border-border pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3.5 w-3.5" /> Referrals</span>
+                  <span className="font-medium text-foreground">{referralCount(selected.id)}</span>
+                </div>
+                {selected.referral_code && (
+                  <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+                    <code className="text-xs font-mono text-foreground flex-1">{selected.referral_code}</code>
+                    <button onClick={() => { navigator.clipboard.writeText(selected.referral_code!); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground active:scale-95">
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats */}
               <div className="border-t border-border pt-4 space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Discount</span>
@@ -428,27 +506,54 @@ export default function PerksTab() {
                   <span className="text-muted-foreground">Zone</span>
                   <span className="font-medium text-foreground">{selected.flexibility_zone || "—"}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Neighborhood</span>
-                  <span className="font-medium text-foreground">{selected.clients?.neighborhood || "—"}</span>
+              </div>
+
+              {/* Milestones */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground font-medium flex items-center gap-1"><Gift className="h-3.5 w-3.5" /> Milestones</p>
+                </div>
+                {milestones.length > 0 ? (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {milestones.map((ms) => (
+                      <div key={ms.id} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
+                        <div>
+                          <p className="text-xs font-medium text-foreground">{ms.milestone_type.replace(/_/g, " ")}</p>
+                          <p className="text-[0.6rem] text-muted-foreground">{new Date(ms.triggered_at).toLocaleDateString()}</p>
+                        </div>
+                        <span className={`text-[0.6rem] font-medium px-2 py-0.5 rounded-full ${ms.redeemed ? "text-primary bg-primary/10" : "text-olive-gold bg-olive-gold/10"}`}>
+                          {ms.redeemed ? "Redeemed" : "Available"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No milestones yet.</p>
+                )}
+                <div className="flex gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" className="rounded-lg text-xs active:scale-[0.97]" onClick={() => awardMilestone(selected.id, "free_cleaning")}>
+                    <Gift className="h-3 w-3 mr-1" /> Award Free Cleaning
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-lg text-xs active:scale-[0.97]" onClick={() => awardMilestone(selected.id, "complimentary_dusting")}>
+                    <Star className="h-3 w-3 mr-1" /> Award Dusting
+                  </Button>
                 </div>
               </div>
+
               {selected.notes && (
                 <div className="border-t border-border pt-4">
                   <p className="text-xs text-muted-foreground mb-1">Notes</p>
                   <p className="text-sm text-foreground">{selected.notes}</p>
                 </div>
               )}
+
+              {/* Status Controls */}
               <div className="border-t border-border pt-4">
                 <p className="text-xs text-muted-foreground mb-2">Update Status</p>
                 <div className="grid grid-cols-3 gap-2">
                   {["active", "paused", "cancelled"].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => updateMemberStatus(selected.id, s)}
-                      disabled={selected.status === s}
-                      className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-[0.97] disabled:opacity-40 ${statusBadge[s]}`}
-                    >
+                    <button key={s} onClick={() => updateMemberStatus(selected.id, s)} disabled={selected.status === s}
+                      className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-[0.97] disabled:opacity-40 ${statusBadge[s]}`}>
                       {s.charAt(0).toUpperCase() + s.slice(1)}
                     </button>
                   ))}

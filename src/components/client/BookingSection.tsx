@@ -54,6 +54,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
   const [bedrooms, setBedrooms] = useState(3);
   const [bathrooms, setBathrooms] = useState(2);
   const [submitting, setSubmitting] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
 
   const openBooking = (service: string) => {
     setItems([{ service, notes: "" }]);
@@ -195,6 +196,17 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
             <Button variant="outline" size="sm" onClick={addItem} className="rounded-full text-xs w-full gap-1">
               <Plus className="h-3 w-3" /> Add Another Service
             </Button>
+
+            {/* Referral Code */}
+            <div>
+              <Label className="text-xs">Referral Code (optional)</Label>
+              <Input
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                placeholder="e.g. OLV-ABC123"
+                className="rounded-xl mt-1 text-sm"
+              />
+            </div>
 
             {/* Home details */}
             <div className="grid grid-cols-2 gap-3">

@@ -783,6 +783,74 @@ export type Database = {
           },
         ]
       }
+      loyalty_milestones: {
+        Row: {
+          id: string
+          job_id: string | null
+          member_id: string
+          milestone_type: string
+          notes: string | null
+          redeemed: boolean
+          triggered_at: string
+        }
+        Insert: {
+          id?: string
+          job_id?: string | null
+          member_id: string
+          milestone_type: string
+          notes?: string | null
+          redeemed?: boolean
+          triggered_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string | null
+          member_id?: string
+          milestone_type?: string
+          notes?: string | null
+          redeemed?: boolean
+          triggered_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_milestones_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "perks_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_programs: {
+        Row: {
+          benefits: Json
+          created_at: string
+          description: string | null
+          discount_percent: number
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          benefits?: Json
+          created_at?: string
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          benefits?: Json
+          created_at?: string
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       payslips: {
         Row: {
           additions: Json | null
@@ -844,30 +912,48 @@ export type Database = {
       }
       perks_members: {
         Row: {
+          cleanings_completed: number
           client_id: string
           discount_percent: number
           flexibility_zone: string | null
+          free_cleanings_earned: number
+          free_cleanings_used: number
           id: string
           joined_at: string
           notes: string | null
+          program_type: string
+          referral_code: string | null
+          referred_by: string | null
           status: string
         }
         Insert: {
+          cleanings_completed?: number
           client_id: string
           discount_percent?: number
           flexibility_zone?: string | null
+          free_cleanings_earned?: number
+          free_cleanings_used?: number
           id?: string
           joined_at?: string
           notes?: string | null
+          program_type?: string
+          referral_code?: string | null
+          referred_by?: string | null
           status?: string
         }
         Update: {
+          cleanings_completed?: number
           client_id?: string
           discount_percent?: number
           flexibility_zone?: string | null
+          free_cleanings_earned?: number
+          free_cleanings_used?: number
           id?: string
           joined_at?: string
           notes?: string | null
+          program_type?: string
+          referral_code?: string | null
+          referred_by?: string | null
           status?: string
         }
         Relationships: [
@@ -876,6 +962,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "perks_members_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "perks_members"
             referencedColumns: ["id"]
           },
         ]

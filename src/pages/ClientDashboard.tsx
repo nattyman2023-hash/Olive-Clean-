@@ -15,6 +15,7 @@ import BookingSection from "@/components/client/BookingSection";
 import TechnicianAvatar from "@/components/client/TechnicianAvatar";
 import ClientInvoices from "@/components/client/ClientInvoices";
 import ClientAccountSettings from "@/components/client/ClientAccountSettings";
+import LoyaltyStatus from "@/components/client/LoyaltyStatus";
 
 interface ClientRecord {
   id: string;
@@ -233,6 +234,9 @@ export default function ClientDashboard() {
           </TabsList>
 
           <TabsContent value="home" className="space-y-8">
+            {/* Loyalty Status */}
+            <LoyaltyStatus clientId={client.id} />
+
             {/* Book a Cleaning */}
             <BookingSection client={{ name: client.name, email: client.email, phone: client.phone, address: client.address }} />
 
