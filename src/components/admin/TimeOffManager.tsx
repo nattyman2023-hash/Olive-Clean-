@@ -78,6 +78,27 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
         .update({ status, reviewed_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
+
+      // Send time-off decision email to the employee
+      const req = requests.find((r) => r.id === id);
+      if (req) {
+        const { data: emp } = await supabase.from("employees").select("email, name").eq("id", req.employee_id).maybeSingle();
+        if (emp?.email) {
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "time-off-approved",
+              recipientEmail: emp.email,
+              idempotencyKey: `time-off-${id}-${status}`,
+              templateData: {
+                employeeName: emp.name,
+                startDate: new Date(req.start_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+                endDate: new Date(req.end_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+                status,
+              },
+            },
+          });
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["time_off_requests"] });

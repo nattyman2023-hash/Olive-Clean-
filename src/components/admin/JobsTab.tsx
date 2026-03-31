@@ -166,6 +166,28 @@ export default function JobsTab() {
       return;
     }
     toast.success(employeeId ? "Job reassigned." : "Assignment removed.");
+
+    // Send job-assigned email to the employee
+    if (employeeId) {
+      const emp = employees.find((e) => e.id === employeeId);
+      const job = jobs.find((j) => j.id === jobId);
+      if (emp?.email && job) {
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "job-assigned",
+            recipientEmail: emp.email,
+            idempotencyKey: `job-assigned-${jobId}-${employeeId}`,
+            templateData: {
+              employeeName: emp.name,
+              clientName: job.clients?.name,
+              service: job.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+              date: new Date(job.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+            },
+          },
+        });
+      }
+    }
+
     fetchJobs();
   };
 
