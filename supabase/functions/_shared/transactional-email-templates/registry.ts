@@ -21,6 +21,13 @@ import { template as employeeWelcome } from './employee-welcome.tsx'
 import { template as clientAdded } from './client-added.tsx'
 import { template as timeOffDenied } from './time-off-denied.tsx'
 import { template as estimateSent } from './estimate-sent.tsx'
+import { template as bookingRequestReceived } from './booking-request-received.tsx'
+import { template as applicationReceived } from './application-received.tsx'
+import { template as applicantHired } from './applicant-hired.tsx'
+import { template as feedbackThankYou } from './feedback-thank-you.tsx'
+import { template as questionnaireCompleted } from './questionnaire-completed.tsx'
+import { template as passwordChanged } from './password-changed.tsx'
+import { template as jobUpdate } from './job-update.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'booking-confirmation': bookingConfirmation,
@@ -35,4 +42,11 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'client-added': clientAdded,
   'time-off-denied': timeOffDenied,
   'estimate-sent': estimateSent,
+  'booking-request-received': bookingRequestReceived,
+  'application-received': applicationReceived,
+  'applicant-hired': applicantHired,
+  'feedback-thank-you': feedbackThankYou,
+  'questionnaire-completed': questionnaireCompleted,
+  'password-changed': passwordChanged,
+  'job-update': jobUpdate,
 }
