@@ -259,6 +259,44 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_availability: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          employee_id: string
+          end_time: string
+          id: string
+          is_available: boolean
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          employee_id: string
+          end_time?: string
+          id?: string
+          is_available?: boolean
+          start_time?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          employee_id?: string
+          end_time?: string
+          id?: string
+          is_available?: boolean
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_availability_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_performance: {
         Row: {
           attendance_score: number | null
@@ -990,6 +1028,50 @@ export type Database = {
           reason?: string
         }
         Relationships: []
+      }
+      time_off_requests: {
+        Row: {
+          created_at: string
+          employee_id: string
+          end_date: string
+          id: string
+          reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          start_date: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          end_date: string
+          id?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          end_date?: string
+          id?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_off_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
