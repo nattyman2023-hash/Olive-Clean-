@@ -94,6 +94,22 @@ export default function BookingsTab() {
     if (status === "confirmed") {
       const booking = bookings.find((b) => b.id === id);
       if (booking) {
+        // Send booking confirmation email
+        supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "booking-confirmation",
+            recipientEmail: booking.email,
+            idempotencyKey: `booking-confirm-${id}`,
+            templateData: {
+              name: booking.name,
+              service: booking.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+              frequency: booking.frequency,
+              homeType: booking.home_type,
+              bedrooms: booking.bedrooms,
+              bathrooms: booking.bathrooms,
+            },
+          },
+        }).catch((err) => console.error("Booking confirmation email failed:", err));
         // Auto-invite client
         inviteClient(booking);
         // Find or create client record, then create a scheduled job
