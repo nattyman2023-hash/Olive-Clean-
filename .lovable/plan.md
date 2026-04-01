@@ -1,107 +1,68 @@
 
 
-# Actionable Notifications, Services Manager, Low Stock Widget, and Payslip Preview
+# Admin Alerts for Employee Reports & Reward Redemptions
 
-## Overview
-Four areas of work: (1) Enhanced notification bell with action buttons, (2) Services/Job Templates manager, (3) Low stock dashboard widget + realtime supply alerts, (4) Payslip preview with edit mode. Also clarifying that the client "View Portal" button already exists — it only appears when a client has a linked user account (`client_user_id`).
+## Problem
+Two gaps exist:
+1. **Employee reports** (low stock, supply requests) arrive silently — admins must manually navigate to the Supplies tab to notice them. The `LowStockWidget` banner exists but there's no push notification.
+2. **Client reward redemptions** (free cleaning, complimentary dusting) update the `loyalty_milestones` table silently. Admins have no notification and no quick path to create a job for the redeemed reward.
 
-## Regarding "View Portal" for Clients
-The button already exists in `ClientsTab.tsx` (line 381-394). It only renders when `selected.client_user_id` is not null. Clients without a linked auth account won't show it. This is correct — you can't impersonate a user that doesn't exist. No code change needed here.
+## Solution
 
----
+### 1. Auto-generate admin notifications on key events
 
-## 1. Actionable Notification Bell
+Create a database trigger function that fires on specific table changes and inserts rows into the `notifications` table for admin users. This makes events appear instantly in the existing NotificationBell.
 
-Currently notifications are display-only. Add action buttons per notification type.
+**Migration — two triggers:**
 
-### Changes to `src/components/NotificationBell.tsx`
-- Expand `TYPE_CONFIG` with new types: `low_stock`, `estimate_accepted`, `reward_redeemed`, `clock_in`
-- Add an `action` config per type mapping to a label + navigation route:
-  - `low_stock` → "Acknowledge" button (marks read)
-  - `estimate_accepted` → "Create Job" button (navigates to Jobs tab)
-  - `reward_redeemed` → "Approve Reward" button (navigates to Perks tab)
-  - `supply_request` → "Review" button (navigates to Supplies tab)
-- Priority-based badge colors: red for high (low_stock), blue for medium (estimate_accepted, reward_redeemed), gray for low (clock_in)
-- Each notification row gets an optional action button that navigates + marks read
+- **`supply_requests` INSERT trigger**: When a staff member submits a supply request, insert a `supply_request` notification for all admin users. Title: "[Employee] requested [Item] × [Qty]".
 
----
+- **`loyalty_milestones` UPDATE trigger** (when `redeemed` changes to `true`): Insert a `reward_redeemed` notification for all admin users. Title: "Reward redeemed: [milestone_type]". Include `member_id` and `milestone_id` in metadata so the admin can act on it.
 
-## 2. Services Manager (Job Templates)
+Both triggers use `SECURITY DEFINER` and query `user_roles` to find admin user IDs.
 
-New admin tab section for defining reusable job templates with visibility control.
+### 2. "Reward Redeemed" action flow in PerksTab
 
-### Database Migration
-- New table `service_templates`:
-  - `id` (uuid, PK)
-  - `name` (text, not null) — e.g. "Deep Clean"
-  - `description` (text, nullable)
-  - `show_on_portal` (boolean, default false) — visibility toggle
-  - `checklist_items` (jsonb, default '[]') — array of task strings
-  - `default_duration_minutes` (integer, nullable)
-  - `default_price` (numeric, nullable)
-  - `is_active` (boolean, default true)
-  - `created_at` (timestamptz, default now())
-- RLS: Admin full access; authenticated clients can SELECT where `show_on_portal = true AND is_active = true`
+The NotificationBell already has a `reward_redeemed` type configured with an "Approve" button that navigates to the Perks tab. Enhance the Perks tab to surface unredeemed-but-redeemed milestones (i.e. client clicked redeem but no job exists yet).
 
-### New file: `src/components/admin/ServicesManager.tsx`
-- List of service templates with name, portal visibility toggle (Switch), checklist item count
-- Add/Edit dialog: name, description, visibility switch, checklist items (add/remove text inputs), default duration, default price
-- Delete with confirmation
+**Changes to `src/components/admin/PerksTab.tsx`:**
+- Add a "Pending Redemptions" card at the top showing milestones where `redeemed = true` AND `job_id IS NULL`
+- Each row shows client name, reward type (free cleaning / complimentary dusting), date redeemed
+- "Create Job" button opens a pre-filled job creation flow: service = milestone type, client = linked client, status = draft
+- Once job is created, update the milestone's `job_id` to link them
 
-### Changes to `src/pages/AdminDashboard.tsx`
-- Add "Services" tab to `ADMIN_TABS` (adminOnly)
-- Render `ServicesManager` in that tab
+### 3. Low stock notification trigger
 
-### Changes to `src/components/admin/JobsTab.tsx`
-- Replace hardcoded `SERVICES` array with data from `service_templates` query
-- When creating a job from a template, auto-fill checklist_state from template's checklist_items
+**Migration — trigger on `supply_items` UPDATE:**
+- When `current_stock` drops to or below `reorder_threshold` (and was previously above), insert a `low_stock` notification for all admin users
+- Title: "[Item name] is low (X remaining)"
+- This makes the red badge appear on the bell automatically
 
-### Changes to `src/components/client/BookingSection.tsx`
-- Fetch `service_templates` where `show_on_portal = true` to populate service choices
+### 4. Realtime subscription on milestones
+
+**Changes to `src/components/admin/PerksTab.tsx`:**
+- Add realtime subscription on `loyalty_milestones` table so the "Pending Redemptions" card updates live when a client redeems
 
 ---
 
-## 3. Low Stock Dashboard Widget + Realtime Alerts
+## Technical Details
 
-### Changes to `src/pages/AdminDashboard.tsx`
-- Add a `LowStockWidget` component rendered above the tabs
-- Queries `supply_items` where `current_stock <= reorder_threshold`
-- Red card: "X Low Stock Alerts" — clicking navigates to Supplies tab
-- Subscribe to realtime on `supply_items` for live updates
+### Database migration (single SQL file)
 
-### Changes to `src/components/admin/SuppliesTab.tsx`
-- Add realtime subscription on `supply_requests` table to auto-refresh when staff submit requests (fixing "silent" reports)
-- Add realtime subscription on `supply_items` for stock changes
+```text
+1. notify_admin_on_supply_request() — trigger function + trigger on supply_requests AFTER INSERT
+2. notify_admin_on_reward_redeemed() — trigger function + trigger on loyalty_milestones AFTER UPDATE OF redeemed
+3. notify_admin_on_low_stock() — trigger function + trigger on supply_items AFTER UPDATE OF current_stock
+4. ALTER PUBLICATION supabase_realtime ADD TABLE loyalty_milestones (for realtime)
+```
 
----
+All trigger functions: `SECURITY DEFINER`, `SET search_path = public`, query `user_roles WHERE role = 'admin'` to get admin user IDs, then INSERT into `notifications`.
 
-## 4. Payslip Preview with Edit Mode
+### Files changed
 
-### Changes to `src/components/admin/finance/PayslipsSection.tsx`
-- Add `editMode` toggle (pencil icon) in the preview view
-- When editing: hours_worked, hourly_rate, custom_amount, notes become `<Input>` fields
-- Auto-recalculate: calculated_amount = hours * rate, net_pay = custom_amount ?? calculated_amount
-- "Save" button updates the payslip in database
-- Add Olive Clean logo + business details header to preview (matching invoice style)
-- Add "View" (Eye) and "Edit" (Pencil) buttons on each payslip row in the list
-
----
-
-## Implementation Order
-1. Migration: `service_templates` table + RLS
-2. Payslip preview edit mode (`PayslipsSection.tsx`)
-3. Actionable notifications (`NotificationBell.tsx`)
-4. Services Manager (`ServicesManager.tsx` + `AdminDashboard.tsx` + `JobsTab.tsx`)
-5. Low Stock Widget + realtime subscriptions
-
-## Files Summary
-| File | Action |
+| File | Change |
 |---|---|
-| Migration SQL | New `service_templates` table |
-| `src/components/NotificationBell.tsx` | Action buttons, new types, priority colors |
-| `src/components/admin/ServicesManager.tsx` | New: job templates CRUD |
-| `src/pages/AdminDashboard.tsx` | Add Services tab + Low Stock Widget |
-| `src/components/admin/JobsTab.tsx` | Use service_templates for service dropdown |
-| `src/components/admin/SuppliesTab.tsx` | Realtime subscriptions |
-| `src/components/admin/finance/PayslipsSection.tsx` | Edit mode + professional preview |
+| Migration SQL | 3 trigger functions + 3 triggers + realtime |
+| `src/components/admin/PerksTab.tsx` | Pending Redemptions card + "Create Job" action + realtime sub |
+| `src/components/admin/JobsTab.tsx` | Minor: accept pre-fill params via URL search params or shared state |
 
