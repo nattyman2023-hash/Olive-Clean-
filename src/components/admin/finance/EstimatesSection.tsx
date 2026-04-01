@@ -96,7 +96,7 @@ export default function EstimatesSection() {
         dueDate={preview.valid_until}
         status={preview.status}
         onClose={() => setPreview(null)}
-        onSaved={() => fetchEstimates()}
+        onSaved={() => fetch_()}
       />
     );
   }
