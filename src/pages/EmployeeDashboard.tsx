@@ -451,6 +451,9 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   const [expanded, setExpanded] = useState(false);
   const [incidentOpen, setIncidentOpen] = useState(false);
   const [incidentText, setIncidentText] = useState("");
+  const [tradeSheetOpen, setTradeSheetOpen] = useState(false);
+  const [tradeTargetId, setTradeTargetId] = useState("");
+  const [tradeSaving, setTradeSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const beforeInputRef = useRef<HTMLInputElement>(null);
 
