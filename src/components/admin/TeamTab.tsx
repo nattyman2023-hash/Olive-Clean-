@@ -92,6 +92,8 @@ const getOptionalEmployeeEmail = (value: string | null | undefined) => {
 };
 
 export default function TeamTab() {
+  const { startImpersonation } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
