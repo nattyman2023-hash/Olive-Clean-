@@ -29,6 +29,7 @@ import {
   Trash2,
   Send,
   KeyRound,
+  Eye,
 } from "lucide-react";
 import SetPasswordDialog from "./SetPasswordDialog";
 
