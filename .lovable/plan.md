@@ -1,99 +1,76 @@
 
 
-# SEO Pages, UX Fixes, AI Chatbot, and CRM Lead Management
+# Enhanced Chatbot, Location Pages, SEO Meta & Sitemap
 
-This is a large scope with 4 major workstreams. To keep things manageable and shippable, here's the implementation broken into phases.
-
----
-
-## Phase 1: Navigation & UX Fixes
-
-### ScrollToTop Component
-- New file: `src/components/layout/ScrollToTop.tsx` — uses `useLocation()` to call `window.scrollTo(0, 0)` on every route change
-- Add to `App.tsx` inside `<BrowserRouter>`
-
-### Parallax Hero
-- Update `HeroSection.tsx` to use `background-attachment: fixed` on a hero image container, with content cards sliding over
-
-### Responsive Typography
-- Add `clamp()` utility classes in `index.css` for heading sizes (e.g., `text-clamp-hero`, `text-clamp-section`) so text scales fluidly across viewports
+## Overview
+Four workstreams: (1) Make the chatbot more engaging with quick-reply buttons, typing indicators, and markdown rendering. (2) Enrich location pages with MapTiler embeds, hero images, testimonials, and neighborhood photos. (3) Add per-page SEO meta tags (title, description, OG image, keywords) using react-helmet-async. (4) Generate a sitemap.xml and add structured data (LocalBusiness, Service schemas).
 
 ---
 
-## Phase 2: SEO & Content Pages
+## 1. Enhanced Chatbot
 
-### Dedicated "Why Us" Page (`src/pages/WhyUs.tsx`)
-- Full page with trust signals: background checks, "The Olive Standard" checklist, insurance/bonding details, team photos section
-- Navbar link added
+### Changes to `src/components/chat/ChatWidget.tsx`
+- Install and use `react-markdown` for rendering AI responses with bold, links, lists
+- Add **quick-reply suggestion chips** below the latest assistant message (e.g., "Get a quote", "What areas do you serve?", "See our services") — clicking sends that text
+- Add a branded avatar image (olive leaf icon or "🫒") instead of the plain "O" circle
+- Animate the chat open with a greeting delay (typing dots for 1s, then message appears)
+- Add a "Powered by Olive Clean" footer link
+- Show context-aware suggestions based on conversation state (initial greeting vs. mid-conversation)
 
-### Dedicated "Perks" Page (`src/pages/Perks.tsx`)
-- Standalone page for recurring client benefits: savings tiers, referral bonuses, priority scheduling, "The more you clean, the more you save" messaging
-- Navbar link added
-
-### "Our Team" Section (`src/pages/Team.tsx`)
-- Fetches from `employees` table (photo_url, name, certifications)
-- Shows real team members with photos and brief bios
-- Linked from About page and Navbar
-
-### Enhanced Location Pages
-- Update `src/pages/AreaDetail.tsx` to include:
-  - Localized landmark references in copy
-  - A static map image or MapTiler embed focused on the service area
-  - Schema.org LocalBusiness structured data in `<Helmet>` (add `react-helmet-async`)
-  - Internal links to relevant service pages
-
-### Navbar Updates (`src/components/Navbar.tsx`)
-- Add "Why Us", "Perks", and "Our Team" links
-- Reorganize mobile menu for new pages
-
-### Footer Updates (`src/components/Footer.tsx`)
-- Add links to new pages under a "Company" column
+### Changes to `supabase/functions/chat-process/index.ts`
+- Update system prompt to be warmer and more personality-driven — use emojis, Nashville references, humor
+- Add instruction to suggest quick actions in responses (e.g., "Would you like to [book now](/book) or [see our services](/services/essential)?")
+- Add a `suggested_replies` field in the response for the frontend to render as chips
 
 ---
 
-## Phase 3: AI Chatbot Widget
+## 2. Enriched Location Pages
 
-### Database Migration
-- New `leads` table:
-  - `id`, `name`, `email`, `phone`, `location`, `bedrooms`, `bathrooms`, `frequency`, `urgency`, `score` (integer 0-100), `status` (text: new/quoted/scheduled/converted), `source` (text: chatbot/form/manual), `chat_transcript` (jsonb), `notes`, `created_at`, `converted_job_id` (uuid nullable)
-- RLS: Admin full access, staff can SELECT
+### Changes to `src/pages/AreaDetail.tsx`
+- Add **area-specific data**: coordinates, neighborhood landmarks, hero image URLs (Unsplash Nashville photos), local testimonials, and fun facts per area
+- Add a **MapTiler embed** section using the existing `useMapTilerKey` hook — centered on each area's coordinates with a marker
+- Add a **hero image** section with a beautiful neighborhood photo using `background-image` with overlay
+- Add a **local testimonial** quote per area
+- Add **neighborhood landmarks** list (e.g., "Minutes from the Mall at Green Hills")
+- Add **Schema.org LocalBusiness** JSON-LD structured data per area
+- Add `react-helmet-async` meta tags: title, description, OG image, keywords per area
 
-### Chat Widget UI (`src/components/chat/ChatWidget.tsx`)
-- Floating button (bottom-right) with branded avatar "Olivia"
-- Opens a slide-up chat panel
-- Multi-step guided conversation: greeting → name/email capture → home details → service recommendation → "Book a Call" or "Get Instant Quote" CTA
-- Stores lead in `leads` table on completion
-- Uses Lovable AI (google/gemini-2.5-flash) via edge function for conversational responses
-
-### Chat Edge Function (`supabase/functions/chat-process/index.ts`)
-- Receives conversation history + user message
-- System prompt: act as "Olivia from Olive Clean," qualify leads, capture details
-- Returns AI response + extracted lead data
-- Uses structured output to extract name, email, phone, location, home size when mentioned
+### Install `react-helmet-async`
+- Add `<HelmetProvider>` to `App.tsx`
+- Use `<Helmet>` in each page for per-page SEO
 
 ---
 
-## Phase 4: CRM & Lead Management
+## 3. Per-Page SEO Meta Tags
 
-### Lead Scoring Logic (in edge function or client-side)
-- Weekly frequency: +30 pts
-- 4+ bedrooms: +20 pts
-- High-value area (Belle Meade, Brentwood): +15 pts
-- Has email + phone: +10 pts
-- Urgency "ASAP": +15 pts
+### New file: `src/lib/seo.ts`
+- Central SEO config mapping routes to `{ title, description, keywords, ogImage }`
+- Covers: Index, About, WhyUs, Perks, Team, Careers, Book, each service page, each area page
 
-### Admin Leads Dashboard
-- New tab "Leads" in `AdminDashboard.tsx` (adminOnly)
-- New component: `src/components/admin/LeadsTab.tsx`
-  - Pipeline view: cards in columns (New → Quoted → Scheduled → Converted)
-  - Each card: name, score badge, source icon, contact info, time since created
-  - "Convert to Job" button: creates a job + client record from lead data in one click
-  - Follow-up alert: highlight leads not contacted within 2 hours
-  - Search/filter by status, score range, date
+### New component: `src/components/SEOHead.tsx`
+- Wrapper around `<Helmet>` that accepts title, description, keywords, ogImage, canonicalPath
+- Renders `<title>`, `<meta name="description">`, `<meta name="keywords">`, OG tags, Twitter tags, canonical URL
 
-### Notification Trigger
-- DB trigger on `leads` INSERT: notify all admins with type `new_lead`
-- Update `NotificationBell.tsx` TYPE_CONFIG with `new_lead` type + "View Lead" action button
+### Changes to all public pages
+- Add `<SEOHead>` to: `Index.tsx`, `About.tsx`, `WhyUs.tsx`, `PerksPage.tsx`, `Team.tsx`, `Careers.tsx`, `BookPage.tsx`, `ServiceDetail.tsx`, `AreaDetail.tsx`, `Terms.tsx`, `Privacy.tsx`
+
+---
+
+## 4. Sitemap & Structured Data
+
+### New file: `public/sitemap.xml`
+- Static XML sitemap listing all public routes with `<lastmod>`, `<changefreq>`, `<priority>`
+- Routes: `/`, `/about`, `/why-us`, `/perks`, `/team`, `/careers`, `/book`, `/terms`, `/privacy`, all `/services/*`, all `/areas/*`
+
+### Update `public/robots.txt`
+- Add `Sitemap: https://oliveclean.com/sitemap.xml`
+
+### Structured Data in `index.html`
+- Add global `Organization` schema JSON-LD in `<head>`
+
+### Per-page structured data
+- `AreaDetail.tsx`: `LocalBusiness` schema with area name, address, geo coordinates, service area
+- `ServiceDetail.tsx`: `Service` schema with name, description, provider, price
 
 ---
 
@@ -101,28 +78,32 @@ This is a large scope with 4 major workstreams. To keep things manageable and sh
 
 | File | Action |
 |---|---|
-| `src/components/layout/ScrollToTop.tsx` | New: scroll-to-top on route change |
-| `src/App.tsx` | Add ScrollToTop, new routes (WhyUs, Perks, Team) |
-| `src/components/HeroSection.tsx` | Parallax background effect |
-| `src/index.css` | Clamp typography utilities |
-| `src/pages/WhyUs.tsx` | New: trust signals page |
-| `src/pages/Perks.tsx` | New: perks detail page |
-| `src/pages/Team.tsx` | New: team page from employees table |
-| `src/pages/AreaDetail.tsx` | Enhanced with maps, schema.org, landmarks |
-| `src/components/Navbar.tsx` | New links |
-| `src/components/Footer.tsx` | New links |
-| Migration SQL | `leads` table + trigger |
-| `src/components/chat/ChatWidget.tsx` | New: AI chatbot UI |
-| `supabase/functions/chat-process/index.ts` | New: AI chat brain |
-| `src/components/admin/LeadsTab.tsx` | New: CRM pipeline |
-| `src/pages/AdminDashboard.tsx` | Add Leads tab |
-| `src/components/NotificationBell.tsx` | Add `new_lead` type |
+| `package.json` | Add `react-markdown`, `react-helmet-async` |
+| `src/App.tsx` | Wrap with `HelmetProvider` |
+| `src/components/SEOHead.tsx` | New: reusable SEO meta component |
+| `src/lib/seo.ts` | New: centralized SEO config per route |
+| `src/components/chat/ChatWidget.tsx` | Quick replies, markdown, avatar, animations |
+| `supabase/functions/chat-process/index.ts` | Warmer prompt, suggested_replies |
+| `src/pages/AreaDetail.tsx` | MapTiler embed, hero images, testimonials, landmarks, structured data, SEO |
+| `src/pages/ServiceDetail.tsx` | Service schema, SEO head |
+| `src/pages/Index.tsx` | SEO head |
+| `src/pages/About.tsx` | SEO head |
+| `src/pages/WhyUs.tsx` | SEO head |
+| `src/pages/PerksPage.tsx` | SEO head |
+| `src/pages/Team.tsx` | SEO head |
+| `src/pages/Careers.tsx` | SEO head |
+| `src/pages/BookPage.tsx` | SEO head |
+| `src/pages/Terms.tsx` | SEO head |
+| `src/pages/Privacy.tsx` | SEO head |
+| `public/sitemap.xml` | New: static sitemap |
+| `public/robots.txt` | Add sitemap reference |
+| `index.html` | Organization schema JSON-LD |
 
-### Implementation Order
-1. ScrollToTop + responsive typography (quick wins)
-2. WhyUs, Perks, Team pages + Navbar/Footer updates
-3. AreaDetail enhancements
-4. Database migration for `leads` table
-5. Chat widget + edge function
-6. Leads CRM tab + notification trigger
+## Implementation Order
+1. Install deps + HelmetProvider + SEOHead component + seo config
+2. Add SEOHead to all public pages
+3. Enrich AreaDetail with maps, images, landmarks, structured data
+4. Enhance ChatWidget with quick replies, markdown, animations
+5. Update chat-process prompt
+6. Create sitemap.xml, update robots.txt, add Organization schema
 
