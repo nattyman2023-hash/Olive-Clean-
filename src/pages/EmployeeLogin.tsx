@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 export default function EmployeeLogin() {
   const [email, setEmail] = useState("");
@@ -44,9 +45,7 @@ export default function EmployeeLogin() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 mx-auto rounded-full bg-primary flex items-center justify-center mb-3">
-            <span className="text-primary-foreground text-lg font-bold">O</span>
-          </div>
+          <img src={oliveLogo} alt="Olive Clean" className="h-12 mx-auto mb-3" />
           <h1 className="text-xl font-bold text-foreground">Team Portal</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {mode === "login" ? "Sign in to view your schedule" : "Reset your password"}

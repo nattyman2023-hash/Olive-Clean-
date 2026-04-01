@@ -609,6 +609,8 @@ export default function TeamTab() {
   // ── Main List View ──
   return (
     <div className="space-y-4">
+      {/* Trade Approvals */}
+      <TradeApprovals />
       {/* Team Announcements */}
       <TeamAnnouncements />
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -776,6 +778,136 @@ export default function TeamTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function TradeApprovals() {
+  const queryClient = useQueryClient();
+
+  const { data: trades = [] } = useQuery({
+    queryKey: ["admin_trade_requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shift_trade_requests" as any)
+        .select("*, employees!shift_trade_requests_requester_id_fkey(name, user_id)")
+        .eq("status", "pending_admin")
+        .order("created_at", { ascending: false });
+      if (error) {
+        // fallback without join
+        const { data: d2, error: e2 } = await supabase
+          .from("shift_trade_requests" as any)
+          .select("*")
+          .eq("status", "pending_admin")
+          .order("created_at", { ascending: false });
+        if (e2) throw e2;
+        return (d2 as any[]) || [];
+      }
+      return (data as any[]) || [];
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (trade: any) => {
+      // Swap assigned_to on both jobs
+      if (trade.target_job_id) {
+        const { data: jobs } = await supabase.from("jobs").select("id, assigned_to").in("id", [trade.requester_job_id, trade.target_job_id]);
+        if (jobs && jobs.length === 2) {
+          const j1 = jobs.find((j: any) => j.id === trade.requester_job_id);
+          const j2 = jobs.find((j: any) => j.id === trade.target_job_id);
+          if (j1 && j2) {
+            await supabase.from("jobs").update({ assigned_to: j2.assigned_to }).eq("id", j1.id);
+            await supabase.from("jobs").update({ assigned_to: j1.assigned_to }).eq("id", j2.id);
+          }
+        }
+      } else {
+        // Simple reassign: move requester's job to target employee
+        if (trade.target_id) {
+          const { data: targetEmp } = await supabase.from("employees").select("user_id").eq("id", trade.target_id).maybeSingle();
+          if (targetEmp) {
+            await supabase.from("jobs").update({ assigned_to: targetEmp.user_id }).eq("id", trade.requester_job_id);
+          }
+        }
+      }
+      await supabase.from("shift_trade_requests" as any).update({ status: "approved", updated_at: new Date().toISOString() }).eq("id", trade.id);
+
+      // Notify both employees
+      const userIds: string[] = [];
+      if (trade.requester_id) {
+        const { data: e1 } = await supabase.from("employees").select("user_id").eq("id", trade.requester_id).maybeSingle();
+        if (e1) userIds.push(e1.user_id);
+      }
+      if (trade.target_id) {
+        const { data: e2 } = await supabase.from("employees").select("user_id").eq("id", trade.target_id).maybeSingle();
+        if (e2) userIds.push(e2.user_id);
+      }
+      if (userIds.length > 0) {
+        await supabase.from("notifications" as any).insert(
+          userIds.map(uid => ({ user_id: uid, type: "trade_approved", title: "Shift trade approved!", body: "Your shift trade has been approved by admin." }))
+        );
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_trade_requests"] });
+      toast.success("Trade approved");
+    },
+    onError: () => toast.error("Failed to approve trade"),
+  });
+
+  const denyMutation = useMutation({
+    mutationFn: async (trade: any) => {
+      await supabase.from("shift_trade_requests" as any).update({ status: "denied", updated_at: new Date().toISOString() }).eq("id", trade.id);
+      const userIds: string[] = [];
+      if (trade.requester_id) {
+        const { data: e1 } = await supabase.from("employees").select("user_id").eq("id", trade.requester_id).maybeSingle();
+        if (e1) userIds.push(e1.user_id);
+      }
+      if (trade.target_id) {
+        const { data: e2 } = await supabase.from("employees").select("user_id").eq("id", trade.target_id).maybeSingle();
+        if (e2) userIds.push(e2.user_id);
+      }
+      if (userIds.length > 0) {
+        await supabase.from("notifications" as any).insert(
+          userIds.map(uid => ({ user_id: uid, type: "trade_denied", title: "Shift trade denied", body: "Your shift trade was not approved." }))
+        );
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_trade_requests"] });
+      toast.success("Trade denied");
+    },
+  });
+
+  if (trades.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          Shift Trade Approvals
+          <Badge variant="destructive" className="text-[0.6rem] px-1.5 py-0">{trades.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {trades.map((trade: any) => (
+          <div key={trade.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+            <div>
+              <p className="text-xs font-medium text-foreground">
+                {(trade.employees as any)?.name || "Employee"} wants to trade a shift
+              </p>
+              <p className="text-[0.6rem] text-muted-foreground">Status: pending admin approval</p>
+            </div>
+            <div className="flex gap-1">
+              <Button size="sm" className="h-7 rounded-lg text-xs gap-1" onClick={() => approveMutation.mutate(trade)} disabled={approveMutation.isPending}>
+                Approve
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 rounded-lg text-xs gap-1" onClick={() => denyMutation.mutate(trade)} disabled={denyMutation.isPending}>
+                Deny
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

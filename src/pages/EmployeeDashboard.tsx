@@ -9,14 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   LogOut, Loader2, MapPin, Clock, Star, CheckCircle2,
   ChevronDown, ChevronUp, Camera, AlertTriangle, Package,
   Navigation, Home, Play, Receipt, Plus, Upload, MessageSquare,
-  ChevronLeft, ChevronRight, CalendarDays
+  ChevronLeft, ChevronRight, CalendarDays, ArrowRightLeft
 } from "lucide-react";
 import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
 import TimeOffManager from "@/components/admin/TimeOffManager";
+import NotificationBell from "@/components/NotificationBell";
+import ShiftTradeCard from "@/components/employee/ShiftTradeCard";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 import { format, startOfDay, endOfDay, addDays, subDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 
@@ -113,7 +117,35 @@ export default function EmployeeDashboard() {
     },
   });
 
-  // Team messages
+  // Shift trade requests
+  const { data: shiftTrades = [] } = useQuery({
+    queryKey: ["shift_trades", employee?.id],
+    enabled: !!employee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shift_trade_requests" as any)
+        .select("*")
+        .or(`requester_id.eq.${employee!.id},target_id.eq.${employee!.id},and(target_id.is.null,status.eq.open)`)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  // Active employees for trade targeting
+  const { data: activeEmployees = [] } = useQuery({
+    queryKey: ["active_employees_for_trade"],
+    enabled: !!employee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id, name, user_id")
+        .eq("status", "active");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { data: teamMessages = [] } = useQuery({
     queryKey: ["team_messages_employee"],
     enabled: !!user && isStaff,
@@ -142,20 +174,15 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-muted/30">
       <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          {(employee as any)?.photo_url ? (
-            <img src={(employee as any).photo_url} alt={employee?.name || ""} className="w-8 h-8 rounded-full object-cover" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground text-sm font-bold">O</span>
-            </div>
-          )}
+          <img src={oliveLogo} alt="Olive Clean" className="h-8" />
           <div>
             <h1 className="text-base font-semibold text-foreground leading-none">{employee?.name || "Team Member"}</h1>
             <p className="text-xs text-muted-foreground">On-Site Assistant</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-[0.65rem]">Staff</Badge>
+          <NotificationBell />
           <Button variant="ghost" size="icon" onClick={signOut}><LogOut className="h-4 w-4" /></Button>
         </div>
       </header>
@@ -219,7 +246,23 @@ export default function EmployeeDashboard() {
           ))
         )}
 
-        {/* Map */}
+        {/* Shift Trades */}
+        {shiftTrades.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Shift Trades
+            </h3>
+            {shiftTrades.filter((t: any) => !["approved", "denied", "cancelled"].includes(t.status)).map((trade: any) => (
+              <ShiftTradeCard
+                key={trade.id}
+                trade={trade}
+                currentEmployeeId={employee?.id || ""}
+                employees={activeEmployees as any}
+              />
+            ))}
+          </div>
+        )}
+
         {!jobsLoading && dayJobs.length > 0 && (
           <EmployeeJobMap jobs={dayJobs} />
         )}
@@ -345,6 +388,21 @@ function SupplyRequestForm({ employeeId }: { employeeId: string }) {
     });
     setSaving(false);
     if (error) { toast.error("Failed to submit request."); return; }
+
+    // Notify admins
+    const selectedItem = supplyItems.find((s: any) => s.id === itemId);
+    const { data: empRecord } = await supabase.from("employees").select("name").eq("id", employeeId).maybeSingle();
+    const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin" as any);
+    if (adminRoles && adminRoles.length > 0) {
+      const notifications = adminRoles.map((r: any) => ({
+        user_id: r.user_id,
+        type: "supply_request",
+        title: `Supply Request from ${empRecord?.name || "Staff"}`,
+        body: `${quantity}× ${selectedItem?.name || "item"}`,
+      }));
+      await supabase.from("notifications" as any).insert(notifications);
+    }
+
     toast.success("Supply request submitted.");
     setShowForm(false);
     setItemId("");
@@ -408,6 +466,9 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   const [expanded, setExpanded] = useState(false);
   const [incidentOpen, setIncidentOpen] = useState(false);
   const [incidentText, setIncidentText] = useState("");
+  const [tradeSheetOpen, setTradeSheetOpen] = useState(false);
+  const [tradeTargetId, setTradeTargetId] = useState("");
+  const [tradeSaving, setTradeSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const beforeInputRef = useRef<HTMLInputElement>(null);
 
@@ -509,8 +570,57 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   const completedChecks = checklistItems.filter((item) => checklistState[item]).length;
   const allChecked = completedChecks === checklistItems.length;
 
+  // Color coding based on time of day
+  const jobHour = new Date(job.scheduled_at).getHours();
+  const timeColor = jobHour < 12 ? "border-l-emerald-500" : jobHour < 17 ? "border-l-blue-500" : "border-l-violet-500";
+
+  // Colleagues for trade
+  const { data: colleagues = [] } = useQuery({
+    queryKey: ["colleagues_for_trade", employeeId],
+    enabled: tradeSheetOpen && !!employeeId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("employees").select("id, name").eq("status", "active").neq("id", employeeId!);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const submitTrade = async () => {
+    if (!employeeId) return;
+    setTradeSaving(true);
+    const { error } = await supabase.from("shift_trade_requests" as any).insert({
+      requester_id: employeeId,
+      requester_job_id: job.id,
+      target_id: tradeTargetId || null,
+      status: "open",
+    });
+    setTradeSaving(false);
+    if (error) { toast.error("Failed to create trade request"); return; }
+
+    // Create notification
+    if (tradeTargetId) {
+      const targetEmp = colleagues.find((c: any) => c.id === tradeTargetId);
+      if (targetEmp) {
+        const { data: emp } = await supabase.from("employees").select("user_id").eq("id", tradeTargetId).maybeSingle();
+        if (emp) {
+          await supabase.from("notifications" as any).insert({
+            user_id: emp.user_id,
+            type: "trade_request",
+            title: "Shift trade request",
+            body: `Someone wants to trade their ${format(new Date(job.scheduled_at), "MMM d")} shift with you.`,
+          });
+        }
+      }
+    }
+
+    toast.success("Trade request posted!");
+    setTradeSheetOpen(false);
+    setTradeTargetId("");
+    queryClient.invalidateQueries({ queryKey: ["shift_trades"] });
+  };
+
   return (
-    <Card className="overflow-hidden">
+    <Card className={`overflow-hidden border-l-4 ${timeColor}`}>
       <button onClick={() => setExpanded(!expanded)} className="w-full text-left p-4 flex items-start gap-3">
         <div className="text-xs font-semibold text-primary tabular-nums min-w-[50px] pt-0.5">
           {format(new Date(job.scheduled_at), "h:mm a")}
@@ -622,8 +732,47 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
               <AlertTriangle className="h-3.5 w-3.5" />Report Incident / Low Supply
             </Button>
           )}
+
+          {/* Trade Request Button */}
+          {job.status === "scheduled" && (
+            <Button size="sm" variant="outline" className="w-full rounded-xl gap-1.5 text-xs" onClick={() => setTradeSheetOpen(true)}>
+              <ArrowRightLeft className="h-3.5 w-3.5" />Request Shift Trade
+            </Button>
+          )}
         </CardContent>
       )}
+
+      {/* Trade Sheet */}
+      <Sheet open={tradeSheetOpen} onOpenChange={setTradeSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="text-base">Request Shift Trade</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            <div className="p-3 rounded-xl bg-muted/50 border border-border">
+              <p className="text-sm font-medium">{client?.name || "Client"}</p>
+              <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
+              <Badge variant="outline" className="text-[0.6rem] mt-1">{job.service}</Badge>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground block mb-1.5">Invite a specific colleague (optional)</label>
+              <Select value={tradeTargetId} onValueChange={setTradeTargetId}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Open to anyone" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Open to anyone</SelectItem>
+                  {colleagues.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full rounded-xl" onClick={submitTrade} disabled={tradeSaving}>
+              {tradeSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Post Trade Request
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }

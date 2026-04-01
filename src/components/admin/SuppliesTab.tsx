@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, AlertTriangle, Package, TrendingDown } from "lucide-react";
+import { Loader2, Plus, AlertTriangle, Package, TrendingDown, Inbox, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface SupplyItem {
   id: string;
@@ -204,6 +206,9 @@ export default function SuppliesTab() {
           </Table>
         </div>
       )}
+
+      {/* Staff Supply Requests */}
+      <StaffSupplyRequests items={items} />
     </div>
   );
 }
@@ -322,5 +327,91 @@ function LogUsageDialog({ open, onOpenChange, items, onSubmit, loading }: {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function StaffSupplyRequests({ items }: { items: SupplyItem[] }) {
+  const queryClient = useQueryClient();
+
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: ["admin_supply_requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("supply_requests" as any)
+        .select("*, supply_items(name), employees(name)")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase.from("supply_requests" as any).update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_supply_requests"] });
+      toast({ title: "Request updated" });
+    },
+  });
+
+  const pending = requests.filter((r: any) => r.status === "pending");
+
+  const statusBadge: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-800 border-amber-200",
+    approved: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    fulfilled: "bg-blue-100 text-blue-800 border-blue-200",
+    denied: "bg-red-100 text-red-800 border-red-200",
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-primary" /> Staff Requests
+            {pending.length > 0 && (
+              <Badge variant="destructive" className="text-[0.6rem] px-1.5 py-0">{pending.length}</Badge>
+            )}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin" /></div>
+        ) : requests.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-6">No supply requests from staff yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {requests.map((r: any) => (
+              <div key={r.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+                <div>
+                  <p className="text-xs font-medium text-foreground">
+                    {(r.employees as any)?.name || "Staff"} — {(r.supply_items as any)?.name || "Item"} × {r.quantity}
+                  </p>
+                  {r.notes && <p className="text-[0.65rem] text-muted-foreground">{r.notes}</p>}
+                  <p className="text-[0.6rem] text-muted-foreground mt-0.5">{format(new Date(r.created_at), "MMM d, h:mm a")}</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Badge className={`text-[0.6rem] px-1.5 py-0 ${statusBadge[r.status] || ""}`}>{r.status}</Badge>
+                  {r.status === "pending" && (
+                    <>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateMutation.mutate({ id: r.id, status: "approved" })}>
+                        <Check className="h-3 w-3 text-emerald-600" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateMutation.mutate({ id: r.id, status: "denied" })}>
+                        <X className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

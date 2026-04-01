@@ -20,6 +20,7 @@ import TechnicianAvatar from "@/components/client/TechnicianAvatar";
 import ClientInvoices from "@/components/client/ClientInvoices";
 import ClientAccountSettings from "@/components/client/ClientAccountSettings";
 import LoyaltyStatus from "@/components/client/LoyaltyStatus";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 interface ClientRecord {
   id: string;
@@ -243,9 +244,7 @@ export default function ClientDashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
         <div className="text-center max-w-sm">
-          <div className="w-12 h-12 mx-auto rounded-full bg-primary flex items-center justify-center mb-4">
-            <span className="text-primary-foreground text-lg font-bold">O</span>
-          </div>
+          <img src={oliveLogo} alt="Olive Clean" className="h-10 mx-auto mb-4" />
           <h1 className="text-lg font-bold text-foreground mb-2">No Client Record Found</h1>
           <p className="text-sm text-muted-foreground mb-6">
             Your account isn't linked to a client profile yet. Please contact Olive Clean to connect your account.
@@ -269,9 +268,7 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-muted/30">
       <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground text-sm font-bold">O</span>
-          </div>
+          <img src={oliveLogo} alt="Olive Clean" className="h-8" />
           <div>
             <h1 className="text-base font-semibold text-foreground leading-none">{client.name}</h1>
             <p className="text-xs text-muted-foreground">Client Dashboard</p>

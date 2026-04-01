@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail } from "lucide-react";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 export default function Footer() {
   return (
@@ -8,14 +9,8 @@ export default function Footer() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground text-sm font-bold">O</span>
-              </div>
-              <div className="leading-none">
-                <span className="text-lg font-semibold text-background tracking-tight">Olive</span>
-                <span className="block text-[0.6rem] font-bold tracking-[0.25em] uppercase text-primary">Clean</span>
-              </div>
+            <div className="flex items-center">
+              <img src={oliveLogo} alt="Olive Clean" className="h-8 brightness-0 invert" />
             </div>
             <p className="text-sm text-background/60 leading-relaxed">
               Premium residential cleaning for Nashville's most discerning families.
