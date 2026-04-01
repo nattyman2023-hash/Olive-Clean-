@@ -117,7 +117,35 @@ export default function EmployeeDashboard() {
     },
   });
 
-  // Team messages
+  // Shift trade requests
+  const { data: shiftTrades = [] } = useQuery({
+    queryKey: ["shift_trades", employee?.id],
+    enabled: !!employee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shift_trade_requests" as any)
+        .select("*")
+        .or(`requester_id.eq.${employee!.id},target_id.eq.${employee!.id},and(target_id.is.null,status.eq.open)`)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  // Active employees for trade targeting
+  const { data: activeEmployees = [] } = useQuery({
+    queryKey: ["active_employees_for_trade"],
+    enabled: !!employee,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id, name, user_id")
+        .eq("status", "active");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { data: teamMessages = [] } = useQuery({
     queryKey: ["team_messages_employee"],
     enabled: !!user && isStaff,
