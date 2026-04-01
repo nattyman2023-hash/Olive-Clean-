@@ -55,7 +55,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
   };
 
   const addItem = () => {
-    setItems((prev) => [...prev, { service: PACKAGES[0].key, notes: "" }]);
+    setItems((prev) => [...prev, { service: packages[0].key, notes: "" }]);
   };
 
   const removeItem = (idx: number) => {
