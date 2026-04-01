@@ -110,6 +110,11 @@ export default function PerksTab() {
   const [showEnroll, setShowEnroll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PerksMember | null>(null);
+  const queryClient = useQueryClient();
+
+  // Pending redemptions (redeemed = true, no job created yet)
+  const [pendingRedemptions, setPendingRedemptions] = useState<(Milestone & { clientName: string; clientId: string; memberId: string })[]>([]);
+  const [creatingJobFor, setCreatingJobFor] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     client_id: "",
@@ -123,7 +128,20 @@ export default function PerksTab() {
     fetchMembers();
     fetchClients();
     fetchPrograms();
+    fetchPendingRedemptions();
   }, []);
+
+  // Realtime on loyalty_milestones
+  useEffect(() => {
+    const channel = supabase
+      .channel("perks-milestones-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "loyalty_milestones" }, () => {
+        fetchPendingRedemptions();
+        if (selected) fetchMilestones(selected.id);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selected?.id]);
 
   useEffect(() => {
     if (selected) fetchMilestones(selected.id);
