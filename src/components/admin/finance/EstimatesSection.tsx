@@ -83,6 +83,7 @@ export default function EstimatesSection() {
     return (
       <InvoicePreview
         type="estimate"
+        id={preview.id}
         number={preview.estimate_number}
         clientName={preview.clients?.name || "Unknown"}
         items={preview.items}

@@ -86,6 +86,7 @@ export default function InvoicesSection() {
     return (
       <InvoicePreview
         type="invoice"
+        id={preview.id}
         number={preview.invoice_number}
         clientName={preview.clients?.name || "Unknown"}
         items={preview.items}
