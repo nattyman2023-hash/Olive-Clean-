@@ -129,6 +129,8 @@ export default function InvoicesSection() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>{inv.status}</span>
+                <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(false); setPreview(inv); }} className="h-7 w-7" title="View"><Eye className="h-3.5 w-3.5" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(true); setPreview(inv); }} className="h-7 w-7" title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
                 {inv.status === "draft" && (
                   <Button size="sm" variant="outline" onClick={() => updateStatus(inv.id, "sent")} className="text-xs h-7 rounded-lg">Send</Button>
                 )}

@@ -147,6 +147,8 @@ export default function EstimatesSection() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[est.status] || STATUS_STYLES.draft}`}>{est.status}</span>
+                <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(false); setPreview(est); }} className="h-7 w-7" title="View"><Eye className="h-3.5 w-3.5" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(true); setPreview(est); }} className="h-7 w-7" title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
                 {est.status === "draft" && (
                   <Button size="sm" variant="outline" onClick={() => updateStatus(est.id, "sent")} className="text-xs h-7 rounded-lg">Send</Button>
                 )}
