@@ -21,7 +21,9 @@ import CalendarTab from "@/components/admin/CalendarTab";
 import TimeOffManager from "@/components/admin/TimeOffManager";
 import EmailsTab from "@/components/admin/EmailsTab";
 import RecentUploads from "@/components/admin/RecentUploads";
+import ServicesManager from "@/components/admin/ServicesManager";
 import NotificationBell from "@/components/NotificationBell";
+import LowStockWidget from "@/components/admin/LowStockWidget";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
 const ADMIN_TABS = [
