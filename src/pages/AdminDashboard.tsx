@@ -22,6 +22,7 @@ import TimeOffManager from "@/components/admin/TimeOffManager";
 import EmailsTab from "@/components/admin/EmailsTab";
 import RecentUploads from "@/components/admin/RecentUploads";
 import ServicesManager from "@/components/admin/ServicesManager";
+import LeadsTab from "@/components/admin/LeadsTab";
 import NotificationBell from "@/components/NotificationBell";
 import LowStockWidget from "@/components/admin/LowStockWidget";
 import oliveLogo from "@/assets/olive-clean-logo.png";
@@ -30,6 +31,7 @@ const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
   { value: "clients", label: "Clients" },
   { value: "jobs", label: "Jobs" },
+  { value: "leads", label: "Leads", adminOnly: true },
   { value: "perks", label: "Perks", adminOnly: true },
   { value: "analytics", label: "Analytics", adminOnly: true },
   { value: "team", label: "Team", adminOnly: true },
@@ -126,6 +128,7 @@ export default function AdminDashboard() {
           <TabsContent value="bookings"><BookingsTab /></TabsContent>
           <TabsContent value="clients"><ClientsTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
+          <TabsContent value="leads">{isAdmin ? <LeadsTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="perks">{isAdmin ? <PerksTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="analytics">{isAdmin ? <AnalyticsTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="team">{isAdmin ? <TeamTab /> : <AdminGate />}</TabsContent>

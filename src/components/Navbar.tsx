@@ -6,9 +6,9 @@ import oliveLogo from "@/assets/olive-clean-logo.png";
 
 const navLinks = [
   { label: "Services", href: "#services" },
-  { label: "Why Us", href: "#why-us" },
-  { label: "Perks Club", href: "#perks" },
-  { label: "Reviews", href: "#reviews" },
+  { label: "Why Us", href: "/why-us", isRoute: true },
+  { label: "Perks Club", href: "/perks", isRoute: true },
+  { label: "Our Team", href: "/team", isRoute: true },
   { label: "About", href: "/about", isRoute: true },
   { label: "Client Login", href: "/client/login", isRoute: true },
 ];
@@ -25,12 +25,10 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
       <div className="container flex items-center justify-between h-16 md:h-20">
-        {/* Logo */}
         <Link to="/" className="flex items-center">
           <img src={oliveLogo} alt="Olive Clean" className="h-8" />
         </Link>
 
-        {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-8">
           {navLinks.map((link) =>
             (link as any).isRoute ? (
@@ -53,14 +51,12 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Desktop CTA */}
         <div className="hidden md:flex">
           <Button asChild className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-6 active:scale-[0.97] transition-transform">
             <Link to="/book">Get Free Estimate</Link>
           </Button>
         </div>
 
-        {/* Mobile Toggle */}
         <button
           onClick={() => setOpen(!open)}
           className="md:hidden p-2 text-foreground active:scale-95 transition-transform"
@@ -70,7 +66,6 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Menu */}
       {open && (
         <div className="md:hidden bg-background border-t border-border animate-fade-in">
           <div className="container py-6 flex flex-col gap-4">

@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import ImpersonationBar from "@/components/admin/ImpersonationBar";
+import ScrollToTop from "@/components/layout/ScrollToTop";
+import ChatWidget from "@/components/chat/ChatWidget";
 import Index from "./pages/Index.tsx";
 import BookPage from "./pages/BookPage.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
@@ -24,6 +26,9 @@ import AreaDetail from "./pages/AreaDetail.tsx";
 import Terms from "./pages/Terms.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
+import WhyUs from "./pages/WhyUs.tsx";
+import PerksPage from "./pages/PerksPage.tsx";
+import Team from "./pages/Team.tsx";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +38,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <ImpersonationBar />
           <Routes>
@@ -54,9 +60,13 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/why-us" element={<WhyUs />} />
+            <Route path="/perks" element={<PerksPage />} />
+            <Route path="/team" element={<Team />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <ChatWidget />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

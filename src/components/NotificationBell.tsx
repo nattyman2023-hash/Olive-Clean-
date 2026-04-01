@@ -19,6 +19,7 @@ interface TypeCfg {
 
 const TYPE_CONFIG: Record<string, TypeCfg> = {
   low_stock:        { icon: AlertTriangle, color: "text-destructive", priority: "high", actionLabel: "Acknowledge" },
+  new_lead:         { icon: UserCheck, color: "text-emerald-600", priority: "high", actionLabel: "View Lead", actionTab: "leads" },
   estimate_accepted:{ icon: CheckCircle2, color: "text-blue-600", priority: "medium", actionLabel: "Create Job", actionTab: "jobs" },
   reward_redeemed:  { icon: Star, color: "text-amber-500", priority: "medium", actionLabel: "Approve", actionTab: "perks" },
   supply_request:   { icon: Package, color: "text-violet-600", priority: "medium", actionLabel: "Review", actionTab: "supplies" },
