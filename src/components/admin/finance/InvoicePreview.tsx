@@ -14,6 +14,7 @@ interface LineItem {
 
 interface InvoicePreviewProps {
   type: "invoice" | "estimate";
+  initialEditMode?: boolean;
   id: string;
   number: string;
   clientName: string;
@@ -30,8 +31,8 @@ interface InvoicePreviewProps {
   onSaved?: () => void;
 }
 
-export default function InvoicePreview({ type, id, number: docNumber, clientName, items: initialItems, subtotal: initialSubtotal, taxRate: initialTaxRate, taxAmount: initialTaxAmount, total: initialTotal, notes: initialNotes, date, dueDate, status, onClose, onSaved }: InvoicePreviewProps) {
-  const [editMode, setEditMode] = useState(false);
+export default function InvoicePreview({ type, id, number: docNumber, clientName, items: initialItems, subtotal: initialSubtotal, taxRate: initialTaxRate, taxAmount: initialTaxAmount, total: initialTotal, notes: initialNotes, date, dueDate, status, onClose, onSaved, initialEditMode = false }: InvoicePreviewProps) {
+  const [editMode, setEditMode] = useState(initialEditMode);
   const [items, setItems] = useState<LineItem[]>(initialItems);
   const [taxRate, setTaxRate] = useState(initialTaxRate);
   const [notes, setNotes] = useState(initialNotes || "");

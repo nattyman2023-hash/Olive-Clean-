@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Loader2, FileText, DollarSign } from "lucide-react";
+import { Plus, Loader2, FileText, DollarSign, Pencil, Eye } from "lucide-react";
 import InvoiceForm from "./InvoiceForm";
 import InvoicePreview from "./InvoicePreview";
 
@@ -36,6 +36,7 @@ export default function InvoicesSection() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [preview, setPreview] = useState<Invoice | null>(null);
+  const [previewEditMode, setPreviewEditMode] = useState(false);
 
   const fetch_ = async () => {
     setLoading(true);
@@ -98,8 +99,9 @@ export default function InvoicesSection() {
         date={preview.issued_at}
         dueDate={preview.due_date}
         status={preview.status}
-        onClose={() => setPreview(null)}
+        onClose={() => { setPreview(null); setPreviewEditMode(false); }}
         onSaved={() => fetch_()}
+        initialEditMode={previewEditMode}
       />
     );
   }
@@ -127,6 +129,8 @@ export default function InvoicesSection() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>{inv.status}</span>
+                <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(false); setPreview(inv); }} className="h-7 w-7" title="View"><Eye className="h-3.5 w-3.5" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(true); setPreview(inv); }} className="h-7 w-7" title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
                 {inv.status === "draft" && (
                   <Button size="sm" variant="outline" onClick={() => updateStatus(inv.id, "sent")} className="text-xs h-7 rounded-lg">Send</Button>
                 )}
