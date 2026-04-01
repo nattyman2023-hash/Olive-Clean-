@@ -1,109 +1,58 @@
 
 
-# Enhanced Chatbot, Location Pages, SEO Meta & Sitemap
+# Enhance Why Us, Perks, Team & Trust Signals
 
-## Overview
-Four workstreams: (1) Make the chatbot more engaging with quick-reply buttons, typing indicators, and markdown rendering. (2) Enrich location pages with MapTiler embeds, hero images, testimonials, and neighborhood photos. (3) Add per-page SEO meta tags (title, description, OG image, keywords) using react-helmet-async. (4) Generate a sitemap.xml and add structured data (LocalBusiness, Service schemas).
-
----
-
-## 1. Enhanced Chatbot
-
-### Changes to `src/components/chat/ChatWidget.tsx`
-- Install and use `react-markdown` for rendering AI responses with bold, links, lists
-- Add **quick-reply suggestion chips** below the latest assistant message (e.g., "Get a quote", "What areas do you serve?", "See our services") — clicking sends that text
-- Add a branded avatar image (olive leaf icon or "🫒") instead of the plain "O" circle
-- Animate the chat open with a greeting delay (typing dots for 1s, then message appears)
-- Add a "Powered by Olive Clean" footer link
-- Show context-aware suggestions based on conversation state (initial greeting vs. mid-conversation)
-
-### Changes to `supabase/functions/chat-process/index.ts`
-- Update system prompt to be warmer and more personality-driven — use emojis, Nashville references, humor
-- Add instruction to suggest quick actions in responses (e.g., "Would you like to [book now](/book) or [see our services](/services/essential)?")
-- Add a `suggested_replies` field in the response for the frontend to render as chips
+Most of the infrastructure (ScrollToTop, chatbot, CRM, location pages, SEO) already exists. This plan focuses on the specific enhancements requested that are not yet implemented.
 
 ---
 
-## 2. Enriched Location Pages
+## 1. "Why Us" Page — Detailed Checklist & Featured Team Members
 
-### Changes to `src/pages/AreaDetail.tsx`
-- Add **area-specific data**: coordinates, neighborhood landmarks, hero image URLs (Unsplash Nashville photos), local testimonials, and fun facts per area
-- Add a **MapTiler embed** section using the existing `useMapTilerKey` hook — centered on each area's coordinates with a marker
-- Add a **hero image** section with a beautiful neighborhood photo using `background-image` with overlay
-- Add a **local testimonial** quote per area
-- Add **neighborhood landmarks** list (e.g., "Minutes from the Mall at Green Hills")
-- Add **Schema.org LocalBusiness** JSON-LD structured data per area
-- Add `react-helmet-async` meta tags: title, description, OG image, keywords per area
+**`src/pages/WhyUs.tsx`**
+- Expand the Olive Standard checklist from 10 to 20+ items with granular detail (e.g., "Clean behind refrigerator and oven," "Sanitize light switches, outlets, and door handles," "Dust baseboards and crown molding," "Clean inside microwave and oven door")
+- Add a **"Meet Your Cleaners"** section that fetches 3 featured employees from the `employees` table (status = active, photo_url not null) and displays their name, photo, certifications, and a "5-star professional" badge
+- Add a **customer testimonial strip** between the checklist and CTA sections
 
-### Install `react-helmet-async`
-- Add `<HelmetProvider>` to `App.tsx`
-- Use `<Helmet>` in each page for per-page SEO
+## 2. Trust Badges Near Every "Book Now" Button
 
----
+**`src/components/TrustBadges.tsx`** (new)
+- Small reusable component rendering 3 inline badges: "Background Checked," "Fully Insured," "Eco-Friendly" with shield/leaf icons
+- Compact horizontal layout suitable for placement below CTA buttons
 
-## 3. Per-Page SEO Meta Tags
+**Files using it:**
+- `CTASection.tsx` — add below the Book button
+- `HeroSection.tsx` — add below the CTA buttons
+- `Footer.tsx` — add trust badge row above the copyright line
 
-### New file: `src/lib/seo.ts`
-- Central SEO config mapping routes to `{ title, description, keywords, ogImage }`
-- Covers: Index, About, WhyUs, Perks, Team, Careers, Book, each service page, each area page
+## 3. Perks Page — Silver/Gold/Platinum Tiers + Referral Section
 
-### New component: `src/components/SEOHead.tsx`
-- Wrapper around `<Helmet>` that accepts title, description, keywords, ogImage, canonicalPath
-- Renders `<title>`, `<meta name="description">`, `<meta name="keywords">`, OG tags, Twitter tags, canonical URL
+**`src/pages/PerksPage.tsx`**
+- Rename tiers to **Silver** (Monthly, 5% off), **Gold** (Bi-weekly, 10% off), **Platinum** (Weekly, 20% off + Priority Support) to mirror the Fantastic Club model
+- Add a dedicated **"Refer a Friend"** section with: "Give $20, Get $20" messaging, explanation of how it works, and a CTA to book
+- Add a comparison table for the three tiers showing included perks
 
-### Changes to all public pages
-- Add `<SEOHead>` to: `Index.tsx`, `About.tsx`, `WhyUs.tsx`, `PerksPage.tsx`, `Team.tsx`, `Careers.tsx`, `BookPage.tsx`, `ServiceDetail.tsx`, `AreaDetail.tsx`, `Terms.tsx`, `Privacy.tsx`
+## 4. Parallax Hero Image
 
----
+**`src/components/HeroSection.tsx`**
+- Replace the placeholder gradient box with a real Unsplash Nashville home image using `background-attachment: fixed` for the parallax scroll effect
+- Content overlays the fixed background image with a semi-transparent gradient
 
-## 4. Sitemap & Structured Data
+## 5. Mobile Grid Fix
 
-### New file: `public/sitemap.xml`
-- Static XML sitemap listing all public routes with `<lastmod>`, `<changefreq>`, `<priority>`
-- Routes: `/`, `/about`, `/why-us`, `/perks`, `/team`, `/careers`, `/book`, `/terms`, `/privacy`, all `/services/*`, all `/areas/*`
-
-### Update `public/robots.txt`
-- Add `Sitemap: https://oliveclean.com/sitemap.xml`
-
-### Structured Data in `index.html`
-- Add global `Organization` schema JSON-LD in `<head>`
-
-### Per-page structured data
-- `AreaDetail.tsx`: `LocalBusiness` schema with area name, address, geo coordinates, service area
-- `ServiceDetail.tsx`: `Service` schema with name, description, provider, price
+**`src/components/WhyUsSection.tsx`** and other card grids
+- Ensure grid uses `repeat(auto-fit, minmax(300px, 1fr))` pattern so cards stack cleanly on small screens instead of squeezing
 
 ---
 
 ## Files Summary
 
-| File | Action |
+| File | Change |
 |---|---|
-| `package.json` | Add `react-markdown`, `react-helmet-async` |
-| `src/App.tsx` | Wrap with `HelmetProvider` |
-| `src/components/SEOHead.tsx` | New: reusable SEO meta component |
-| `src/lib/seo.ts` | New: centralized SEO config per route |
-| `src/components/chat/ChatWidget.tsx` | Quick replies, markdown, avatar, animations |
-| `supabase/functions/chat-process/index.ts` | Warmer prompt, suggested_replies |
-| `src/pages/AreaDetail.tsx` | MapTiler embed, hero images, testimonials, landmarks, structured data, SEO |
-| `src/pages/ServiceDetail.tsx` | Service schema, SEO head |
-| `src/pages/Index.tsx` | SEO head |
-| `src/pages/About.tsx` | SEO head |
-| `src/pages/WhyUs.tsx` | SEO head |
-| `src/pages/PerksPage.tsx` | SEO head |
-| `src/pages/Team.tsx` | SEO head |
-| `src/pages/Careers.tsx` | SEO head |
-| `src/pages/BookPage.tsx` | SEO head |
-| `src/pages/Terms.tsx` | SEO head |
-| `src/pages/Privacy.tsx` | SEO head |
-| `public/sitemap.xml` | New: static sitemap |
-| `public/robots.txt` | Add sitemap reference |
-| `index.html` | Organization schema JSON-LD |
-
-## Implementation Order
-1. Install deps + HelmetProvider + SEOHead component + seo config
-2. Add SEOHead to all public pages
-3. Enrich AreaDetail with maps, images, landmarks, structured data
-4. Enhance ChatWidget with quick replies, markdown, animations
-5. Update chat-process prompt
-6. Create sitemap.xml, update robots.txt, add Organization schema
+| `src/pages/WhyUs.tsx` | Expanded 20+ checklist items, "Meet Your Cleaners" section with DB fetch |
+| `src/components/TrustBadges.tsx` | New: reusable trust badge strip |
+| `src/components/HeroSection.tsx` | Parallax background image |
+| `src/components/CTASection.tsx` | Add TrustBadges below CTA |
+| `src/components/Footer.tsx` | Add TrustBadges row |
+| `src/pages/PerksPage.tsx` | Silver/Gold/Platinum tiers, Refer-a-Friend section |
+| `src/components/WhyUsSection.tsx` | Mobile-safe auto-fit grid |
 
