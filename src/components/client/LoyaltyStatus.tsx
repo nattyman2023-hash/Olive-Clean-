@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Award, Gift, Copy, Users, Loader2 } from "lucide-react";
+import { Award, Gift, Copy, Users, Loader2, MessageCircle, PartyPopper } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 
 interface LoyaltyStatusProps {
   clientId: string;
@@ -12,6 +13,7 @@ interface LoyaltyStatusProps {
 
 export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
   const queryClient = useQueryClient();
+  const [redeemChoice, setRedeemChoice] = useState<string | null>(null);
 
   const { data: membership } = useQuery({
     queryKey: ["loyalty_membership", clientId],
@@ -63,16 +65,17 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
   });
 
   const redeemMutation = useMutation({
-    mutationFn: async (milestoneId: string) => {
+    mutationFn: async ({ milestoneId, choice }: { milestoneId: string; choice: string }) => {
       const { error } = await supabase
         .from("loyalty_milestones")
-        .update({ redeemed: true })
+        .update({ redeemed: true, notes: `Redeemed: ${choice}` })
         .eq("id", milestoneId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["loyalty_milestones_client"] });
       toast.success("Reward redeemed! We'll apply it to your next service.");
+      setRedeemChoice(null);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -81,6 +84,7 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
 
   const interval = program?.benefits?.free_cleaning_interval || 10;
   const progress = (membership.cleanings_completed / interval) * 100;
+  const remaining = interval - (membership.cleanings_completed % interval);
   const available = membership.free_cleanings_earned - membership.free_cleanings_used;
   const unredeemed = milestones.filter((m: any) => !m.redeemed);
 
@@ -89,6 +93,13 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
     friends_family: "Friends & Family",
     veterans: "Veterans",
     retired: "Retired",
+  };
+
+  const handleWhatsAppShare = () => {
+    const message = encodeURIComponent(
+      `🌿 I love my Olive Clean experience! Use my referral code ${membership.referral_code} when you book and get 10% off your first cleaning. Book at ${window.location.origin}/book?ref=${membership.referral_code}`
+    );
+    window.open(`https://wa.me/?text=${message}`, "_blank");
   };
 
   return (
@@ -115,14 +126,18 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
               <span className="font-medium text-foreground tabular-nums">{membership.cleanings_completed} / {interval}</span>
             </div>
             <Progress value={Math.min(progress, 100)} className="h-2" />
-            {available > 0 && (
+            {available > 0 ? (
               <p className="text-xs font-medium text-primary">🎉 You have {available} free cleaning{available > 1 ? "s" : ""} available!</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                You are <strong className="text-foreground">{remaining}</strong> cleaning{remaining !== 1 ? "s" : ""} away from a FREE Clean!
+              </p>
             )}
           </div>
 
-          {/* Referral Code */}
+          {/* Referral Code + WhatsApp */}
           {membership.referral_code && (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Your referral code</p>
               <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
                 <code className="text-xs font-mono text-foreground flex-1">{membership.referral_code}</code>
@@ -133,6 +148,15 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
                   <Copy className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <p className="text-[0.65rem] text-muted-foreground">Give 10% off, Get 5 Points when they book!</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full rounded-lg text-xs gap-1.5"
+                onClick={handleWhatsAppShare}
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> Share via WhatsApp
+              </Button>
             </div>
           )}
 
@@ -141,17 +165,65 @@ export default function LoyaltyStatus({ clientId }: LoyaltyStatusProps) {
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground flex items-center gap-1"><Gift className="h-3 w-3" /> Available rewards</p>
               {unredeemed.map((ms: any) => (
-                <div key={ms.id} className="flex items-center justify-between bg-primary/5 rounded-lg px-3 py-2">
-                  <p className="text-xs font-medium text-foreground">{ms.milestone_type.replace(/_/g, " ")}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 text-[0.65rem] rounded-full px-3"
-                    disabled={redeemMutation.isPending}
-                    onClick={() => redeemMutation.mutate(ms.id)}
-                  >
-                    {redeemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Redeem"}
-                  </Button>
+                <div key={ms.id} className="bg-primary/5 rounded-lg px-3 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      <PartyPopper className="h-3.5 w-3.5 text-primary" />
+                      {ms.milestone_type.replace(/_/g, " ")}
+                    </p>
+                  </div>
+                  {ms.milestone_type === "free_cleaning" && !redeemChoice ? (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-7 text-[0.65rem] rounded-full"
+                        onClick={() => setRedeemChoice(`${ms.id}:free_cleaning`)}
+                      >
+                        Free Cleaning
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-7 text-[0.65rem] rounded-full"
+                        onClick={() => setRedeemChoice(`${ms.id}:complimentary_dusting`)}
+                      >
+                        Complimentary Dusting
+                      </Button>
+                    </div>
+                  ) : redeemChoice?.startsWith(ms.id) ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-[0.65rem] text-muted-foreground flex-1">
+                        Redeem as <strong>{redeemChoice.split(":")[1].replace(/_/g, " ")}</strong>?
+                      </p>
+                      <Button
+                        size="sm"
+                        className="h-6 text-[0.6rem] rounded-full px-3"
+                        disabled={redeemMutation.isPending}
+                        onClick={() => redeemMutation.mutate({ milestoneId: ms.id, choice: redeemChoice.split(":")[1] })}
+                      >
+                        {redeemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-[0.6rem] rounded-full px-2"
+                        onClick={() => setRedeemChoice(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-[0.65rem] rounded-full px-3"
+                      disabled={redeemMutation.isPending}
+                      onClick={() => redeemMutation.mutate({ milestoneId: ms.id, choice: ms.milestone_type })}
+                    >
+                      {redeemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Redeem"}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
