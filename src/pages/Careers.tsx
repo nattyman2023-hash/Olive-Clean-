@@ -10,6 +10,8 @@ import { Loader2, CheckCircle2, ChevronRight, ChevronLeft, Briefcase, MapPin, Cl
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const STEPS = ["Personal Info", "Experience", "Resume", "Review"];
