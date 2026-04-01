@@ -48,20 +48,27 @@ const getChecklist = (service: string): string[] => {
 };
 
 export default function EmployeeDashboard() {
-  const { user, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isStaff, isAdmin, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedUserId, impersonatedRole } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
-    if (!authLoading && !rolesLoading && (!user || !isStaff)) navigate("/employee/login");
-  }, [authLoading, rolesLoading, user, isStaff, navigate]);
+    if (!authLoading && !rolesLoading && !user) navigate("/employee/login");
+  }, [authLoading, rolesLoading, user, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && !rolesLoading && user && !isStaff && !isImpersonating) navigate("/employee/login");
+  }, [authLoading, rolesLoading, user, isStaff, isImpersonating, navigate]);
+
+  // Use impersonated user ID for data queries
+  const effectiveUserId = isImpersonating && impersonatedRole === 'staff' ? impersonatedUserId : user?.id;
 
   const { data: employee, isLoading: empLoading } = useQuery({
-    queryKey: ["my-employee-record", user?.id],
-    enabled: !!user && !rolesLoading && isStaff,
+    queryKey: ["my-employee-record", effectiveUserId],
+    enabled: !!effectiveUserId && !rolesLoading && (isStaff || isImpersonating),
     queryFn: async () => {
-      const { data, error } = await supabase.from("employees").select("*").eq("user_id", user!.id).maybeSingle();
+      const { data, error } = await supabase.from("employees").select("*").eq("user_id", effectiveUserId!).maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -163,7 +170,7 @@ export default function EmployeeDashboard() {
   if (authLoading || empLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-muted/30"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
-  if (!user || !isStaff) return null;
+  if (!user || (!isStaff && !isImpersonating)) return null;
 
   const checklist = (employee?.onboarding_checklist as Record<string, boolean>) || {};
   const checklistDone = Object.values(checklist).filter(Boolean).length;

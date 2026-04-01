@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2, Camera, KeyRound } from "lucide-react";
+import { Plus, Search, User, BarChart3, ClipboardCheck, Loader2, Mail, ArrowLeft, X, ChevronRight, Trash2, Camera, KeyRound, Eye } from "lucide-react";
 import { z } from "zod";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import SetPasswordDialog from "./SetPasswordDialog";
@@ -91,6 +93,8 @@ const getOptionalEmployeeEmail = (value: string | null | undefined) => {
 };
 
 export default function TeamTab() {
+  const { startImpersonation } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -453,6 +457,16 @@ export default function TeamTab() {
                   )}
                 </div>
               )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  startImpersonation(profileEmployee.user_id, 'staff', profileEmployee.name);
+                  navigate('/employee');
+                }}
+                className="w-full rounded-full active:scale-[0.97] transition-transform"
+              >
+                <Eye className="h-4 w-4 mr-1" /> View Portal
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setPasswordDialogOpen(true)}

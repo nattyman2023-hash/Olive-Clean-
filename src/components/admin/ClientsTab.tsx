@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import {
   Trash2,
   Send,
   KeyRound,
+  Eye,
 } from "lucide-react";
 import SetPasswordDialog from "./SetPasswordDialog";
 
@@ -47,7 +49,8 @@ interface Client {
 const NEIGHBORHOODS = ["Belle Meade", "Brentwood", "Franklin", "Green Hills", "West Nashville"];
 
 export default function ClientsTab() {
-  const { user } = useAuth();
+  const { user, startImpersonation } = useAuth();
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -376,11 +379,23 @@ export default function ClientsTab() {
                 </div>
               )}
               {selected.client_user_id && (
-                <div className="border-t border-border pt-4">
+                <div className="border-t border-border pt-4 space-y-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="w-full rounded-lg active:scale-[0.97] mb-2"
+                    className="w-full rounded-lg active:scale-[0.97]"
+                    onClick={() => {
+                      startImpersonation(selected.client_user_id!, 'client', selected.name);
+                      navigate('/client');
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    View Portal
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full rounded-lg active:scale-[0.97]"
                     onClick={() => {
                       setPasswordTarget({ userId: selected.client_user_id!, name: selected.name });
                       setPasswordDialogOpen(true);

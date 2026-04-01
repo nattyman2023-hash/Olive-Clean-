@@ -62,7 +62,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function ClientDashboard() {
-  const { user, isClient, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isClient, isAdmin, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedUserId, impersonatedRole } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [newPrefKey, setNewPrefKey] = useState("");
@@ -86,20 +86,23 @@ export default function ClientDashboard() {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (!authLoading && !rolesLoading && user && !isClient) {
+    if (!authLoading && !rolesLoading && user && !isClient && !isImpersonating) {
       toast("You don't have access to this dashboard.");
       navigate("/");
     }
-  }, [authLoading, rolesLoading, user, isClient, navigate]);
+  }, [authLoading, rolesLoading, user, isClient, isImpersonating, navigate]);
+
+  // Use impersonated user ID for data queries when admin is impersonating
+  const effectiveUserId = isImpersonating && impersonatedRole === 'client' ? impersonatedUserId : user?.id;
 
   const { data: client, isLoading: clientLoading } = useQuery({
-    queryKey: ["client_record", user?.id],
-    enabled: !!user,
+    queryKey: ["client_record", effectiveUserId],
+    enabled: !!effectiveUserId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
         .select("*")
-        .eq("client_user_id", user!.id)
+        .eq("client_user_id", effectiveUserId!)
         .maybeSingle();
       if (error) throw error;
       return data as unknown as ClientRecord | null;
