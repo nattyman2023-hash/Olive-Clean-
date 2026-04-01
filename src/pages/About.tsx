@@ -44,8 +44,10 @@ const values = [
 ];
 
 export default function About() {
+  const seo = getSEO("/about");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/about" />
       <Navbar />
 
       {/* Hero */}

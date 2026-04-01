@@ -23,8 +23,10 @@ const benefits = [
 ];
 
 export default function PerksPage() {
+  const seo = getSEO("/perks");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/perks" />
       <Navbar />
 
       {/* Hero */}

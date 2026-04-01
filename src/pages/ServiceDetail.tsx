@@ -85,8 +85,20 @@ export default function ServiceDetail() {
 
   if (!service) return <Navigate to="/" replace />;
 
+  const seo = getSEO(`/services/${slug}`);
+  const serviceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": service.name,
+    "description": service.description,
+    "provider": { "@type": "Organization", "name": "Olive Clean", "url": SITE_URL },
+    "areaServed": { "@type": "City", "name": "Nashville" },
+    "offers": { "@type": "Offer", "price": service.price.replace(/[^0-9]/g, ""), "priceCurrency": "USD" },
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath={`/services/${slug}`} jsonLd={serviceSchema} />
       <Navbar />
 
       {/* Hero */}

@@ -23,8 +23,10 @@ export default function Team() {
     },
   });
 
+  const seo = getSEO("/team");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/team" />
       <Navbar />
 
       {/* Hero */}

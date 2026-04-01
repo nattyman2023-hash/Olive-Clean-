@@ -110,6 +110,7 @@ export default function BookPage() {
 
   return (
     <div className="min-h-screen">
+      <SEOHead title={getSEO("/book").title} description={getSEO("/book").description} keywords={getSEO("/book").keywords} canonicalPath="/book" />
       <Navbar />
       <div className="container max-w-2xl pt-28 pb-24">
         <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">

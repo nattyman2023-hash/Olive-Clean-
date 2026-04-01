@@ -29,8 +29,10 @@ const checklist = [
 ];
 
 export default function WhyUs() {
+  const seo = getSEO("/why-us");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/why-us" />
       <Navbar />
 
       {/* Hero */}
