@@ -576,6 +576,18 @@ export default function JobsTab() {
       ) : (
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-3">
+            {/* Select All */}
+            {!loading && filtered.length > 0 && (
+              <div className="flex items-center gap-3 px-2">
+                <Checkbox
+                  checked={selectedJobs.size === filtered.length && filtered.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {selectedJobs.size > 0 ? `${selectedJobs.size} selected` : "Select all"}
+                </span>
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
@@ -588,36 +600,44 @@ export default function JobsTab() {
               filtered.map((j) => {
                 const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
                 const Icon = sc.icon;
+                const isChecked = selectedJobs.has(j.id);
                 return (
-                  <button
-                    key={j.id}
-                    onClick={() => setSelected(j)}
-                    className={`w-full text-left bg-card rounded-xl border p-5 transition-all hover:shadow-md active:scale-[0.99] ${
-                      selected?.id === j.id ? "border-primary shadow-md" : "border-border shadow-sm"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground text-sm truncate">{j.clients?.name || "Unknown Client"}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </p>
-                        {j.employees?.name && (
-                          <div className="flex items-center gap-1.5 mt-1.5">
-                            <Avatar className="h-4 w-4">
-                              {j.employees.photo_url && <AvatarImage src={j.employees.photo_url} alt={j.employees.name} />}
-                              <AvatarFallback className="text-[0.4rem] bg-primary/10 text-primary">{getInitials(j.employees.name)}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-[0.65rem] text-muted-foreground">{j.employees.name}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
-                        <Icon className="h-3 w-3" />
-                        {sc.label}
-                      </div>
+                  <div key={j.id} className="flex items-start gap-3">
+                    <div className="pt-5">
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={() => toggleJobSelection(j.id)}
+                      />
                     </div>
-                  </button>
+                    <button
+                      onClick={() => setSelected(j)}
+                      className={`flex-1 text-left bg-card rounded-xl border p-5 transition-all hover:shadow-md active:scale-[0.99] ${
+                        selected?.id === j.id ? "border-primary shadow-md" : isChecked ? "border-primary/50 shadow-sm" : "border-border shadow-sm"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground text-sm truncate">{j.clients?.name || "Unknown Client"}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </p>
+                          {j.employees?.name && (
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <Avatar className="h-4 w-4">
+                                {j.employees.photo_url && <AvatarImage src={j.employees.photo_url} alt={j.employees.name} />}
+                                <AvatarFallback className="text-[0.4rem] bg-primary/10 text-primary">{getInitials(j.employees.name)}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-[0.65rem] text-muted-foreground">{j.employees.name}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
+                          <Icon className="h-3 w-3" />
+                          {sc.label}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 );
               })
             )}
