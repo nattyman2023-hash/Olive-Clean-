@@ -51,10 +51,13 @@ export default function WhyUsSection() {
         </div>
 
         <div
-          className={`grid sm:grid-cols-2 lg:grid-cols-3 gap-8 transition-all duration-700 ${
+          className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 transition-all duration-700 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
           }`}
-          style={{ transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)" }}
+          style={{
+            transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))",
+          }}
         >
           {features.map((f, i) => (
             <div
