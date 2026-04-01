@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Loader2, X, DollarSign, Printer } from "lucide-react";
+import { Plus, Loader2, X, DollarSign, Printer, Pencil, Eye, Save } from "lucide-react";
 import { format } from "date-fns";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 interface Employee { id: string; name: string; user_id: string; }
 interface Payslip {
@@ -32,6 +33,14 @@ export default function PayslipsSection() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [preview, setPreview] = useState<Payslip | null>(null);
+  const [editMode, setEditMode] = useState(false);
+
+  // Edit state
+  const [editHours, setEditHours] = useState("");
+  const [editRate, setEditRate] = useState("");
+  const [editCustom, setEditCustom] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   // Form
   const [empId, setEmpId] = useState("");
@@ -95,29 +104,113 @@ export default function PayslipsSection() {
     fetchPayslips();
   };
 
+  const openPreview = (p: Payslip, inEditMode: boolean) => {
+    setPreview(p);
+    setEditMode(inEditMode);
+    if (inEditMode) {
+      setEditHours(String(p.hours_worked));
+      setEditRate(String(p.hourly_rate));
+      setEditCustom(p.custom_amount != null ? String(p.custom_amount) : "");
+      setEditNotes(p.notes || "");
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!preview) return;
+    const hours = parseFloat(editHours) || 0;
+    const rate = parseFloat(editRate) || 0;
+    const calculated = hours * rate;
+    const hasCustom = editCustom.trim() !== "";
+    const netPay = hasCustom ? (parseFloat(editCustom) || 0) : calculated;
+
+    setEditSaving(true);
+    const { error } = await supabase.from("payslips").update({
+      hours_worked: hours,
+      hourly_rate: rate,
+      calculated_amount: calculated,
+      custom_amount: hasCustom ? parseFloat(editCustom) : null,
+      net_pay: netPay,
+      notes: editNotes || null,
+    }).eq("id", preview.id);
+    setEditSaving(false);
+    if (error) { toast.error("Failed to update payslip."); return; }
+    toast.success("Payslip updated.");
+    setPreview(null);
+    setEditMode(false);
+    fetchPayslips();
+  };
+
+  const editCalcAmount = (parseFloat(editHours) || 0) * (parseFloat(editRate) || 0);
+  const editNetPay = editCustom.trim() !== "" ? (parseFloat(editCustom) || 0) : editCalcAmount;
+
   if (preview) {
     return (
       <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-4">
+        {/* Header with logo */}
         <div className="flex justify-between items-start">
-          <div>
-            <h3 className="font-bold text-foreground">Payslip — {preview.employees?.name}</h3>
-            <p className="text-xs text-muted-foreground">{format(new Date(preview.period_start), "MMM d")} – {format(new Date(preview.period_end), "MMM d, yyyy")}</p>
+          <div className="flex items-center gap-3">
+            <img src={oliveLogo} alt="Olive Clean" className="h-8" />
+            <div>
+              <h3 className="font-bold text-foreground">Payslip — {preview.employees?.name}</h3>
+              <p className="text-xs text-muted-foreground">{format(new Date(preview.period_start), "MMM d")} – {format(new Date(preview.period_end), "MMM d, yyyy")}</p>
+            </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
+            {!editMode && (
+              <Button size="icon" variant="ghost" onClick={() => openPreview(preview, true)} title="Edit"><Pencil className="h-4 w-4" /></Button>
+            )}
             <Button size="icon" variant="ghost" onClick={() => window.print()}><Printer className="h-4 w-4" /></Button>
-            <Button size="icon" variant="ghost" onClick={() => setPreview(null)}><X className="h-4 w-4" /></Button>
+            <Button size="icon" variant="ghost" onClick={() => { setPreview(null); setEditMode(false); }}><X className="h-4 w-4" /></Button>
           </div>
         </div>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-muted-foreground">Hours Worked</span><span className="font-medium text-foreground">{Number(preview.hours_worked).toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Hourly Rate</span><span className="font-medium text-foreground">${Number(preview.hourly_rate).toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Calculated</span><span className="font-medium text-foreground">${Number(preview.calculated_amount).toFixed(2)}</span></div>
-          {preview.custom_amount != null && (
-            <div className="flex justify-between"><span className="text-muted-foreground">Custom Override</span><span className="font-medium text-foreground">${Number(preview.custom_amount).toFixed(2)}</span></div>
-          )}
-          <div className="flex justify-between font-bold border-t border-border pt-2"><span>Net Pay</span><span>${Number(preview.net_pay).toFixed(2)}</span></div>
-        </div>
-        {preview.notes && <p className="text-xs text-muted-foreground border-t border-border pt-3">{preview.notes}</p>}
+
+        {editMode ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Hours Worked</label>
+                <Input value={editHours} onChange={(e) => setEditHours(e.target.value)} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Hourly Rate ($)</label>
+                <Input value={editRate} onChange={(e) => setEditRate(e.target.value)} className="rounded-lg" />
+              </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-sm">
+              <p>Calculated: <span className="font-bold">${editCalcAmount.toFixed(2)}</span></p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Custom Override (leave empty to use calculated)</label>
+              <Input value={editCustom} onChange={(e) => setEditCustom(e.target.value)} placeholder="Optional" className="rounded-lg" />
+            </div>
+            <div className="bg-primary/5 rounded-lg p-3 text-sm font-bold flex justify-between">
+              <span>Net Pay</span><span>${editNetPay.toFixed(2)}</span>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+              <Textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={2} className="rounded-lg" />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={saveEdit} disabled={editSaving} className="rounded-lg">
+                {editSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />} Save
+              </Button>
+              <Button variant="outline" onClick={() => setEditMode(false)} className="rounded-lg">Cancel</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Hours Worked</span><span className="font-medium text-foreground">{Number(preview.hours_worked).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Hourly Rate</span><span className="font-medium text-foreground">${Number(preview.hourly_rate).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Calculated</span><span className="font-medium text-foreground">${Number(preview.calculated_amount).toFixed(2)}</span></div>
+              {preview.custom_amount != null && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Custom Override</span><span className="font-medium text-foreground">${Number(preview.custom_amount).toFixed(2)}</span></div>
+              )}
+              <div className="flex justify-between font-bold border-t border-border pt-2"><span>Net Pay</span><span>${Number(preview.net_pay).toFixed(2)}</span></div>
+            </div>
+            {preview.notes && <p className="text-xs text-muted-foreground border-t border-border pt-3">{preview.notes}</p>}
+          </>
+        )}
       </div>
     );
   }
@@ -169,16 +262,20 @@ export default function PayslipsSection() {
       ) : (
         <div className="space-y-2">
           {payslips.map((p) => (
-            <button key={p.id} onClick={() => setPreview(p)} className="w-full text-left bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+            <div key={p.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
               <div>
                 <p className="font-medium text-sm text-foreground">{p.employees?.name || "Unknown"}</p>
                 <p className="text-xs text-muted-foreground">{format(new Date(p.period_start), "MMM d")} – {format(new Date(p.period_end), "MMM d, yyyy")}</p>
               </div>
-              <div className="text-right">
-                <p className="font-bold text-sm text-foreground">${Number(p.net_pay).toFixed(2)}</p>
-                <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${p.status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>{p.status}</span>
+              <div className="flex items-center gap-2">
+                <div className="text-right mr-2">
+                  <p className="font-bold text-sm text-foreground">${Number(p.net_pay).toFixed(2)}</p>
+                  <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${p.status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>{p.status}</span>
+                </div>
+                <Button size="icon" variant="ghost" onClick={() => openPreview(p, false)} title="View"><Eye className="h-3.5 w-3.5" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => openPreview(p, true)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
