@@ -170,7 +170,7 @@ export default function EmployeeDashboard() {
   if (authLoading || empLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-muted/30"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
-  if (!user || !isStaff) return null;
+  if (!user || (!isStaff && !isImpersonating)) return null;
 
   const checklist = (employee?.onboarding_checklist as Record<string, boolean>) || {};
   const checklistDone = Object.values(checklist).filter(Boolean).length;

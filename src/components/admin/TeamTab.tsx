@@ -458,6 +458,16 @@ export default function TeamTab() {
               )}
               <Button
                 variant="outline"
+                onClick={() => {
+                  startImpersonation(profileEmployee.user_id, 'staff', profileEmployee.name);
+                  navigate('/employee');
+                }}
+                className="w-full rounded-full active:scale-[0.97] transition-transform"
+              >
+                <Eye className="h-4 w-4 mr-1" /> View Portal
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setPasswordDialogOpen(true)}
                 className="w-full rounded-full active:scale-[0.97] transition-transform"
               >

@@ -96,13 +96,13 @@ export default function ClientDashboard() {
   const effectiveUserId = isImpersonating && impersonatedRole === 'client' ? impersonatedUserId : user?.id;
 
   const { data: client, isLoading: clientLoading } = useQuery({
-    queryKey: ["client_record", user?.id],
-    enabled: !!user,
+    queryKey: ["client_record", effectiveUserId],
+    enabled: !!effectiveUserId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
         .select("*")
-        .eq("client_user_id", user!.id)
+        .eq("client_user_id", effectiveUserId!)
         .maybeSingle();
       if (error) throw error;
       return data as unknown as ClientRecord | null;
