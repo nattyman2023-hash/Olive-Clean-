@@ -363,6 +363,52 @@ export default function JobsTab() {
 
   const clearFilters = () => { setDateFrom(""); setDateTo(""); setEmployeeFilter("all"); setServiceFilter("all"); setNeighborhoodFilter("all"); };
 
+  const toggleJobSelection = (id: string) => {
+    setSelectedJobs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedJobs.size === filtered.length) {
+      setSelectedJobs(new Set());
+    } else {
+      setSelectedJobs(new Set(filtered.map((j) => j.id)));
+    }
+  };
+
+  const bulkDeleteJobs = async () => {
+    setBulkDeleting(true);
+    const ids = Array.from(selectedJobs);
+    const { error } = await supabase.from("jobs").delete().in("id", ids);
+    setBulkDeleting(false);
+    setShowDeleteConfirm(false);
+    if (error) {
+      toast.error("Failed to delete jobs.");
+      return;
+    }
+    toast.success(`${ids.length} job${ids.length > 1 ? "s" : ""} deleted.`);
+    setSelectedJobs(new Set());
+    fetchJobs();
+  };
+
+  const bulkUpdateStatus = async (status: string) => {
+    const ids = Array.from(selectedJobs);
+    const update: any = { status };
+    if (status === "completed") update.completed_at = new Date().toISOString();
+    const { error } = await supabase.from("jobs").update(update).in("id", ids);
+    if (error) {
+      toast.error("Failed to update jobs.");
+      return;
+    }
+    toast.success(`${ids.length} job${ids.length > 1 ? "s" : ""} marked as ${status}.`);
+    setSelectedJobs(new Set());
+    fetchJobs();
+  };
+
   const filtered = jobs.filter((j) => {
     const clientName = j.clients?.name || "";
     const empName = j.employees?.name || "";
