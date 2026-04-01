@@ -200,6 +200,18 @@ serve(async (req) => {
       }
     }
 
+    // Strip leaked JSON from reply text
+    const jsonLeakMatch = reply.match(/\{[\s\S]*"suggested_replies"\s*:\s*\[[\s\S]*\]\s*\}\s*$/);
+    if (jsonLeakMatch) {
+      try {
+        const parsed = JSON.parse(jsonLeakMatch[0]);
+        if (parsed.suggested_replies?.length && !suggestedReplies.length) {
+          suggestedReplies = parsed.suggested_replies;
+        }
+      } catch { /* ignore */ }
+      reply = reply.slice(0, jsonLeakMatch.index).trim();
+    }
+
     if (!reply) {
       reply = "I'd love to help you with a cleaning quote! 🏡 Could you tell me a bit about your home?";
     }

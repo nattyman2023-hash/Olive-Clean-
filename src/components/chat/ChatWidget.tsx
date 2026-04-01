@@ -80,7 +80,18 @@ export default function ChatWidget() {
       });
 
       if (error) throw error;
-      const reply = data?.reply || "Sorry, I'm having trouble right now. Please try calling us at (615) 555-0142!";
+      let reply = data?.reply || "Sorry, I'm having trouble right now. Please try calling us at (615) 555-0142!";
+      // Strip leaked JSON blobs (suggested_replies) from reply text
+      const jsonMatch = reply.match(/\{[\s\S]*"suggested_replies"\s*:\s*\[[\s\S]*\]\s*\}\s*$/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.suggested_replies?.length && !data?.suggested_replies?.length) {
+            data.suggested_replies = parsed.suggested_replies;
+          }
+        } catch { /* ignore */ }
+        reply = reply.slice(0, jsonMatch.index).trim();
+      }
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
 
       // Use suggested replies from AI or fallback

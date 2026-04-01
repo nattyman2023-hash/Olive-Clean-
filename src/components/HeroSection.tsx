@@ -1,23 +1,21 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import TrustBadges from "@/components/TrustBadges";
-import nashvilleHero from "@/assets/nashville-home-hero.jpg";
+import AnimatedCounter from "@/components/AnimatedCounter";
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-[90vh] flex items-center pt-20 md:pt-0 overflow-hidden">
-      {/* Parallax background image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat md:bg-fixed"
-        style={{ backgroundImage: `url(${nashvilleHero})` }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-background/40" />
+    <section className="relative min-h-[90vh] flex items-center pt-20 md:pt-0 overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Decorative blobs */}
+      <div className="absolute top-20 right-0 w-[500px] h-[500px] rounded-full bg-accent/5 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
       <div className="container relative z-10">
         <div className="max-w-2xl space-y-8">
           <div className="inline-block">
-            <span className="text-xs font-semibold tracking-widest uppercase text-primary bg-primary/10 px-4 py-2 rounded-full">
+            <span className="text-xs font-semibold tracking-widest uppercase text-primary bg-primary/10 px-4 py-2 rounded-full inline-flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3" />
               Nashville's Premium Cleaning
             </span>
           </div>
@@ -44,7 +42,7 @@ export default function HeroSection() {
             <Button
               variant="outline"
               size="lg"
-              className="rounded-full px-8 text-base active:scale-[0.97] transition-transform bg-background/60 backdrop-blur-sm"
+              className="rounded-full px-8 text-base active:scale-[0.97] transition-transform"
               onClick={() => document.querySelector("#services")?.scrollIntoView({ behavior: "smooth" })}
             >
               View Services
@@ -53,18 +51,11 @@ export default function HeroSection() {
 
           <TrustBadges variant="muted" className="justify-start pt-2" />
 
-          {/* Quick stats */}
+          {/* Animated stats */}
           <div className="flex gap-8 pt-2">
-            {[
-              { value: "4–6 hrs", label: "Saved weekly" },
-              { value: "200+", label: "Nashville families" },
-              { value: "4.9★", label: "Average rating" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-xl font-bold text-foreground tabular-nums">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </div>
-            ))}
+            <AnimatedCounter end={200} suffix="+" label="Nashville families" />
+            <AnimatedCounter end={4.9} suffix="★" label="Average rating" decimals={1} />
+            <AnimatedCounter end={5} prefix="" suffix=" hrs" label="Saved weekly" />
           </div>
         </div>
       </div>
