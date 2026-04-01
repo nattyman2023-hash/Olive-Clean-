@@ -609,6 +609,8 @@ export default function TeamTab() {
   // ── Main List View ──
   return (
     <div className="space-y-4">
+      {/* Trade Approvals */}
+      <TradeApprovals />
       {/* Team Announcements */}
       <TeamAnnouncements />
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
