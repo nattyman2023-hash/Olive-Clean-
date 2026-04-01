@@ -86,11 +86,14 @@ export default function ClientDashboard() {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (!authLoading && !rolesLoading && user && !isClient) {
+    if (!authLoading && !rolesLoading && user && !isClient && !isImpersonating) {
       toast("You don't have access to this dashboard.");
       navigate("/");
     }
-  }, [authLoading, rolesLoading, user, isClient, navigate]);
+  }, [authLoading, rolesLoading, user, isClient, isImpersonating, navigate]);
+
+  // Use impersonated user ID for data queries when admin is impersonating
+  const effectiveUserId = isImpersonating && impersonatedRole === 'client' ? impersonatedUserId : user?.id;
 
   const { data: client, isLoading: clientLoading } = useQuery({
     queryKey: ["client_record", user?.id],
