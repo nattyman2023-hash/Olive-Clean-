@@ -1,68 +1,128 @@
 
 
-# Admin Alerts for Employee Reports & Reward Redemptions
+# SEO Pages, UX Fixes, AI Chatbot, and CRM Lead Management
 
-## Problem
-Two gaps exist:
-1. **Employee reports** (low stock, supply requests) arrive silently — admins must manually navigate to the Supplies tab to notice them. The `LowStockWidget` banner exists but there's no push notification.
-2. **Client reward redemptions** (free cleaning, complimentary dusting) update the `loyalty_milestones` table silently. Admins have no notification and no quick path to create a job for the redeemed reward.
-
-## Solution
-
-### 1. Auto-generate admin notifications on key events
-
-Create a database trigger function that fires on specific table changes and inserts rows into the `notifications` table for admin users. This makes events appear instantly in the existing NotificationBell.
-
-**Migration — two triggers:**
-
-- **`supply_requests` INSERT trigger**: When a staff member submits a supply request, insert a `supply_request` notification for all admin users. Title: "[Employee] requested [Item] × [Qty]".
-
-- **`loyalty_milestones` UPDATE trigger** (when `redeemed` changes to `true`): Insert a `reward_redeemed` notification for all admin users. Title: "Reward redeemed: [milestone_type]". Include `member_id` and `milestone_id` in metadata so the admin can act on it.
-
-Both triggers use `SECURITY DEFINER` and query `user_roles` to find admin user IDs.
-
-### 2. "Reward Redeemed" action flow in PerksTab
-
-The NotificationBell already has a `reward_redeemed` type configured with an "Approve" button that navigates to the Perks tab. Enhance the Perks tab to surface unredeemed-but-redeemed milestones (i.e. client clicked redeem but no job exists yet).
-
-**Changes to `src/components/admin/PerksTab.tsx`:**
-- Add a "Pending Redemptions" card at the top showing milestones where `redeemed = true` AND `job_id IS NULL`
-- Each row shows client name, reward type (free cleaning / complimentary dusting), date redeemed
-- "Create Job" button opens a pre-filled job creation flow: service = milestone type, client = linked client, status = draft
-- Once job is created, update the milestone's `job_id` to link them
-
-### 3. Low stock notification trigger
-
-**Migration — trigger on `supply_items` UPDATE:**
-- When `current_stock` drops to or below `reorder_threshold` (and was previously above), insert a `low_stock` notification for all admin users
-- Title: "[Item name] is low (X remaining)"
-- This makes the red badge appear on the bell automatically
-
-### 4. Realtime subscription on milestones
-
-**Changes to `src/components/admin/PerksTab.tsx`:**
-- Add realtime subscription on `loyalty_milestones` table so the "Pending Redemptions" card updates live when a client redeems
+This is a large scope with 4 major workstreams. To keep things manageable and shippable, here's the implementation broken into phases.
 
 ---
 
-## Technical Details
+## Phase 1: Navigation & UX Fixes
 
-### Database migration (single SQL file)
+### ScrollToTop Component
+- New file: `src/components/layout/ScrollToTop.tsx` — uses `useLocation()` to call `window.scrollTo(0, 0)` on every route change
+- Add to `App.tsx` inside `<BrowserRouter>`
 
-```text
-1. notify_admin_on_supply_request() — trigger function + trigger on supply_requests AFTER INSERT
-2. notify_admin_on_reward_redeemed() — trigger function + trigger on loyalty_milestones AFTER UPDATE OF redeemed
-3. notify_admin_on_low_stock() — trigger function + trigger on supply_items AFTER UPDATE OF current_stock
-4. ALTER PUBLICATION supabase_realtime ADD TABLE loyalty_milestones (for realtime)
-```
+### Parallax Hero
+- Update `HeroSection.tsx` to use `background-attachment: fixed` on a hero image container, with content cards sliding over
 
-All trigger functions: `SECURITY DEFINER`, `SET search_path = public`, query `user_roles WHERE role = 'admin'` to get admin user IDs, then INSERT into `notifications`.
+### Responsive Typography
+- Add `clamp()` utility classes in `index.css` for heading sizes (e.g., `text-clamp-hero`, `text-clamp-section`) so text scales fluidly across viewports
 
-### Files changed
+---
 
-| File | Change |
+## Phase 2: SEO & Content Pages
+
+### Dedicated "Why Us" Page (`src/pages/WhyUs.tsx`)
+- Full page with trust signals: background checks, "The Olive Standard" checklist, insurance/bonding details, team photos section
+- Navbar link added
+
+### Dedicated "Perks" Page (`src/pages/Perks.tsx`)
+- Standalone page for recurring client benefits: savings tiers, referral bonuses, priority scheduling, "The more you clean, the more you save" messaging
+- Navbar link added
+
+### "Our Team" Section (`src/pages/Team.tsx`)
+- Fetches from `employees` table (photo_url, name, certifications)
+- Shows real team members with photos and brief bios
+- Linked from About page and Navbar
+
+### Enhanced Location Pages
+- Update `src/pages/AreaDetail.tsx` to include:
+  - Localized landmark references in copy
+  - A static map image or MapTiler embed focused on the service area
+  - Schema.org LocalBusiness structured data in `<Helmet>` (add `react-helmet-async`)
+  - Internal links to relevant service pages
+
+### Navbar Updates (`src/components/Navbar.tsx`)
+- Add "Why Us", "Perks", and "Our Team" links
+- Reorganize mobile menu for new pages
+
+### Footer Updates (`src/components/Footer.tsx`)
+- Add links to new pages under a "Company" column
+
+---
+
+## Phase 3: AI Chatbot Widget
+
+### Database Migration
+- New `leads` table:
+  - `id`, `name`, `email`, `phone`, `location`, `bedrooms`, `bathrooms`, `frequency`, `urgency`, `score` (integer 0-100), `status` (text: new/quoted/scheduled/converted), `source` (text: chatbot/form/manual), `chat_transcript` (jsonb), `notes`, `created_at`, `converted_job_id` (uuid nullable)
+- RLS: Admin full access, staff can SELECT
+
+### Chat Widget UI (`src/components/chat/ChatWidget.tsx`)
+- Floating button (bottom-right) with branded avatar "Olivia"
+- Opens a slide-up chat panel
+- Multi-step guided conversation: greeting → name/email capture → home details → service recommendation → "Book a Call" or "Get Instant Quote" CTA
+- Stores lead in `leads` table on completion
+- Uses Lovable AI (google/gemini-2.5-flash) via edge function for conversational responses
+
+### Chat Edge Function (`supabase/functions/chat-process/index.ts`)
+- Receives conversation history + user message
+- System prompt: act as "Olivia from Olive Clean," qualify leads, capture details
+- Returns AI response + extracted lead data
+- Uses structured output to extract name, email, phone, location, home size when mentioned
+
+---
+
+## Phase 4: CRM & Lead Management
+
+### Lead Scoring Logic (in edge function or client-side)
+- Weekly frequency: +30 pts
+- 4+ bedrooms: +20 pts
+- High-value area (Belle Meade, Brentwood): +15 pts
+- Has email + phone: +10 pts
+- Urgency "ASAP": +15 pts
+
+### Admin Leads Dashboard
+- New tab "Leads" in `AdminDashboard.tsx` (adminOnly)
+- New component: `src/components/admin/LeadsTab.tsx`
+  - Pipeline view: cards in columns (New → Quoted → Scheduled → Converted)
+  - Each card: name, score badge, source icon, contact info, time since created
+  - "Convert to Job" button: creates a job + client record from lead data in one click
+  - Follow-up alert: highlight leads not contacted within 2 hours
+  - Search/filter by status, score range, date
+
+### Notification Trigger
+- DB trigger on `leads` INSERT: notify all admins with type `new_lead`
+- Update `NotificationBell.tsx` TYPE_CONFIG with `new_lead` type + "View Lead" action button
+
+---
+
+## Files Summary
+
+| File | Action |
 |---|---|
-| Migration SQL | 3 trigger functions + 3 triggers + realtime |
-| `src/components/admin/PerksTab.tsx` | Pending Redemptions card + "Create Job" action + realtime sub |
-| `src/components/admin/JobsTab.tsx` | Minor: accept pre-fill params via URL search params or shared state |
+| `src/components/layout/ScrollToTop.tsx` | New: scroll-to-top on route change |
+| `src/App.tsx` | Add ScrollToTop, new routes (WhyUs, Perks, Team) |
+| `src/components/HeroSection.tsx` | Parallax background effect |
+| `src/index.css` | Clamp typography utilities |
+| `src/pages/WhyUs.tsx` | New: trust signals page |
+| `src/pages/Perks.tsx` | New: perks detail page |
+| `src/pages/Team.tsx` | New: team page from employees table |
+| `src/pages/AreaDetail.tsx` | Enhanced with maps, schema.org, landmarks |
+| `src/components/Navbar.tsx` | New links |
+| `src/components/Footer.tsx` | New links |
+| Migration SQL | `leads` table + trigger |
+| `src/components/chat/ChatWidget.tsx` | New: AI chatbot UI |
+| `supabase/functions/chat-process/index.ts` | New: AI chat brain |
+| `src/components/admin/LeadsTab.tsx` | New: CRM pipeline |
+| `src/pages/AdminDashboard.tsx` | Add Leads tab |
+| `src/components/NotificationBell.tsx` | Add `new_lead` type |
+
+### Implementation Order
+1. ScrollToTop + responsive typography (quick wins)
+2. WhyUs, Perks, Team pages + Navbar/Footer updates
+3. AreaDetail enhancements
+4. Database migration for `leads` table
+5. Chat widget + edge function
+6. Leads CRM tab + notification trigger
 
