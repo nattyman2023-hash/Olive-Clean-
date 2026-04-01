@@ -717,8 +717,47 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
               <AlertTriangle className="h-3.5 w-3.5" />Report Incident / Low Supply
             </Button>
           )}
+
+          {/* Trade Request Button */}
+          {job.status === "scheduled" && (
+            <Button size="sm" variant="outline" className="w-full rounded-xl gap-1.5 text-xs" onClick={() => setTradeSheetOpen(true)}>
+              <ArrowRightLeft className="h-3.5 w-3.5" />Request Shift Trade
+            </Button>
+          )}
         </CardContent>
       )}
+
+      {/* Trade Sheet */}
+      <Sheet open={tradeSheetOpen} onOpenChange={setTradeSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="text-base">Request Shift Trade</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            <div className="p-3 rounded-xl bg-muted/50 border border-border">
+              <p className="text-sm font-medium">{client?.name || "Client"}</p>
+              <p className="text-xs text-muted-foreground">{format(new Date(job.scheduled_at), "EEEE, MMM d 'at' h:mm a")}</p>
+              <Badge variant="outline" className="text-[0.6rem] mt-1">{job.service}</Badge>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground block mb-1.5">Invite a specific colleague (optional)</label>
+              <Select value={tradeTargetId} onValueChange={setTradeTargetId}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Open to anyone" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Open to anyone</SelectItem>
+                  {colleagues.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full rounded-xl" onClick={submitTrade} disabled={tradeSaving}>
+              {tradeSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Post Trade Request
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }
