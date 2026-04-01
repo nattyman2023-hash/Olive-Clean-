@@ -58,14 +58,17 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-background/10 mt-8 sm:mt-12 pt-6 sm:pt-8 flex flex-col items-center gap-4">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:gap-6 text-xs text-background/40">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:flex-wrap sm:gap-6 text-xs text-background/40">
             <Link to="/about" className="py-1 hover:text-background/60 transition-colors">About</Link>
+            <Link to="/why-us" className="py-1 hover:text-background/60 transition-colors">Why Us</Link>
+            <Link to="/perks" className="py-1 hover:text-background/60 transition-colors">Perks Club</Link>
+            <Link to="/team" className="py-1 hover:text-background/60 transition-colors">Our Team</Link>
             <Link to="/careers" className="py-1 hover:text-background/60 transition-colors">Careers</Link>
             <Link to="/privacy" className="py-1 hover:text-background/60 transition-colors">Privacy</Link>
             <Link to="/terms" className="py-1 hover:text-background/60 transition-colors">Terms</Link>
             <Link to="/client/login" className="py-1 hover:text-background/60 transition-colors">Client Portal</Link>
             <Link to="/employee/login" className="py-1 hover:text-background/60 transition-colors">Employee Portal</Link>
-            <Link to="/admin/login" className="py-1 hover:text-background/60 transition-colors col-span-2 sm:col-span-1 text-center sm:text-left">Staff Login</Link>
+            <Link to="/admin/login" className="py-1 hover:text-background/60 transition-colors">Staff Login</Link>
           </div>
           <p className="text-xs text-background/40">© {new Date().getFullYear()} Olive Clean. All rights reserved.</p>
         </div>
