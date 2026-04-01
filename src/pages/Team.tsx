@@ -6,6 +6,8 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, Users, Award } from "lucide-react";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 export default function Team() {
   const { data: employees = [], isLoading } = useQuery({
@@ -21,8 +23,10 @@ export default function Team() {
     },
   });
 
+  const seo = getSEO("/team");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/team" />
       <Navbar />
 
       {/* Hero */}

@@ -4,6 +4,8 @@ import { ArrowRight, Heart, Eye, Zap, Users } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 function RevealSection({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   const { ref, isVisible } = useScrollReveal(0.15);
@@ -42,8 +44,10 @@ const values = [
 ];
 
 export default function About() {
+  const seo = getSEO("/about");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/about" />
       <Navbar />
 
       {/* Hero */}

@@ -6,18 +6,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are Olivia, a friendly and professional virtual assistant for Olive Clean — Nashville's premium residential cleaning service.
+const SYSTEM_PROMPT = `You are Olivia 🫒, the friendly and enthusiastic virtual concierge for Olive Clean — Nashville's premium residential cleaning service.
 
-Your role is to qualify leads by having a natural, warm conversation. You should:
-1. Greet warmly and ask about their cleaning needs
-2. Capture their name and email early in the conversation
-3. Ask about: home size (bedrooms/bathrooms), location/neighborhood, preferred frequency (weekly/biweekly/monthly/one-time), and any urgency
-4. Recommend a service tier when you have enough info
-5. Encourage them to book a free estimate
+PERSONALITY:
+- Warm, upbeat, and genuinely helpful — like a knowledgeable friend, not a corporate bot
+- Use emojis naturally (✨🏡💚🧹) but don't overdo it — 1-2 per message max
+- Reference Nashville neighborhoods and landmarks when relevant (Percy Warner Park, the Bluebird Cafe, Main Street in Franklin, etc.)
+- Keep it conversational and fun — you LOVE clean homes!
+- Use markdown: **bold** for emphasis, [links](/book) for CTAs
 
-Keep responses concise (2-3 sentences max). Be friendly but professional. Use Nashville neighborhood names when relevant.
+YOUR GOALS:
+1. Qualify leads naturally through conversation — don't interrogate
+2. Capture: name, email, home size (bedrooms/bathrooms), location/neighborhood, preferred frequency, urgency
+3. When you have enough info, recommend a service tier and encourage booking
+4. Always offer next steps: [Book a free estimate](/book) or [See our services](/services/essential)
 
-When you've gathered enough info, summarize what you know and suggest next steps.`;
+SERVICE TIERS (mention naturally):
+- **Essential Clean** ($120) — quick refresh for well-maintained homes
+- **General Clean** ($180) — thorough top-to-bottom routine cleaning
+- **Signature Deep Clean** ($320) — comprehensive room-by-room reset
+- **Makeover Deep Clean** ($450+) — white-glove, fully customizable
+
+AREAS WE SERVE: Belle Meade, Brentwood, Franklin, Green Hills, West Nashville (Sylvan Park, The Nations)
+
+RULES:
+- Keep responses to 2-3 sentences max — short and punchy
+- Always end with a question or clear CTA to keep the conversation flowing
+- If someone seems ready to book, enthusiastically guide them to [book here](/book)
+- Include a "suggested_replies" array with 2-3 quick response options for the user
+
+IMPORTANT: After your response, also call the extract_lead_data tool if the user has mentioned ANY lead details (name, email, phone, location, home info, frequency, urgency).`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -27,7 +45,6 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Call AI gateway with tool calling for lead extraction
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -57,6 +74,11 @@ serve(async (req) => {
                   bathrooms: { type: "integer", description: "Number of bathrooms" },
                   frequency: { type: "string", description: "Cleaning frequency: weekly, biweekly, monthly, or one-time" },
                   urgency: { type: "string", description: "How urgent: asap, this-week, flexible" },
+                  suggested_replies: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "2-3 suggested quick reply options for the user to choose from",
+                  },
                 },
                 additionalProperties: false,
               },
@@ -89,6 +111,7 @@ serve(async (req) => {
     const choice = data.choices?.[0];
     let reply = "";
     let extractedData: Record<string, any> | null = null;
+    let suggestedReplies: string[] = [];
 
     if (choice?.message?.content) {
       reply = choice.message.content;
@@ -99,7 +122,12 @@ serve(async (req) => {
       for (const tc of choice.message.tool_calls) {
         if (tc.function?.name === "extract_lead_data") {
           try {
-            extractedData = JSON.parse(tc.function.arguments);
+            const parsed = JSON.parse(tc.function.arguments);
+            if (parsed.suggested_replies) {
+              suggestedReplies = parsed.suggested_replies;
+              delete parsed.suggested_replies;
+            }
+            extractedData = parsed;
           } catch { /* ignore parse errors */ }
         }
       }
@@ -140,8 +168,6 @@ serve(async (req) => {
       if ((extractedData.urgency || "").toLowerCase() === "asap") score += 15;
 
       if (score > 0) updateData.score = score;
-
-      // Update chat transcript
       updateData.chat_transcript = messages;
 
       if (Object.keys(updateData).length > 0) {
@@ -170,15 +196,15 @@ serve(async (req) => {
       });
       if (followUp.ok) {
         const followData = await followUp.json();
-        reply = followData.choices?.[0]?.message?.content || "Thanks! I've noted that down. What else can I help with?";
+        reply = followData.choices?.[0]?.message?.content || "Thanks! I've noted that down. What else can I help with? ✨";
       }
     }
 
     if (!reply) {
-      reply = "I'd love to help you with a cleaning quote! Could you tell me a bit about your home?";
+      reply = "I'd love to help you with a cleaning quote! 🏡 Could you tell me a bit about your home?";
     }
 
-    return new Response(JSON.stringify({ reply, extracted: extractedData }), {
+    return new Response(JSON.stringify({ reply, extracted: extractedData, suggested_replies: suggestedReplies }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

@@ -1,9 +1,13 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 export default function Privacy() {
+  const seo = getSEO("/privacy");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/privacy" />
       <Navbar />
 
       <section className="pt-28 pb-16 md:pt-36 md:pb-24 bg-primary">

@@ -7,10 +7,14 @@ import PerksSection from "@/components/PerksSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 const Index = () => {
+  const seo = getSEO("/");
   return (
     <div className="min-h-screen">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/" />
       <Navbar />
       <HeroSection />
       <ServicesSection />

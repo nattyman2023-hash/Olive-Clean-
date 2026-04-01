@@ -3,6 +3,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Gift, Users, Calendar, Star, TrendingUp, Percent } from "lucide-react";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 const tiers = [
   { cleanings: "5+", discount: "10%", extras: "Priority scheduling" },
@@ -21,8 +23,10 @@ const benefits = [
 ];
 
 export default function PerksPage() {
+  const seo = getSEO("/perks");
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/perks" />
       <Navbar />
 
       {/* Hero */}

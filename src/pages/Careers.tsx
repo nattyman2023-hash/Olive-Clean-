@@ -10,6 +10,8 @@ import { Loader2, CheckCircle2, ChevronRight, ChevronLeft, Briefcase, MapPin, Cl
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const STEPS = ["Personal Info", "Experience", "Resume", "Review"];
@@ -128,6 +130,7 @@ export default function Careers() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEOHead title={getSEO("/careers").title} description={getSEO("/careers").description} keywords={getSEO("/careers").keywords} canonicalPath="/careers" />
       <Navbar />
 
       <main className="flex-1 container max-w-3xl py-24 px-4">
