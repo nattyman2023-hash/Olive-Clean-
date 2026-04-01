@@ -169,7 +169,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {PACKAGES.map((p) => (
+                      {packages.map((p) => (
                         <SelectItem key={p.key} value={p.key}>{p.key}</SelectItem>
                       ))}
                     </SelectContent>
