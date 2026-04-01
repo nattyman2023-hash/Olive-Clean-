@@ -19,6 +19,7 @@ import {
   Copy,
   Award,
   Users,
+  Briefcase,
 } from "lucide-react";
 
 interface PerksMember {
