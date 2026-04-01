@@ -1,46 +1,50 @@
 
 
-# Enhance Why Us, Perks, Team & Trust Signals
+# Fix Chatbot JSON Leak, Revert Hero, Add Scroll Counters
 
-Most of the infrastructure (ScrollToTop, chatbot, CRM, location pages, SEO) already exists. This plan focuses on the specific enhancements requested that are not yet implemented.
+## 1. Fix Chatbot — Strip Raw JSON from Messages
 
----
+**Problem**: The AI model sometimes outputs `{"suggested_replies": [...]}` as plain text within its response content. This raw JSON shows up in the chat bubble.
 
-## 1. "Why Us" Page — Detailed Checklist & Featured Team Members
+**Fix in `src/components/chat/ChatWidget.tsx`**:
+- Before setting the reply as a message, strip any trailing JSON blob matching `{"suggested_replies": [...]}` from the text
+- Also parse that stripped JSON to extract suggested replies as a fallback
 
-**`src/pages/WhyUs.tsx`**
-- Expand the Olive Standard checklist from 10 to 20+ items with granular detail (e.g., "Clean behind refrigerator and oven," "Sanitize light switches, outlets, and door handles," "Dust baseboards and crown molding," "Clean inside microwave and oven door")
-- Add a **"Meet Your Cleaners"** section that fetches 3 featured employees from the `employees` table (status = active, photo_url not null) and displays their name, photo, certifications, and a "5-star professional" badge
-- Add a **customer testimonial strip** between the checklist and CTA sections
+```typescript
+// Clean the reply text before displaying
+let cleanReply = reply.replace(/\{["\s]*suggested_replies["\s]*:.*\}$/s, '').trim();
+```
 
-## 2. Trust Badges Near Every "Book Now" Button
+**Fix in `supabase/functions/chat-process/index.ts`**:
+- Same server-side: before returning `reply`, strip any `{"suggested_replies":...}` JSON that leaked into the content string
+- Parse it and merge into the `suggestedReplies` array if found
 
-**`src/components/TrustBadges.tsx`** (new)
-- Small reusable component rendering 3 inline badges: "Background Checked," "Fully Insured," "Eco-Friendly" with shield/leaf icons
-- Compact horizontal layout suitable for placement below CTA buttons
+## 2. Revert Hero Section
 
-**Files using it:**
-- `CTASection.tsx` — add below the Book button
-- `HeroSection.tsx` — add below the CTA buttons
-- `Footer.tsx` — add trust badge row above the copyright line
+**Problem**: User wants the hero reverted. The current parallax full-bleed background image may not be loading well or feels different from expected.
 
-## 3. Perks Page — Silver/Gold/Platinum Tiers + Referral Section
+**Fix in `src/components/HeroSection.tsx`**:
+- Remove the `nashville-home-hero.jpg` import and parallax background
+- Return to a clean gradient-based hero with a two-column layout: text on the left, a decorative illustration/image placeholder on the right
+- Keep the trust badges, CTA buttons, and quick stats
+- Use a subtle CSS gradient background instead of a photo
 
-**`src/pages/PerksPage.tsx`**
-- Rename tiers to **Silver** (Monthly, 5% off), **Gold** (Bi-weekly, 10% off), **Platinum** (Weekly, 20% off + Priority Support) to mirror the Fantastic Club model
-- Add a dedicated **"Refer a Friend"** section with: "Give $20, Get $20" messaging, explanation of how it works, and a CTA to book
-- Add a comparison table for the three tiers showing included perks
+## 3. Add Animated Scroll-Triggered Counters
 
-## 4. Parallax Hero Image
+**New hook**: `src/hooks/useCountUp.ts`
+- Accepts a target number and duration
+- Uses `useScrollReveal` to trigger counting when visible
+- Animates from 0 to target using `requestAnimationFrame`
 
-**`src/components/HeroSection.tsx`**
-- Replace the placeholder gradient box with a real Unsplash Nashville home image using `background-attachment: fixed` for the parallax scroll effect
-- Content overlays the fixed background image with a semi-transparent gradient
+**Update `src/components/HeroSection.tsx`** (or new `StatsCounter` component):
+- Replace the static stats text with animated counters
+- Stats: "200+" families served, "4.9" star rating, "4-6 hrs" saved weekly
+- Numbers count up when they scroll into view, then stop
 
-## 5. Mobile Grid Fix
-
-**`src/components/WhyUsSection.tsx`** and other card grids
-- Ensure grid uses `repeat(auto-fit, minmax(300px, 1fr))` pattern so cards stack cleanly on small screens instead of squeezing
+**New component**: `src/components/AnimatedCounter.tsx`
+- Takes `end` (number), `suffix` (e.g., "+", "★"), `label`, `duration` (ms)
+- Uses IntersectionObserver to trigger, requestAnimationFrame to animate
+- Displays in a clean stat card format
 
 ---
 
@@ -48,11 +52,8 @@ Most of the infrastructure (ScrollToTop, chatbot, CRM, location pages, SEO) alre
 
 | File | Change |
 |---|---|
-| `src/pages/WhyUs.tsx` | Expanded 20+ checklist items, "Meet Your Cleaners" section with DB fetch |
-| `src/components/TrustBadges.tsx` | New: reusable trust badge strip |
-| `src/components/HeroSection.tsx` | Parallax background image |
-| `src/components/CTASection.tsx` | Add TrustBadges below CTA |
-| `src/components/Footer.tsx` | Add TrustBadges row |
-| `src/pages/PerksPage.tsx` | Silver/Gold/Platinum tiers, Refer-a-Friend section |
-| `src/components/WhyUsSection.tsx` | Mobile-safe auto-fit grid |
+| `src/components/chat/ChatWidget.tsx` | Strip JSON blobs from reply text before display |
+| `supabase/functions/chat-process/index.ts` | Strip leaked JSON from AI content server-side |
+| `src/components/HeroSection.tsx` | Revert to gradient hero, no parallax image; integrate animated counters |
+| `src/components/AnimatedCounter.tsx` | New: scroll-triggered counting animation component |
 
