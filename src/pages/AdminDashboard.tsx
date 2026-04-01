@@ -21,7 +21,9 @@ import CalendarTab from "@/components/admin/CalendarTab";
 import TimeOffManager from "@/components/admin/TimeOffManager";
 import EmailsTab from "@/components/admin/EmailsTab";
 import RecentUploads from "@/components/admin/RecentUploads";
+import ServicesManager from "@/components/admin/ServicesManager";
 import NotificationBell from "@/components/NotificationBell";
+import LowStockWidget from "@/components/admin/LowStockWidget";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
 const ADMIN_TABS = [
@@ -32,6 +34,7 @@ const ADMIN_TABS = [
   { value: "analytics", label: "Analytics", adminOnly: true },
   { value: "team", label: "Team", adminOnly: true },
   { value: "hiring", label: "Hiring", adminOnly: true },
+  { value: "services", label: "Services", adminOnly: true },
   { value: "routes", label: "Routes", adminOnly: true },
   { value: "supplies", label: "Supplies", adminOnly: true },
   { value: "finance", label: "Finance", adminOnly: true },
@@ -103,6 +106,7 @@ export default function AdminDashboard() {
       </header>
 
       <main className="container py-8 max-w-6xl">
+        {isAdmin && <LowStockWidget />}
         <Tabs defaultValue="bookings" className="space-y-6">
           <ScrollArea className="w-full">
             <TabsList className="bg-card border border-border rounded-xl p-1 h-auto inline-flex w-max min-w-full">
@@ -126,6 +130,7 @@ export default function AdminDashboard() {
           <TabsContent value="analytics">{isAdmin ? <AnalyticsTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="team">{isAdmin ? <TeamTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="hiring">{isAdmin ? <HiringTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="services">{isAdmin ? <ServicesManager /> : <AdminGate />}</TabsContent>
           <TabsContent value="routes">{isAdmin ? <RoutesTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="supplies">{isAdmin ? <SuppliesTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="finance">{isAdmin ? <FinanceTab /> : <AdminGate />}</TabsContent>

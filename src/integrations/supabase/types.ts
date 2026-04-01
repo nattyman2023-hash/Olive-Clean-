@@ -1082,6 +1082,42 @@ export type Database = {
         }
         Relationships: []
       }
+      service_templates: {
+        Row: {
+          checklist_items: Json
+          created_at: string
+          default_duration_minutes: number | null
+          default_price: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          show_on_portal: boolean
+        }
+        Insert: {
+          checklist_items?: Json
+          created_at?: string
+          default_duration_minutes?: number | null
+          default_price?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          show_on_portal?: boolean
+        }
+        Update: {
+          checklist_items?: Json
+          created_at?: string
+          default_duration_minutes?: number | null
+          default_price?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          show_on_portal?: boolean
+        }
+        Relationships: []
+      }
       shift_trade_requests: {
         Row: {
           created_at: string

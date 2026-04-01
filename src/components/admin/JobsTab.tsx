@@ -72,7 +72,7 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
   cancelled: { label: "Cancelled", icon: XCircle, className: "text-destructive bg-destructive/10" },
 };
 
-const SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
+const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
 export default function JobsTab() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -97,6 +97,8 @@ export default function JobsTab() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  const [serviceTemplates, setServiceTemplates] = useState<{ id: string; name: string; checklist_items: any; default_duration_minutes: number | null; default_price: number | null }[]>([]);
+
   const [form, setForm] = useState({
     client_id: "",
     assigned_to: "",
@@ -107,10 +109,20 @@ export default function JobsTab() {
     notes: "",
   });
 
+  const SERVICES = serviceTemplates.length > 0
+    ? serviceTemplates.map(t => t.name.toLowerCase().replace(/\s+/g, "-"))
+    : FALLBACK_SERVICES;
+
   useEffect(() => {
     fetchClients();
     fetchEmployees();
+    fetchServiceTemplates();
   }, []);
+
+  const fetchServiceTemplates = async () => {
+    const { data } = await supabase.from("service_templates" as any).select("id, name, checklist_items, default_duration_minutes, default_price").eq("is_active", true).order("name");
+    if (data) setServiceTemplates(data as any);
+  };
 
   useEffect(() => {
     if (employees.length > 0) fetchJobs();

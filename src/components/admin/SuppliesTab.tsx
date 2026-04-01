@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,26 @@ export default function SuppliesTab() {
   const [addOpen, setAddOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const queryClient = useQueryClient();
+
+  // Realtime subscriptions for live supply updates
+  useEffect(() => {
+    const itemsChannel = supabase
+      .channel("supplies-items-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "supply_items" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["supply-items"] });
+      })
+      .subscribe();
+    const requestsChannel = supabase
+      .channel("supplies-requests-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "supply_requests" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["supply-requests"] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(itemsChannel);
+      supabase.removeChannel(requestsChannel);
+    };
+  }, [queryClient]);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["supply-items"],

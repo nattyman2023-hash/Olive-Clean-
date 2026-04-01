@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,27 +18,11 @@ interface ClientInfo {
   address: string | null;
 }
 
-const PACKAGES = [
-  {
-    key: "Essential Clean",
-    description: "Quick refresh — kitchens, baths, floors, and surfaces.",
-    price: 120,
-  },
-  {
-    key: "General Clean",
-    description: "Full home clean including dusting, mopping, and appliances.",
-    price: 180,
-  },
-  {
-    key: "Signature Deep Clean",
-    description: "Baseboards, fixtures, cabinet fronts, interior windows, and more.",
-    price: 280,
-  },
-  {
-    key: "Makeover Deep Clean",
-    description: "Move-in/move-out level — inside ovens, fridges, closets, walls.",
-    price: 380,
-  },
+const FALLBACK_PACKAGES = [
+  { key: "Essential Clean", description: "Quick refresh — kitchens, baths, floors, and surfaces.", price: 120 },
+  { key: "General Clean", description: "Full home clean including dusting, mopping, and appliances.", price: 180 },
+  { key: "Signature Deep Clean", description: "Baseboards, fixtures, cabinet fronts, interior windows, and more.", price: 280 },
+  { key: "Makeover Deep Clean", description: "Move-in/move-out level — inside ovens, fridges, closets, walls.", price: 380 },
 ];
 
 interface BookingItem {
@@ -55,6 +39,15 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
   const [bathrooms, setBathrooms] = useState(2);
   const [submitting, setSubmitting] = useState(false);
   const [referralCode, setReferralCode] = useState("");
+  const [packages, setPackages] = useState(FALLBACK_PACKAGES);
+
+  useEffect(() => {
+    supabase.from("service_templates" as any).select("name, description, default_price").eq("show_on_portal", true).eq("is_active", true).order("name").then(({ data }) => {
+      if (data && data.length > 0) {
+        setPackages((data as any[]).map(d => ({ key: d.name, description: d.description || "", price: d.default_price || 0 })));
+      }
+    });
+  }, []);
 
   const openBooking = (service: string) => {
     setItems([{ service, notes: "" }]);
@@ -62,7 +55,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
   };
 
   const addItem = () => {
-    setItems((prev) => [...prev, { service: PACKAGES[0].key, notes: "" }]);
+    setItems((prev) => [...prev, { service: packages[0].key, notes: "" }]);
   };
 
   const removeItem = (idx: number) => {
@@ -130,7 +123,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
         <h2 className="text-sm font-semibold text-foreground">Book a Cleaning</h2>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        {PACKAGES.map((pkg) => (
+        {packages.map((pkg) => (
           <Card key={pkg.key} className="group hover:shadow-md transition-shadow">
             <CardContent className="py-4 flex flex-col justify-between h-full">
               <div>
@@ -176,7 +169,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {PACKAGES.map((p) => (
+                      {packages.map((p) => (
                         <SelectItem key={p.key} value={p.key}>{p.key}</SelectItem>
                       ))}
                     </SelectContent>
