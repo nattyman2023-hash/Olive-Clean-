@@ -123,7 +123,7 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
         <h2 className="text-sm font-semibold text-foreground">Book a Cleaning</h2>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        {PACKAGES.map((pkg) => (
+        {packages.map((pkg) => (
           <Card key={pkg.key} className="group hover:shadow-md transition-shadow">
             <CardContent className="py-4 flex flex-col justify-between h-full">
               <div>
