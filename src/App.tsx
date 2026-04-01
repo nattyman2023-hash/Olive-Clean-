@@ -34,6 +34,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ImpersonationBar />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/book" element={<BookPage />} />
