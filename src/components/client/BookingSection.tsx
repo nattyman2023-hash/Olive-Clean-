@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,27 +18,11 @@ interface ClientInfo {
   address: string | null;
 }
 
-const PACKAGES = [
-  {
-    key: "Essential Clean",
-    description: "Quick refresh — kitchens, baths, floors, and surfaces.",
-    price: 120,
-  },
-  {
-    key: "General Clean",
-    description: "Full home clean including dusting, mopping, and appliances.",
-    price: 180,
-  },
-  {
-    key: "Signature Deep Clean",
-    description: "Baseboards, fixtures, cabinet fronts, interior windows, and more.",
-    price: 280,
-  },
-  {
-    key: "Makeover Deep Clean",
-    description: "Move-in/move-out level — inside ovens, fridges, closets, walls.",
-    price: 380,
-  },
+const FALLBACK_PACKAGES = [
+  { key: "Essential Clean", description: "Quick refresh — kitchens, baths, floors, and surfaces.", price: 120 },
+  { key: "General Clean", description: "Full home clean including dusting, mopping, and appliances.", price: 180 },
+  { key: "Signature Deep Clean", description: "Baseboards, fixtures, cabinet fronts, interior windows, and more.", price: 280 },
+  { key: "Makeover Deep Clean", description: "Move-in/move-out level — inside ovens, fridges, closets, walls.", price: 380 },
 ];
 
 interface BookingItem {
