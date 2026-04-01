@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail } from "lucide-react";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 export default function Footer() {
   return (
