@@ -37,6 +37,7 @@ export default function EstimatesSection() {
   const [showForm, setShowForm] = useState(false);
   const [convertForm, setConvertForm] = useState<Estimate | null>(null);
   const [preview, setPreview] = useState<Estimate | null>(null);
+  const [previewEditMode, setPreviewEditMode] = useState(false);
 
   const fetch_ = async () => {
     setLoading(true);
