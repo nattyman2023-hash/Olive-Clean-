@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -18,6 +19,7 @@ import {
   Copy,
   Award,
   Users,
+  Briefcase,
 } from "lucide-react";
 
 interface PerksMember {
@@ -108,6 +110,11 @@ export default function PerksTab() {
   const [showEnroll, setShowEnroll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PerksMember | null>(null);
+  const queryClient = useQueryClient();
+
+  // Pending redemptions (redeemed = true, no job created yet)
+  const [pendingRedemptions, setPendingRedemptions] = useState<(Milestone & { clientName: string; clientId: string; memberId: string })[]>([]);
+  const [creatingJobFor, setCreatingJobFor] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     client_id: "",
@@ -121,7 +128,20 @@ export default function PerksTab() {
     fetchMembers();
     fetchClients();
     fetchPrograms();
+    fetchPendingRedemptions();
   }, []);
+
+  // Realtime on loyalty_milestones
+  useEffect(() => {
+    const channel = supabase
+      .channel("perks-milestones-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "loyalty_milestones" }, () => {
+        fetchPendingRedemptions();
+        if (selected) fetchMilestones(selected.id);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selected?.id]);
 
   useEffect(() => {
     if (selected) fetchMilestones(selected.id);
@@ -158,6 +178,44 @@ export default function PerksTab() {
       .eq("member_id", memberId)
       .order("triggered_at", { ascending: false });
     setMilestones((data as any[]) || []);
+  };
+
+  const fetchPendingRedemptions = async () => {
+    const { data } = await supabase
+      .from("loyalty_milestones")
+      .select("*, perks_members!inner(client_id, clients!inner(name))")
+      .eq("redeemed", true)
+      .is("job_id", null)
+      .order("triggered_at", { ascending: false });
+    const mapped = ((data as any[]) || []).map((ms: any) => ({
+      ...ms,
+      clientName: ms.perks_members?.clients?.name || "Unknown",
+      clientId: ms.perks_members?.client_id || "",
+      memberId: ms.member_id,
+    }));
+    setPendingRedemptions(mapped);
+  };
+
+  const createJobForRedemption = async (redemption: typeof pendingRedemptions[0]) => {
+    setCreatingJobFor(redemption.id);
+    const service = redemption.milestone_type === "complimentary_dusting" ? "complimentary-dusting" : "free-cleaning";
+    const { data: newJob, error } = await supabase.from("jobs").insert({
+      client_id: redemption.clientId,
+      service,
+      scheduled_at: new Date().toISOString(),
+      notes: `Reward redemption: ${redemption.milestone_type.replace(/_/g, " ")}`,
+      status: "scheduled",
+      price: 0,
+    }).select("id").single();
+    if (error || !newJob) {
+      toast.error("Failed to create job.");
+      setCreatingJobFor(null);
+      return;
+    }
+    await supabase.from("loyalty_milestones").update({ job_id: newJob.id } as any).eq("id", redemption.id);
+    toast.success("Job created and linked to redemption!");
+    setCreatingJobFor(null);
+    fetchPendingRedemptions();
   };
 
   const enrollMember = async () => {
@@ -317,6 +375,37 @@ export default function PerksTab() {
           </Button>
         </div>
       </div>
+
+      {/* Pending Redemptions */}
+      {pendingRedemptions.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-6 mb-6 space-y-3">
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <Gift className="h-4 w-4 text-amber-600" /> Pending Redemptions ({pendingRedemptions.length})
+          </h3>
+          <p className="text-xs text-muted-foreground">Clients have redeemed rewards — create a job to fulfill each one.</p>
+          <div className="space-y-2">
+            {pendingRedemptions.map((r) => (
+              <div key={r.id} className="flex items-center justify-between bg-card rounded-lg border border-border px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{r.clientName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {r.milestone_type.replace(/_/g, " ")} · Redeemed {new Date(r.triggered_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-lg text-xs active:scale-[0.97] gap-1.5"
+                  disabled={creatingJobFor === r.id}
+                  onClick={() => createJobForRedemption(r)}
+                >
+                  {creatingJobFor === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Briefcase className="h-3 w-3" />}
+                  Create Job
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Gap Filler */}
       {showGapFiller && (
