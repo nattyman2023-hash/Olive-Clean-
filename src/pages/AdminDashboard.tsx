@@ -82,9 +82,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-muted/30">
       <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground text-sm font-bold">O</span>
-          </div>
+          <img src={oliveLogo} alt="Olive Clean" className="h-8" />
           <div>
             <h1 className="text-base font-semibold text-foreground leading-none">Olive Clean</h1>
             <p className="text-xs text-muted-foreground">Admin Dashboard</p>
