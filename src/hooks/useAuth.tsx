@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, createContext, useContext, ReactNode } from "react";
+import { useEffect, useState, useRef, createContext, useContext, ReactNode, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -11,6 +12,13 @@ interface AuthContextType {
   isStaff: boolean;
   isClient: boolean;
   signOut: () => Promise<void>;
+  // Impersonation
+  impersonatedUserId: string | null;
+  impersonatedRole: string | null;
+  impersonatedName: string | null;
+  isImpersonating: boolean;
+  startImpersonation: (userId: string, role: string, name: string) => void;
+  stopImpersonation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,6 +30,12 @@ const AuthContext = createContext<AuthContextType>({
   isStaff: false,
   isClient: false,
   signOut: async () => {},
+  impersonatedUserId: null,
+  impersonatedRole: null,
+  impersonatedName: null,
+  isImpersonating: false,
+  startImpersonation: () => {},
+  stopImpersonation: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -33,6 +47,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isStaff, setIsStaff] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const resolvedUserIdRef = useRef<string | null>(null);
+
+  // Impersonation state
+  const [impersonatedUserId, setImpersonatedUserId] = useState<string | null>(null);
+  const [impersonatedRole, setImpersonatedRole] = useState<string | null>(null);
+  const [impersonatedName, setImpersonatedName] = useState<string | null>(null);
+
+  const startImpersonation = useCallback((userId: string, role: string, name: string) => {
+    setImpersonatedUserId(userId);
+    setImpersonatedRole(role);
+    setImpersonatedName(name);
+  }, []);
+
+  const stopImpersonation = useCallback(() => {
+    setImpersonatedUserId(null);
+    setImpersonatedRole(null);
+    setImpersonatedName(null);
+  }, []);
 
   // Synchronous-only auth listener — no Supabase calls inside
   useEffect(() => {
@@ -47,6 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsStaff(false);
         setIsClient(false);
         setRolesLoading(false);
+        // Clear impersonation on logout
+        setImpersonatedUserId(null);
+        setImpersonatedRole(null);
+        setImpersonatedName(null);
       }
     });
 
@@ -87,11 +122,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id]);
 
   const signOut = async () => {
+    setImpersonatedUserId(null);
+    setImpersonatedRole(null);
+    setImpersonatedName(null);
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, rolesLoading, isAdmin, isStaff, isClient, signOut }}>
+    <AuthContext.Provider value={{
+      user, session, loading, rolesLoading, isAdmin, isStaff, isClient, signOut,
+      impersonatedUserId, impersonatedRole, impersonatedName,
+      isImpersonating: !!impersonatedUserId,
+      startImpersonation, stopImpersonation,
+    }}>
       {children}
     </AuthContext.Provider>
   );
