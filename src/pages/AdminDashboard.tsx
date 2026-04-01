@@ -106,6 +106,7 @@ export default function AdminDashboard() {
       </header>
 
       <main className="container py-8 max-w-6xl">
+        {isAdmin && <LowStockWidget />}
         <Tabs defaultValue="bookings" className="space-y-6">
           <ScrollArea className="w-full">
             <TabsList className="bg-card border border-border rounded-xl p-1 h-auto inline-flex w-max min-w-full">
