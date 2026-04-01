@@ -9,14 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   LogOut, Loader2, MapPin, Clock, Star, CheckCircle2,
   ChevronDown, ChevronUp, Camera, AlertTriangle, Package,
   Navigation, Home, Play, Receipt, Plus, Upload, MessageSquare,
-  ChevronLeft, ChevronRight, CalendarDays
+  ChevronLeft, ChevronRight, CalendarDays, ArrowRightLeft
 } from "lucide-react";
 import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
 import TimeOffManager from "@/components/admin/TimeOffManager";
+import NotificationBell from "@/components/NotificationBell";
+import ShiftTradeCard from "@/components/employee/ShiftTradeCard";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 import { format, startOfDay, endOfDay, addDays, subDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 
