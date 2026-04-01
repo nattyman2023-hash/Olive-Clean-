@@ -31,6 +31,7 @@ const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
   { value: "clients", label: "Clients" },
   { value: "jobs", label: "Jobs" },
+  { value: "leads", label: "Leads", adminOnly: true },
   { value: "perks", label: "Perks", adminOnly: true },
   { value: "analytics", label: "Analytics", adminOnly: true },
   { value: "team", label: "Team", adminOnly: true },
