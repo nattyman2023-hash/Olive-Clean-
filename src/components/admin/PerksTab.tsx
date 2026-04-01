@@ -376,6 +376,37 @@ export default function PerksTab() {
         </div>
       </div>
 
+      {/* Pending Redemptions */}
+      {pendingRedemptions.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-6 mb-6 space-y-3">
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <Gift className="h-4 w-4 text-amber-600" /> Pending Redemptions ({pendingRedemptions.length})
+          </h3>
+          <p className="text-xs text-muted-foreground">Clients have redeemed rewards — create a job to fulfill each one.</p>
+          <div className="space-y-2">
+            {pendingRedemptions.map((r) => (
+              <div key={r.id} className="flex items-center justify-between bg-card rounded-lg border border-border px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{r.clientName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {r.milestone_type.replace(/_/g, " ")} · Redeemed {new Date(r.triggered_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-lg text-xs active:scale-[0.97] gap-1.5"
+                  disabled={creatingJobFor === r.id}
+                  onClick={() => createJobForRedemption(r)}
+                >
+                  {creatingJobFor === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Briefcase className="h-3 w-3" />}
+                  Create Job
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Gap Filler */}
       {showGapFiller && (
         <div className="bg-card rounded-xl border border-border shadow-sm p-6 mb-6 space-y-4">
