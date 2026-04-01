@@ -246,7 +246,23 @@ export default function EmployeeDashboard() {
           ))
         )}
 
-        {/* Map */}
+        {/* Shift Trades */}
+        {shiftTrades.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Shift Trades
+            </h3>
+            {shiftTrades.filter((t: any) => !["approved", "denied", "cancelled"].includes(t.status)).map((trade: any) => (
+              <ShiftTradeCard
+                key={trade.id}
+                trade={trade}
+                currentEmployeeId={employee?.id || ""}
+                employees={activeEmployees as any}
+              />
+            ))}
+          </div>
+        )}
+
         {!jobsLoading && dayJobs.length > 0 && (
           <EmployeeJobMap jobs={dayJobs} />
         )}
