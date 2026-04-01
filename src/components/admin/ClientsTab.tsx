@@ -379,11 +379,23 @@ export default function ClientsTab() {
                 </div>
               )}
               {selected.client_user_id && (
-                <div className="border-t border-border pt-4">
+                <div className="border-t border-border pt-4 space-y-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="w-full rounded-lg active:scale-[0.97] mb-2"
+                    className="w-full rounded-lg active:scale-[0.97]"
+                    onClick={() => {
+                      startImpersonation(selected.client_user_id!, 'client', selected.name);
+                      navigate('/client');
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    View Portal
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full rounded-lg active:scale-[0.97]"
                     onClick={() => {
                       setPasswordTarget({ userId: selected.client_user_id!, name: selected.name });
                       setPasswordDialogOpen(true);
