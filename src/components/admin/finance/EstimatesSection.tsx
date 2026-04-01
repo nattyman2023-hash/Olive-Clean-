@@ -96,8 +96,9 @@ export default function EstimatesSection() {
         date={preview.created_at}
         dueDate={preview.valid_until}
         status={preview.status}
-        onClose={() => setPreview(null)}
+        onClose={() => { setPreview(null); setPreviewEditMode(false); }}
         onSaved={() => fetch_()}
+        initialEditMode={previewEditMode}
       />
     );
   }
