@@ -39,6 +39,15 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
   const [bathrooms, setBathrooms] = useState(2);
   const [submitting, setSubmitting] = useState(false);
   const [referralCode, setReferralCode] = useState("");
+  const [packages, setPackages] = useState(FALLBACK_PACKAGES);
+
+  useEffect(() => {
+    supabase.from("service_templates" as any).select("name, description, default_price").eq("show_on_portal", true).eq("is_active", true).order("name").then(({ data }) => {
+      if (data && data.length > 0) {
+        setPackages((data as any[]).map(d => ({ key: d.name, description: d.description || "", price: d.default_price || 0 })));
+      }
+    });
+  }, []);
 
   const openBooking = (service: string) => {
     setItems([{ service, notes: "" }]);
