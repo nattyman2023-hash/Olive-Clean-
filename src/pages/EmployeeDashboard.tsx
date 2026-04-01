@@ -48,14 +48,21 @@ const getChecklist = (service: string): string[] => {
 };
 
 export default function EmployeeDashboard() {
-  const { user, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isStaff, isAdmin, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedUserId, impersonatedRole } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
-    if (!authLoading && !rolesLoading && (!user || !isStaff)) navigate("/employee/login");
-  }, [authLoading, rolesLoading, user, isStaff, navigate]);
+    if (!authLoading && !rolesLoading && !user) navigate("/employee/login");
+  }, [authLoading, rolesLoading, user, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && !rolesLoading && user && !isStaff && !isImpersonating) navigate("/employee/login");
+  }, [authLoading, rolesLoading, user, isStaff, isImpersonating, navigate]);
+
+  // Use impersonated user ID for data queries
+  const effectiveUserId = isImpersonating && impersonatedRole === 'staff' ? impersonatedUserId : user?.id;
 
   const { data: employee, isLoading: empLoading } = useQuery({
     queryKey: ["my-employee-record", user?.id],
