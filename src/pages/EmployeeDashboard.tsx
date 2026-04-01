@@ -555,6 +555,55 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   const completedChecks = checklistItems.filter((item) => checklistState[item]).length;
   const allChecked = completedChecks === checklistItems.length;
 
+  // Color coding based on time of day
+  const jobHour = new Date(job.scheduled_at).getHours();
+  const timeColor = jobHour < 12 ? "border-l-emerald-500" : jobHour < 17 ? "border-l-blue-500" : "border-l-violet-500";
+
+  // Colleagues for trade
+  const { data: colleagues = [] } = useQuery({
+    queryKey: ["colleagues_for_trade", employeeId],
+    enabled: tradeSheetOpen && !!employeeId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("employees").select("id, name").eq("status", "active").neq("id", employeeId!);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const submitTrade = async () => {
+    if (!employeeId) return;
+    setTradeSaving(true);
+    const { error } = await supabase.from("shift_trade_requests" as any).insert({
+      requester_id: employeeId,
+      requester_job_id: job.id,
+      target_id: tradeTargetId || null,
+      status: "open",
+    });
+    setTradeSaving(false);
+    if (error) { toast.error("Failed to create trade request"); return; }
+
+    // Create notification
+    if (tradeTargetId) {
+      const targetEmp = colleagues.find((c: any) => c.id === tradeTargetId);
+      if (targetEmp) {
+        const { data: emp } = await supabase.from("employees").select("user_id").eq("id", tradeTargetId).maybeSingle();
+        if (emp) {
+          await supabase.from("notifications" as any).insert({
+            user_id: emp.user_id,
+            type: "trade_request",
+            title: "Shift trade request",
+            body: `Someone wants to trade their ${format(new Date(job.scheduled_at), "MMM d")} shift with you.`,
+          });
+        }
+      }
+    }
+
+    toast.success("Trade request posted!");
+    setTradeSheetOpen(false);
+    setTradeTargetId("");
+    queryClient.invalidateQueries({ queryKey: ["shift_trades"] });
+  };
+
   return (
     <Card className="overflow-hidden">
       <button onClick={() => setExpanded(!expanded)} className="w-full text-left p-4 flex items-start gap-3">
