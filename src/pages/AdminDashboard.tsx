@@ -21,6 +21,8 @@ import CalendarTab from "@/components/admin/CalendarTab";
 import TimeOffManager from "@/components/admin/TimeOffManager";
 import EmailsTab from "@/components/admin/EmailsTab";
 import RecentUploads from "@/components/admin/RecentUploads";
+import NotificationBell from "@/components/NotificationBell";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 const ADMIN_TABS = [
   { value: "bookings", label: "Bookings" },
