@@ -1,16 +1,28 @@
 import { useParams, Link, Navigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ArrowLeft, MapPin, Sparkles, Shield, Leaf } from "lucide-react";
+import { ArrowRight, ArrowLeft, MapPin, Sparkles, Shield, Leaf, Star, Navigation } from "lucide-react";
+import SEOHead from "@/components/SEOHead";
+import { getSEO, SITE_URL } from "@/lib/seo";
+import { useMapTilerKey } from "@/hooks/useMapTilerKey";
 
-const areas: Record<string, {
+interface AreaData {
   name: string;
   tagline: string;
   description: string;
   highlights: string[];
   services: string[];
-}> = {
+  lat: number;
+  lng: number;
+  heroImage: string;
+  landmarks: string[];
+  testimonial: { quote: string; author: string; neighborhood: string };
+  funFact: string;
+}
+
+const areas: Record<string, AreaData> = {
   "belle-meade": {
     name: "Belle Meade",
     tagline: "Premium cleaning for Nashville's most prestigious neighborhood",
@@ -22,6 +34,21 @@ const areas: Record<string, {
       "Custom cleaning plans for large-format homes",
     ],
     services: ["Essential Clean", "General Clean", "Signature Deep Clean", "Makeover Deep Clean"],
+    lat: 36.0987,
+    lng: -86.8572,
+    heroImage: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80",
+    landmarks: [
+      "Minutes from Belle Meade Plantation",
+      "Near Percy Warner Park & the Harpeth River Greenway",
+      "Close to the Belle Meade Country Club",
+      "Serving homes along Leake Avenue and Belle Meade Boulevard",
+    ],
+    testimonial: {
+      quote: "Olive Clean treats our 1920s estate with the care it deserves. They know exactly which products to use on our antique woodwork. Absolutely impeccable service.",
+      author: "Margaret T.",
+      neighborhood: "Belle Meade",
+    },
+    funFact: "Belle Meade was once home to one of the most famous horse farms in America, and many of its grand homes date back over a century.",
   },
   brentwood: {
     name: "Brentwood",
@@ -34,6 +61,21 @@ const areas: Record<string, {
       "Convenient scheduling for busy family routines",
     ],
     services: ["Essential Clean", "General Clean", "Signature Deep Clean", "Makeover Deep Clean"],
+    lat: 36.0331,
+    lng: -86.7828,
+    heroImage: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80",
+    landmarks: [
+      "Serving families near Crockett Park & Deerwood Arboretum",
+      "Close to the Maryland Farms business district",
+      "Minutes from Cool Springs Galleria",
+      "Covering neighborhoods along Concord Road and Murray Lane",
+    ],
+    testimonial: {
+      quote: "With three kids and two dogs, our house is a battlefield by Friday. Olive Clean's team comes in and makes it feel brand new every single time.",
+      author: "Jennifer & Mark S.",
+      neighborhood: "Brentwood",
+    },
+    funFact: "Brentwood is consistently ranked one of the safest and best places to live in Tennessee, with top-rated schools and family-friendly parks.",
   },
   franklin: {
     name: "Franklin",
@@ -46,6 +88,21 @@ const areas: Record<string, {
       "Flexible plans from weekly to one-time deep cleans",
     ],
     services: ["Essential Clean", "General Clean", "Signature Deep Clean", "Makeover Deep Clean"],
+    lat: 35.9251,
+    lng: -86.8689,
+    heroImage: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80",
+    landmarks: [
+      "Serving homes near the Harpeth River and Natchez Trace",
+      "Close to downtown Franklin's Main Street shops",
+      "Covering Berry Farms, Westhaven & McKay's Mill",
+      "Minutes from the Factory at Franklin",
+    ],
+    testimonial: {
+      quote: "We moved into a new build in Westhaven and Olive Clean has kept it looking show-ready since day one. Love that they use green products!",
+      author: "David R.",
+      neighborhood: "Westhaven, Franklin",
+    },
+    funFact: "Franklin's Main Street has been named one of 'America's Favorite Main Streets' and hosts the beloved Pumpkinfest every October.",
   },
   "green-hills": {
     name: "Green Hills",
@@ -58,6 +115,21 @@ const areas: Record<string, {
       "Same-week availability for new clients",
     ],
     services: ["Essential Clean", "General Clean", "Signature Deep Clean", "Makeover Deep Clean"],
+    lat: 36.1048,
+    lng: -86.8176,
+    heroImage: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80",
+    landmarks: [
+      "Steps from the Mall at Green Hills",
+      "Near Hillsboro Village & Belmont University",
+      "Close to Bluebird Cafe and Lipscomb University",
+      "Serving the Hillsboro-West End and Woodmont areas",
+    ],
+    testimonial: {
+      quote: "I have a small condo near the Mall and Olive Clean makes it sparkle. They're always on time, always thorough, and the team is so friendly.",
+      author: "Lisa K.",
+      neighborhood: "Green Hills",
+    },
+    funFact: "Green Hills is home to the iconic Bluebird Cafe, where Taylor Swift was discovered and countless country hits have been born.",
   },
   "west-nashville": {
     name: "West Nashville",
@@ -70,6 +142,21 @@ const areas: Record<string, {
       "Quick booking and responsive communication",
     ],
     services: ["Essential Clean", "General Clean", "Signature Deep Clean", "Makeover Deep Clean"],
+    lat: 36.1580,
+    lng: -86.8454,
+    heroImage: "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1200&q=80",
+    landmarks: [
+      "Serving Sylvan Park, The Nations & Charlotte Park",
+      "Near the Centennial Sportsplex & McCabe Park",
+      "Close to West Nashville's 51st Avenue restaurants",
+      "Covering homes along Charlotte Pike & Murphy Road",
+    ],
+    testimonial: {
+      quote: "Our bungalow in Sylvan Park has tons of character — and tons of nooks to clean! Olive Clean gets into every corner. They're the best.",
+      author: "Carlos & Nina M.",
+      neighborhood: "Sylvan Park",
+    },
+    funFact: "The Nations neighborhood has transformed from a quiet industrial area into one of Nashville's hottest spots for dining, art, and new construction.",
   },
 };
 
@@ -80,19 +167,92 @@ const serviceSlugMap: Record<string, string> = {
   "Makeover Deep Clean": "makeover",
 };
 
+function AreaMap({ lat, lng, name }: { lat: number; lng: number; name: string }) {
+  const { key, loading } = useMapTilerKey();
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  if (loading || !key) {
+    return (
+      <div className="w-full h-72 md:h-96 rounded-2xl bg-muted animate-pulse flex items-center justify-center">
+        <MapPin className="h-8 w-8 text-muted-foreground/30" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-72 md:h-96 rounded-2xl overflow-hidden border border-border shadow-sm">
+      <iframe
+        title={`Map of ${name} service area`}
+        src={`https://api.maptiler.com/maps/streets-v2/?key=${key}#13/${lat}/${lng}`}
+        className="w-full h-full border-0"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+    </div>
+  );
+}
+
 export default function AreaDetail() {
   const { slug } = useParams<{ slug: string }>();
   const area = slug ? areas[slug] : undefined;
 
   if (!area) return <Navigate to="/" replace />;
 
+  const seo = getSEO(`/areas/${slug}`);
+  const localBusinessSchema = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": `Olive Clean — ${area.name}`,
+    "description": seo.description,
+    "url": `${SITE_URL}/areas/${slug}`,
+    "telephone": "(615) 555-0142",
+    "email": "hello@oliveclean.com",
+    "image": area.heroImage,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": area.name,
+      "addressRegion": "TN",
+      "addressCountry": "US",
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": area.lat,
+      "longitude": area.lng,
+    },
+    "areaServed": {
+      "@type": "Place",
+      "name": area.name,
+    },
+    "priceRange": "$120 - $450+",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "reviewCount": "127",
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title={seo.title}
+        description={seo.description}
+        keywords={seo.keywords}
+        ogImage={area.heroImage}
+        canonicalPath={`/areas/${slug}`}
+        jsonLd={localBusinessSchema}
+      />
       <Navbar />
 
-      {/* Hero */}
-      <section className="pt-28 pb-16 md:pt-36 md:pb-24 bg-primary">
-        <div className="container max-w-3xl text-center space-y-4">
+      {/* Hero with background image */}
+      <section
+        className="relative pt-28 pb-20 md:pt-36 md:pb-28"
+        style={{
+          backgroundImage: `linear-gradient(to bottom, hsl(var(--primary) / 0.85), hsl(var(--primary) / 0.92)), url(${area.heroImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="container max-w-3xl text-center space-y-4 relative z-10">
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-primary-foreground/60 hover:text-primary-foreground/80 transition-colors">
             <ArrowLeft className="h-4 w-4" /> Home
           </Link>
@@ -100,17 +260,46 @@ export default function AreaDetail() {
             <MapPin className="h-5 w-5" />
             <span className="text-sm font-medium uppercase tracking-widest">Service Area</span>
           </div>
-          <h1 className="text-3xl md:text-5xl font-bold text-primary-foreground -tracking-[0.02em]">{area.name}</h1>
+          <h1 className="text-clamp-hero font-bold text-primary-foreground -tracking-[0.02em]">
+            House Cleaning in {area.name}
+          </h1>
           <p className="text-primary-foreground/70 text-lg max-w-xl mx-auto">{area.tagline}</p>
+          <div className="pt-4">
+            <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-10 text-base">
+              <Link to="/book">
+                Get Free Estimate <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* About the area */}
       <section className="py-16 md:py-24">
-        <div className="container max-w-3xl space-y-12">
+        <div className="container max-w-4xl space-y-16">
+          {/* Description + Map side by side */}
+          <div className="grid md:grid-cols-2 gap-10 items-start">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-foreground">Cleaning Services in {area.name}</h2>
+              <p className="text-muted-foreground leading-relaxed">{area.description}</p>
+              <p className="text-sm text-muted-foreground/70 italic">{area.funFact}</p>
+            </div>
+            <AreaMap lat={area.lat} lng={area.lng} name={area.name} />
+          </div>
+
+          {/* Local landmarks */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-foreground">Cleaning Services in {area.name}</h2>
-            <p className="text-muted-foreground leading-relaxed">{area.description}</p>
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Navigation className="h-5 w-5 text-primary" /> Neighborhoods We Serve
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {area.landmarks.map((l) => (
+                <div key={l} className="flex items-start gap-3 bg-muted/50 rounded-xl p-4 border border-border">
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span className="text-sm text-foreground">{l}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Highlights */}
@@ -124,6 +313,22 @@ export default function AreaDetail() {
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* Testimonial */}
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-8 md:p-10">
+            <div className="flex gap-1 mb-4">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star key={s} className="h-5 w-5 fill-accent text-accent" />
+              ))}
+            </div>
+            <blockquote className="text-foreground text-lg leading-relaxed italic mb-4">
+              "{area.testimonial.quote}"
+            </blockquote>
+            <div className="text-sm">
+              <span className="font-semibold text-foreground">{area.testimonial.author}</span>
+              <span className="text-muted-foreground"> — {area.testimonial.neighborhood}</span>
+            </div>
           </div>
 
           {/* Values */}
@@ -160,7 +365,14 @@ export default function AreaDetail() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 md:py-24 bg-primary">
+      <section
+        className="py-16 md:py-24"
+        style={{
+          backgroundImage: `linear-gradient(to bottom, hsl(var(--primary) / 0.9), hsl(var(--primary))), url(${area.heroImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
         <div className="container max-w-2xl text-center space-y-6">
           <h2 className="text-3xl font-bold text-primary-foreground">Get a Free Estimate in {area.name}</h2>
           <p className="text-primary-foreground/70">We'll schedule a walkthrough at your convenience and provide a personalized cleaning plan.</p>
