@@ -244,9 +244,7 @@ export default function ClientDashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
         <div className="text-center max-w-sm">
-          <div className="w-12 h-12 mx-auto rounded-full bg-primary flex items-center justify-center mb-4">
-            <span className="text-primary-foreground text-lg font-bold">O</span>
-          </div>
+          <img src={oliveLogo} alt="Olive Clean" className="h-10 mx-auto mb-4" />
           <h1 className="text-lg font-bold text-foreground mb-2">No Client Record Found</h1>
           <p className="text-sm text-muted-foreground mb-6">
             Your account isn't linked to a client profile yet. Please contact Olive Clean to connect your account.
