@@ -663,6 +663,62 @@ export default function JobsTab() {
           </div>
         </div>
       )}
+
+      {/* Bulk Action Toolbar */}
+      {selectedJobs.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-xl px-6 py-3 flex items-center gap-4">
+          <span className="text-sm font-medium text-foreground">{selectedJobs.size} selected</span>
+          <div className="h-5 w-px bg-border" />
+          <select
+            onChange={(e) => { if (e.target.value) { bulkUpdateStatus(e.target.value); e.target.value = ""; } }}
+            className="px-3 py-1.5 rounded-lg text-xs bg-background border border-border text-foreground"
+            defaultValue=""
+          >
+            <option value="" disabled>Change Status</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="rounded-lg text-xs gap-1"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+          <button
+            onClick={() => setSelectedJobs(new Set())}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedJobs.size} job{selectedJobs.size > 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the selected jobs and any associated history. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={bulkDeleteJobs}
+              disabled={bulkDeleting}
+            >
+              {bulkDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Delete {selectedJobs.size} Job{selectedJobs.size > 1 ? "s" : ""}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
