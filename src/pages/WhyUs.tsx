@@ -3,6 +3,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ShieldCheck, ClipboardCheck, Users, Leaf, Award, Lock } from "lucide-react";
+import SEOHead from "@/components/SEOHead";
+import { getSEO } from "@/lib/seo";
 
 const standards = [
   { icon: ShieldCheck, title: "Background Checked", description: "Every team member passes a comprehensive background check before joining Olive Clean. Your safety is non-negotiable." },
