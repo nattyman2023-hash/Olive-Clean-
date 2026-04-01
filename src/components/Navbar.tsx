@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 const navLinks = [
   { label: "Services", href: "#services" },
