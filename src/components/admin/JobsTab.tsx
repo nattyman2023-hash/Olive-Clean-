@@ -92,6 +92,11 @@ export default function JobsTab() {
   const [serviceFilter, setServiceFilter] = useState("all");
   const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
 
+  // Bulk selection state
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const [form, setForm] = useState({
     client_id: "",
     assigned_to: "",
