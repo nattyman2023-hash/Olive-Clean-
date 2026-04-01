@@ -14,6 +14,7 @@ interface LineItem {
 
 interface InvoicePreviewProps {
   type: "invoice" | "estimate";
+  initialEditMode?: boolean;
   id: string;
   number: string;
   clientName: string;
