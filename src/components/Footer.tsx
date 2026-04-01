@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail } from "lucide-react";
 import oliveLogo from "@/assets/olive-clean-logo.png";
+import TrustBadges from "@/components/TrustBadges";
 
 export default function Footer() {
   return (
@@ -57,7 +58,12 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-background/10 mt-8 sm:mt-12 pt-6 sm:pt-8 flex flex-col items-center gap-4">
+        {/* Trust badges */}
+        <div className="border-t border-background/10 mt-8 sm:mt-12 pt-6 sm:pt-8">
+          <TrustBadges variant="dark" className="mb-6" />
+        </div>
+
+        <div className="flex flex-col items-center gap-4">
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:flex-wrap sm:gap-6 text-xs text-background/40">
             <Link to="/about" className="py-1 hover:text-background/60 transition-colors">About</Link>
             <Link to="/why-us" className="py-1 hover:text-background/60 transition-colors">Why Us</Link>

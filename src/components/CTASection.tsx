@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import TrustBadges from "@/components/TrustBadges";
 
 export default function CTASection() {
   const { ref, isVisible } = useScrollReveal();
@@ -31,6 +32,7 @@ export default function CTASection() {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
+        <TrustBadges variant="light" className="mt-6" />
       </div>
     </section>
   );
