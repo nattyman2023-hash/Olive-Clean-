@@ -72,7 +72,7 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
   cancelled: { label: "Cancelled", icon: XCircle, className: "text-destructive bg-destructive/10" },
 };
 
-const SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
+const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
 export default function JobsTab() {
   const [jobs, setJobs] = useState<Job[]>([]);
