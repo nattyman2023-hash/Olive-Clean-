@@ -20,6 +20,7 @@ import TechnicianAvatar from "@/components/client/TechnicianAvatar";
 import ClientInvoices from "@/components/client/ClientInvoices";
 import ClientAccountSettings from "@/components/client/ClientAccountSettings";
 import LoyaltyStatus from "@/components/client/LoyaltyStatus";
+import oliveLogo from "@/assets/olive-clean-logo.png";
 
 interface ClientRecord {
   id: string;
