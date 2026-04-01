@@ -65,10 +65,10 @@ export default function EmployeeDashboard() {
   const effectiveUserId = isImpersonating && impersonatedRole === 'staff' ? impersonatedUserId : user?.id;
 
   const { data: employee, isLoading: empLoading } = useQuery({
-    queryKey: ["my-employee-record", user?.id],
-    enabled: !!user && !rolesLoading && isStaff,
+    queryKey: ["my-employee-record", effectiveUserId],
+    enabled: !!effectiveUserId && !rolesLoading && (isStaff || isImpersonating),
     queryFn: async () => {
-      const { data, error } = await supabase.from("employees").select("*").eq("user_id", user!.id).maybeSingle();
+      const { data, error } = await supabase.from("employees").select("*").eq("user_id", effectiveUserId!).maybeSingle();
       if (error) throw error;
       return data;
     },
