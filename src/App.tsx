@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import ImpersonationBar from "@/components/admin/ImpersonationBar";
 import ScrollToTop from "@/components/layout/ScrollToTop";
+import ChatWidget from "@/components/chat/ChatWidget";
 import Index from "./pages/Index.tsx";
 import BookPage from "./pages/BookPage.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
