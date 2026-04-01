@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, AlertTriangle, Package, TrendingDown } from "lucide-react";
+import { Loader2, Plus, AlertTriangle, Package, TrendingDown, Inbox, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface SupplyItem {
   id: string;

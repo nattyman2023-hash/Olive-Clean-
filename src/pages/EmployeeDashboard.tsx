@@ -388,6 +388,21 @@ function SupplyRequestForm({ employeeId }: { employeeId: string }) {
     });
     setSaving(false);
     if (error) { toast.error("Failed to submit request."); return; }
+
+    // Notify admins
+    const selectedItem = supplyItems.find((s: any) => s.id === itemId);
+    const { data: empRecord } = await supabase.from("employees").select("name").eq("id", employeeId).maybeSingle();
+    const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin" as any);
+    if (adminRoles && adminRoles.length > 0) {
+      const notifications = adminRoles.map((r: any) => ({
+        user_id: r.user_id,
+        type: "supply_request",
+        title: `Supply Request from ${empRecord?.name || "Staff"}`,
+        body: `${quantity}× ${selectedItem?.name || "item"}`,
+      }));
+      await supabase.from("notifications" as any).insert(notifications);
+    }
+
     toast.success("Supply request submitted.");
     setShowForm(false);
     setItemId("");
