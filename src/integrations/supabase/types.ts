@@ -744,6 +744,63 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          bathrooms: number | null
+          bedrooms: number | null
+          chat_transcript: Json | null
+          converted_job_id: string | null
+          created_at: string
+          email: string | null
+          frequency: string | null
+          id: string
+          location: string | null
+          name: string | null
+          notes: string | null
+          phone: string | null
+          score: number
+          source: string
+          status: string
+          urgency: string | null
+        }
+        Insert: {
+          bathrooms?: number | null
+          bedrooms?: number | null
+          chat_transcript?: Json | null
+          converted_job_id?: string | null
+          created_at?: string
+          email?: string | null
+          frequency?: string | null
+          id?: string
+          location?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          score?: number
+          source?: string
+          status?: string
+          urgency?: string | null
+        }
+        Update: {
+          bathrooms?: number | null
+          bedrooms?: number | null
+          chat_transcript?: Json | null
+          converted_job_id?: string | null
+          created_at?: string
+          email?: string | null
+          frequency?: string | null
+          id?: string
+          location?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          score?: number
+          source?: string
+          status?: string
+          urgency?: string | null
+        }
+        Relationships: []
+      }
       lifecycle_events: {
         Row: {
           channel: string
