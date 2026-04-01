@@ -62,7 +62,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function ClientDashboard() {
-  const { user, isClient, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isClient, isAdmin, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedUserId, impersonatedRole } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [newPrefKey, setNewPrefKey] = useState("");
