@@ -180,6 +180,44 @@ export default function PerksTab() {
     setMilestones((data as any[]) || []);
   };
 
+  const fetchPendingRedemptions = async () => {
+    const { data } = await supabase
+      .from("loyalty_milestones")
+      .select("*, perks_members!inner(client_id, clients!inner(name))")
+      .eq("redeemed", true)
+      .is("job_id", null)
+      .order("triggered_at", { ascending: false });
+    const mapped = ((data as any[]) || []).map((ms: any) => ({
+      ...ms,
+      clientName: ms.perks_members?.clients?.name || "Unknown",
+      clientId: ms.perks_members?.client_id || "",
+      memberId: ms.member_id,
+    }));
+    setPendingRedemptions(mapped);
+  };
+
+  const createJobForRedemption = async (redemption: typeof pendingRedemptions[0]) => {
+    setCreatingJobFor(redemption.id);
+    const service = redemption.milestone_type === "complimentary_dusting" ? "complimentary-dusting" : "free-cleaning";
+    const { data: newJob, error } = await supabase.from("jobs").insert({
+      client_id: redemption.clientId,
+      service,
+      scheduled_at: new Date().toISOString(),
+      notes: `Reward redemption: ${redemption.milestone_type.replace(/_/g, " ")}`,
+      status: "scheduled",
+      price: 0,
+    }).select("id").single();
+    if (error || !newJob) {
+      toast.error("Failed to create job.");
+      setCreatingJobFor(null);
+      return;
+    }
+    await supabase.from("loyalty_milestones").update({ job_id: newJob.id } as any).eq("id", redemption.id);
+    toast.success("Job created and linked to redemption!");
+    setCreatingJobFor(null);
+    fetchPendingRedemptions();
+  };
+
   const enrollMember = async () => {
     if (!form.client_id) {
       toast.error("Select a client.");
