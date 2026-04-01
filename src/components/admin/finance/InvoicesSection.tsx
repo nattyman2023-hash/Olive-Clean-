@@ -36,6 +36,7 @@ export default function InvoicesSection() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [preview, setPreview] = useState<Invoice | null>(null);
+  const [previewEditMode, setPreviewEditMode] = useState(false);
 
   const fetch_ = async () => {
     setLoading(true);
