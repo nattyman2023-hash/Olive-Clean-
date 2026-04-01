@@ -99,8 +99,9 @@ export default function InvoicesSection() {
         date={preview.issued_at}
         dueDate={preview.due_date}
         status={preview.status}
-        onClose={() => setPreview(null)}
+        onClose={() => { setPreview(null); setPreviewEditMode(false); }}
         onSaved={() => fetch_()}
+        initialEditMode={previewEditMode}
       />
     );
   }
