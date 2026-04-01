@@ -34,6 +34,7 @@ import Team from "./pages/Team.tsx";
 const queryClient = new QueryClient();
 
 const App = () => (
+  <HelmetProvider>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
