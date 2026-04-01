@@ -130,6 +130,7 @@ export default function AdminDashboard() {
           <TabsContent value="analytics">{isAdmin ? <AnalyticsTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="team">{isAdmin ? <TeamTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="hiring">{isAdmin ? <HiringTab /> : <AdminGate />}</TabsContent>
+          <TabsContent value="services">{isAdmin ? <ServicesManager /> : <AdminGate />}</TabsContent>
           <TabsContent value="routes">{isAdmin ? <RoutesTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="supplies">{isAdmin ? <SuppliesTab /> : <AdminGate />}</TabsContent>
           <TabsContent value="finance">{isAdmin ? <FinanceTab /> : <AdminGate />}</TabsContent>
