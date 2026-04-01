@@ -95,6 +95,7 @@ export default function AdminDashboard() {
               Admin
             </span>
           )}
+          <NotificationBell />
           <Button variant="ghost" size="icon" onClick={signOut} className="active:scale-95 transition-transform">
             <LogOut className="h-4 w-4" />
           </Button>
