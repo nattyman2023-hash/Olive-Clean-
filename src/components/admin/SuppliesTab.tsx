@@ -206,6 +206,9 @@ export default function SuppliesTab() {
           </Table>
         </div>
       )}
+
+      {/* Staff Supply Requests */}
+      <StaffSupplyRequests items={items} />
     </div>
   );
 }
