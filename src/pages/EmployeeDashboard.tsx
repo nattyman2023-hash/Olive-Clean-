@@ -605,7 +605,7 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={`overflow-hidden border-l-4 ${timeColor}`}>
       <button onClick={() => setExpanded(!expanded)} className="w-full text-left p-4 flex items-start gap-3">
         <div className="text-xs font-semibold text-primary tabular-nums min-w-[50px] pt-0.5">
           {format(new Date(job.scheduled_at), "h:mm a")}
