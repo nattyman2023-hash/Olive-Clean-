@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Loader2, FileText, DollarSign } from "lucide-react";
+import { Plus, Loader2, FileText, DollarSign, Pencil, Eye } from "lucide-react";
 import InvoiceForm from "./InvoiceForm";
 import InvoicePreview from "./InvoicePreview";
 
