@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { haversineDistance } from "@/lib/geo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -476,8 +477,71 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   const [tradeSheetOpen, setTradeSheetOpen] = useState(false);
   const [tradeTargetId, setTradeTargetId] = useState("");
   const [tradeSaving, setTradeSaving] = useState(false);
+  const [clockingIn, setClockingIn] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const beforeInputRef = useRef<HTMLInputElement>(null);
+
+  // Clock in/out time logs
+  const { data: timeLogs = [] } = useQuery({
+    queryKey: ["job_time_logs_emp", job.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_time_logs" as any)
+        .select("*")
+        .eq("job_id", job.id)
+        .order("recorded_at", { ascending: true });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  const clockInLog = timeLogs.find((l: any) => l.action_type === "clock_in");
+  const clockOutLog = timeLogs.find((l: any) => l.action_type === "clock_out");
+
+  const handleClockAction = async (actionType: "clock_in" | "clock_out") => {
+    setClockingIn(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+      });
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const clientLat = client?.lat;
+      const clientLng = client?.lng;
+      let distance: number | null = null;
+      let isVerified = false;
+      if (clientLat != null && clientLng != null) {
+        distance = haversineDistance(lat, lng, Number(clientLat), Number(clientLng));
+        isVerified = distance < 200;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("job_time_logs" as any).insert({
+        job_id: job.id,
+        employee_user_id: user.id,
+        action_type: actionType,
+        latitude: lat,
+        longitude: lng,
+        is_verified_location: isVerified,
+        distance_from_site: distance,
+      });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["job_time_logs_emp", job.id] });
+      if (isVerified) {
+        toast.success(`${actionType === "clock_in" ? "Clocked in" : "Clocked out"} — verified on-site ✓`);
+      } else {
+        toast(`${actionType === "clock_in" ? "Clocked in" : "Clocked out"} — location flagged (${distance ? Math.round(distance) + "m away" : "unknown"})`, { icon: "⚠️" });
+      }
+    } catch (err: any) {
+      if (err.code === 1) {
+        toast.error("Location permission denied. Please enable GPS.");
+      } else {
+        toast.error("Failed to record time: " + (err.message || "unknown error"));
+      }
+    } finally {
+      setClockingIn(false);
+    }
+  };
 
   const client = job.clients as any;
   const preferences = client?.preferences as Record<string, any> | null;
@@ -682,7 +746,58 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
             )}
           </div>
 
-          {/* Home Memory */}
+          {/* Clock In / Clock Out */}
+          {(job.status === "on_site" || job.status === "complete") && (
+            <div className="space-y-2">
+              {!clockInLog && job.status === "on_site" && (
+                <Button
+                  size="sm"
+                  className="w-full rounded-xl gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={clockingIn}
+                  onClick={() => handleClockAction("clock_in")}
+                >
+                  {clockingIn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+                  Clock In
+                </Button>
+              )}
+              {clockInLog && !clockOutLog && (
+                <Button
+                  size="sm"
+                  className="w-full rounded-xl gap-1.5 bg-red-600 hover:bg-red-700 text-white"
+                  disabled={clockingIn}
+                  onClick={() => handleClockAction("clock_out")}
+                >
+                  {clockingIn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+                  Clock Out
+                </Button>
+              )}
+              {clockInLog && (
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-muted-foreground">In: {format(new Date(clockInLog.recorded_at), "h:mm a")}</span>
+                  {clockInLog.is_verified_location ? (
+                    <Badge variant="secondary" className="text-[0.55rem] gap-0.5 bg-emerald-100 text-emerald-800 border-0">
+                      <CheckCircle2 className="h-2.5 w-2.5" />Verified
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-[0.55rem] gap-0.5 bg-amber-100 text-amber-800 border-0">
+                      <AlertTriangle className="h-2.5 w-2.5" />Flagged
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {clockOutLog && (
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-muted-foreground">Out: {format(new Date(clockOutLog.recorded_at), "h:mm a")}</span>
+                  <span className="font-medium text-foreground">
+                    {Math.round((new Date(clockOutLog.recorded_at).getTime() - new Date(clockInLog.recorded_at).getTime()) / 60000)} min
+                  </span>
+                </div>
+              )}
+              <p className="text-[0.55rem] text-muted-foreground text-center">📍 GPS only used at clock-in/out</p>
+            </div>
+          )}
+
+
           {preferences && Object.keys(preferences).length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
               <p className="text-xs font-semibold text-amber-800 mb-1.5 flex items-center gap-1"><Home className="h-3 w-3" />Home Memory</p>

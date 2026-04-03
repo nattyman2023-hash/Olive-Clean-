@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import JobsMap from "./jobs/JobsMap";
 import JobPhotosGallery from "./JobPhotosGallery";
+import AttendanceVerification from "./AttendanceVerification";
 
 interface Job {
   id: string;
@@ -817,6 +818,14 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
           <p className="text-sm text-foreground">{job.notes}</p>
         </div>
       )}
+
+      {/* Attendance & Verification */}
+      <AttendanceVerification
+        jobId={job.id}
+        jobLat={job.clients?.lat}
+        jobLng={job.clients?.lng}
+        expectedDuration={job.duration_minutes}
+      />
 
       {/* Photos */}
       <div className="border-t border-border pt-4">
