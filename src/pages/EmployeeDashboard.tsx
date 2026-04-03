@@ -746,7 +746,58 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
             )}
           </div>
 
-          {/* Home Memory */}
+          {/* Clock In / Clock Out */}
+          {(job.status === "on_site" || job.status === "complete") && (
+            <div className="space-y-2">
+              {!clockInLog && job.status === "on_site" && (
+                <Button
+                  size="sm"
+                  className="w-full rounded-xl gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={clockingIn}
+                  onClick={() => handleClockAction("clock_in")}
+                >
+                  {clockingIn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+                  Clock In
+                </Button>
+              )}
+              {clockInLog && !clockOutLog && (
+                <Button
+                  size="sm"
+                  className="w-full rounded-xl gap-1.5 bg-red-600 hover:bg-red-700 text-white"
+                  disabled={clockingIn}
+                  onClick={() => handleClockAction("clock_out")}
+                >
+                  {clockingIn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+                  Clock Out
+                </Button>
+              )}
+              {clockInLog && (
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-muted-foreground">In: {format(new Date(clockInLog.recorded_at), "h:mm a")}</span>
+                  {clockInLog.is_verified_location ? (
+                    <Badge variant="secondary" className="text-[0.55rem] gap-0.5 bg-emerald-100 text-emerald-800 border-0">
+                      <CheckCircle2 className="h-2.5 w-2.5" />Verified
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-[0.55rem] gap-0.5 bg-amber-100 text-amber-800 border-0">
+                      <AlertTriangle className="h-2.5 w-2.5" />Flagged
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {clockOutLog && (
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-muted-foreground">Out: {format(new Date(clockOutLog.recorded_at), "h:mm a")}</span>
+                  <span className="font-medium text-foreground">
+                    {Math.round((new Date(clockOutLog.recorded_at).getTime() - new Date(clockInLog.recorded_at).getTime()) / 60000)} min
+                  </span>
+                </div>
+              )}
+              <p className="text-[0.55rem] text-muted-foreground text-center">📍 GPS only used at clock-in/out</p>
+            </div>
+          )}
+
+
           {preferences && Object.keys(preferences).length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
               <p className="text-xs font-semibold text-amber-800 mb-1.5 flex items-center gap-1"><Home className="h-3 w-3" />Home Memory</p>
