@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import JobsMap from "./jobs/JobsMap";
 import JobPhotosGallery from "./JobPhotosGallery";
+import AttendanceVerification from "./AttendanceVerification";
 
 interface Job {
   id: string;
