@@ -685,6 +685,50 @@ export type Database = {
         }
         Relationships: []
       }
+      job_time_logs: {
+        Row: {
+          action_type: string
+          distance_from_site: number | null
+          employee_user_id: string
+          id: string
+          is_verified_location: boolean | null
+          job_id: string
+          latitude: number | null
+          longitude: number | null
+          recorded_at: string
+        }
+        Insert: {
+          action_type: string
+          distance_from_site?: number | null
+          employee_user_id: string
+          id?: string
+          is_verified_location?: boolean | null
+          job_id: string
+          latitude?: number | null
+          longitude?: number | null
+          recorded_at?: string
+        }
+        Update: {
+          action_type?: string
+          distance_from_site?: number | null
+          employee_user_id?: string
+          id?: string
+          is_verified_location?: boolean | null
+          job_id?: string
+          latitude?: number | null
+          longitude?: number | null
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_time_logs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           actual_duration_minutes: number | null
