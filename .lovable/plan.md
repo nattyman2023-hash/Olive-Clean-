@@ -1,59 +1,108 @@
 
 
-# Fix Chatbot JSON Leak, Revert Hero, Add Scroll Counters
+# GPS Clock In/Out & Verified Attendance
 
-## 1. Fix Chatbot — Strip Raw JSON from Messages
+## Overview
+Add a point-in-time geolocation clock-in/clock-out system. Employees tap "Clock In" on a job, the browser captures GPS, the system validates proximity to the job site, and admins see verified attendance data with a map.
 
-**Problem**: The AI model sometimes outputs `{"suggested_replies": [...]}` as plain text within its response content. This raw JSON shows up in the chat bubble.
+---
 
-**Fix in `src/components/chat/ChatWidget.tsx`**:
-- Before setting the reply as a message, strip any trailing JSON blob matching `{"suggested_replies": [...]}` from the text
-- Also parse that stripped JSON to extract suggested replies as a fallback
+## 1. Database Migration
 
-```typescript
-// Clean the reply text before displaying
-let cleanReply = reply.replace(/\{["\s]*suggested_replies["\s]*:.*\}$/s, '').trim();
+**New table: `job_time_logs`**
+```sql
+CREATE TABLE public.job_time_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
+  employee_user_id UUID NOT NULL,
+  action_type TEXT NOT NULL CHECK (action_type IN ('clock_in', 'clock_out')),
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  latitude DECIMAL(9,6),
+  longitude DECIMAL(9,6),
+  is_verified_location BOOLEAN DEFAULT false,
+  distance_from_site FLOAT
+);
+
+ALTER TABLE public.job_time_logs ENABLE ROW LEVEL SECURITY;
+
+-- Staff can insert their own logs
+CREATE POLICY "Staff can insert own time logs" ON public.job_time_logs
+  FOR INSERT TO authenticated
+  WITH CHECK (employee_user_id = auth.uid() AND has_role(auth.uid(), 'staff'));
+
+-- Staff can view own logs
+CREATE POLICY "Staff can view own time logs" ON public.job_time_logs
+  FOR SELECT TO authenticated
+  USING (employee_user_id = auth.uid());
+
+-- Admin full access
+CREATE POLICY "Admin full access time logs" ON public.job_time_logs
+  FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'admin'))
+  WITH CHECK (has_role(auth.uid(), 'admin'));
 ```
 
-**Fix in `supabase/functions/chat-process/index.ts`**:
-- Same server-side: before returning `reply`, strip any `{"suggested_replies":...}` JSON that leaked into the content string
-- Parse it and merge into the `suggestedReplies` array if found
+Note: `employee_user_id` references `auth.users(id)` pattern (matching how `assigned_to` works on `jobs`). No FK to `auth.users` per project conventions.
 
-## 2. Revert Hero Section
+---
 
-**Problem**: User wants the hero reverted. The current parallax full-bleed background image may not be loading well or feels different from expected.
+## 2. Employee Dashboard — Clock In/Out UI
 
-**Fix in `src/components/HeroSection.tsx`**:
-- Remove the `nashville-home-hero.jpg` import and parallax background
-- Return to a clean gradient-based hero with a two-column layout: text on the left, a decorative illustration/image placeholder on the right
-- Keep the trust badges, CTA buttons, and quick stats
-- Use a subtle CSS gradient background instead of a photo
+**Changes to `src/pages/EmployeeDashboard.tsx` (inside `JobCard` component)**
 
-## 3. Add Animated Scroll-Triggered Counters
+- Add a **"Clock In" / "Clock Out" button** that appears based on job status:
+  - Show "Clock In" when job is `on_site` and no clock_in log exists
+  - Show "Clock Out" when a clock_in exists but no clock_out
+  - Show verified badge when both exist
+- On click:
+  1. Call `navigator.geolocation.getCurrentPosition()`
+  2. Calculate distance to `job.clients.lat/lng` using Haversine formula
+  3. Mark `is_verified_location = true` if distance < 200m, flag yellow if > 200m
+  4. Insert row into `job_time_logs`
+  5. Show toast with verification status (green checkmark or yellow warning)
+- Query existing time logs for each job to determine button state
+- Display elapsed time between clock-in and current time as a live counter
 
-**New hook**: `src/hooks/useCountUp.ts`
-- Accepts a target number and duration
-- Uses `useScrollReveal` to trigger counting when visible
-- Animates from 0 to target using `requestAnimationFrame`
+**New utility**: `src/lib/geo.ts`
+- `haversineDistance(lat1, lng1, lat2, lng2): number` — returns meters
+- Used by both employee and admin views
 
-**Update `src/components/HeroSection.tsx`** (or new `StatsCounter` component):
-- Replace the static stats text with animated counters
-- Stats: "200+" families served, "4.9" star rating, "4-6 hrs" saved weekly
-- Numbers count up when they scroll into view, then stop
+---
 
-**New component**: `src/components/AnimatedCounter.tsx`
-- Takes `end` (number), `suffix` (e.g., "+", "★"), `label`, `duration` (ms)
-- Uses IntersectionObserver to trigger, requestAnimationFrame to animate
-- Displays in a clean stat card format
+## 3. Admin Dashboard — Attendance & Verification Card
+
+**Changes to `src/components/admin/JobsTab.tsx`**
+
+- When a job is selected/expanded, add an **"Attendance & Verification"** card section showing:
+  - Clock-in time, clock-out time, total verified duration
+  - Verification status badges (Green: on-site, Yellow: flagged)
+  - Distance from site in meters
+  - A small MapTiler map (reusing `useMapTilerKey`) with two pins: job address vs actual clock-in location
+- Fetch `job_time_logs` for the selected job
+- Show "Expected: X min" vs "Actual: Y min" comparison
+
+---
+
+## 4. Privacy Design
+
+- GPS is requested **only** on button click — no background tracking
+- Location permission prompt handled gracefully with fallback messaging if denied
+- A small "GPS only used at clock-in" note displayed near the button
 
 ---
 
 ## Files Summary
 
-| File | Change |
+| File | Action |
 |---|---|
-| `src/components/chat/ChatWidget.tsx` | Strip JSON blobs from reply text before display |
-| `supabase/functions/chat-process/index.ts` | Strip leaked JSON from AI content server-side |
-| `src/components/HeroSection.tsx` | Revert to gradient hero, no parallax image; integrate animated counters |
-| `src/components/AnimatedCounter.tsx` | New: scroll-triggered counting animation component |
+| Migration SQL | New `job_time_logs` table with RLS |
+| `src/lib/geo.ts` | New: Haversine distance utility |
+| `src/pages/EmployeeDashboard.tsx` | Clock In/Out buttons in JobCard, geolocation capture, time log queries |
+| `src/components/admin/JobsTab.tsx` | Attendance verification card with map, duration comparison |
+
+## Implementation Order
+1. Run database migration for `job_time_logs`
+2. Create `geo.ts` utility
+3. Add clock-in/out to employee JobCard
+4. Add attendance card to admin JobsTab
 
