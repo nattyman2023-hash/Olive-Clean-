@@ -819,6 +819,14 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
         </div>
       )}
 
+      {/* Attendance & Verification */}
+      <AttendanceVerification
+        jobId={job.id}
+        jobLat={job.clients?.lat}
+        jobLng={job.clients?.lng}
+        expectedDuration={job.duration_minutes}
+      />
+
       {/* Photos */}
       <div className="border-t border-border pt-4">
         <p className="text-xs text-muted-foreground mb-2">Photos</p>
