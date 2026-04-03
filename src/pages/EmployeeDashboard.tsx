@@ -481,6 +481,68 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   const fileInputRef = useRef<HTMLInputElement>(null);
   const beforeInputRef = useRef<HTMLInputElement>(null);
 
+  // Clock in/out time logs
+  const { data: timeLogs = [] } = useQuery({
+    queryKey: ["job_time_logs_emp", job.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_time_logs" as any)
+        .select("*")
+        .eq("job_id", job.id)
+        .order("recorded_at", { ascending: true });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  const clockInLog = timeLogs.find((l: any) => l.action_type === "clock_in");
+  const clockOutLog = timeLogs.find((l: any) => l.action_type === "clock_out");
+
+  const handleClockAction = async (actionType: "clock_in" | "clock_out") => {
+    setClockingIn(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+      });
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const clientLat = client?.lat;
+      const clientLng = client?.lng;
+      let distance: number | null = null;
+      let isVerified = false;
+      if (clientLat != null && clientLng != null) {
+        distance = haversineDistance(lat, lng, Number(clientLat), Number(clientLng));
+        isVerified = distance < 200;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("job_time_logs" as any).insert({
+        job_id: job.id,
+        employee_user_id: user.id,
+        action_type: actionType,
+        latitude: lat,
+        longitude: lng,
+        is_verified_location: isVerified,
+        distance_from_site: distance,
+      });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["job_time_logs_emp", job.id] });
+      if (isVerified) {
+        toast.success(`${actionType === "clock_in" ? "Clocked in" : "Clocked out"} — verified on-site ✓`);
+      } else {
+        toast(`${actionType === "clock_in" ? "Clocked in" : "Clocked out"} — location flagged (${distance ? Math.round(distance) + "m away" : "unknown"})`, { icon: "⚠️" });
+      }
+    } catch (err: any) {
+      if (err.code === 1) {
+        toast.error("Location permission denied. Please enable GPS.");
+      } else {
+        toast.error("Failed to record time: " + (err.message || "unknown error"));
+      }
+    } finally {
+      setClockingIn(false);
+    }
+  };
+
   const client = job.clients as any;
   const preferences = client?.preferences as Record<string, any> | null;
   const statusInfo = STATUS_LABELS[job.status] || STATUS_LABELS.scheduled;
