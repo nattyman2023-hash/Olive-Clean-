@@ -366,6 +366,56 @@ export default function PerksTab() {
   const referralCount = (memberId: string) =>
     members.filter((m) => m.referred_by === memberId).length;
 
+  const openNewProgram = () => {
+    setEditingProgram(null);
+    setProgramForm({ name: "", description: "", discount_percent: "", is_active: true, benefits: {} });
+    setShowProgramManager(true);
+  };
+
+  const openEditProgram = (p: LoyaltyProgram) => {
+    setEditingProgram(p);
+    setProgramForm({
+      name: p.name,
+      description: p.description || "",
+      discount_percent: String(p.discount_percent),
+      is_active: p.is_active,
+      benefits: p.benefits || {},
+    });
+    setShowProgramManager(true);
+  };
+
+  const saveProgram = async () => {
+    if (!programForm.name) { toast.error("Program name is required."); return; }
+    setSavingProgram(true);
+    const payload = {
+      name: programForm.name,
+      description: programForm.description || null,
+      discount_percent: parseInt(programForm.discount_percent) || 0,
+      is_active: programForm.is_active,
+      benefits: programForm.benefits,
+    };
+    if (editingProgram) {
+      const { error } = await supabase.from("loyalty_programs").update(payload).eq("id", editingProgram.id);
+      setSavingProgram(false);
+      if (error) { toast.error("Failed to update."); return; }
+      toast.success("Program updated.");
+    } else {
+      const { error } = await supabase.from("loyalty_programs").insert(payload);
+      setSavingProgram(false);
+      if (error) { toast.error("Failed to create."); return; }
+      toast.success("Program created.");
+    }
+    setShowProgramManager(false);
+    fetchPrograms();
+  };
+
+  const deleteProgram = async (id: string) => {
+    const { error } = await supabase.from("loyalty_programs").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete."); return; }
+    toast.success("Program deleted.");
+    fetchPrograms();
+  };
+
   return (
     <div>
       {/* Toolbar */}
