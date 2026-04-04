@@ -439,6 +439,9 @@ export default function PerksTab() {
           <Button variant="outline" size="sm" onClick={loadGapFiller} className="rounded-lg active:scale-[0.97]">
             <Zap className="h-4 w-4 mr-1" /> Gap Filler
           </Button>
+          <Button variant="outline" size="sm" onClick={openNewProgram} className="rounded-lg active:scale-[0.97]">
+            <Settings className="h-4 w-4 mr-1" /> Programs
+          </Button>
           <Button size="sm" onClick={() => setShowEnroll(true)} className="rounded-lg active:scale-[0.97]">
             <Plus className="h-4 w-4 mr-1" /> Enroll
           </Button>
