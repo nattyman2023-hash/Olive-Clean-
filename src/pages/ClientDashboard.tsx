@@ -12,7 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star, FileText, User, X, CalendarIcon } from "lucide-react";
+import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star, FileText, User, X, CalendarIcon, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import BookingSection from "@/components/client/BookingSection";
