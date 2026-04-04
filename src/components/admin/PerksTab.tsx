@@ -131,6 +131,18 @@ export default function PerksTab() {
     notes: "",
   });
 
+  // Program management state
+  const [showProgramManager, setShowProgramManager] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<LoyaltyProgram | null>(null);
+  const [programForm, setProgramForm] = useState({
+    name: "",
+    description: "",
+    discount_percent: "",
+    is_active: true,
+    benefits: {} as any,
+  });
+  const [savingProgram, setSavingProgram] = useState(false);
+
   useEffect(() => {
     fetchMembers();
     fetchClients();
