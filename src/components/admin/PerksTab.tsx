@@ -20,7 +20,14 @@ import {
   Award,
   Users,
   Briefcase,
+  Pencil,
+  Trash2,
+  Settings,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface PerksMember {
   id: string;
