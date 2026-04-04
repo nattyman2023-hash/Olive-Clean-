@@ -12,7 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star, FileText, User, X, CalendarIcon } from "lucide-react";
+import { LogOut, Loader2, CalendarDays, History, Settings, Plus, Trash2, Star, FileText, User, X, CalendarIcon, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import BookingSection from "@/components/client/BookingSection";
@@ -20,6 +20,7 @@ import TechnicianAvatar from "@/components/client/TechnicianAvatar";
 import ClientInvoices from "@/components/client/ClientInvoices";
 import ClientAccountSettings from "@/components/client/ClientAccountSettings";
 import LoyaltyStatus from "@/components/client/LoyaltyStatus";
+import SubscriptionPlans from "@/components/client/SubscriptionPlans";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
 interface ClientRecord {
@@ -291,6 +292,9 @@ export default function ClientDashboard() {
             <TabsTrigger value="home" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <CalendarDays className="h-3 w-3 mr-1" />Home
             </TabsTrigger>
+            <TabsTrigger value="plans" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <CreditCard className="h-3 w-3 mr-1" />Plans
+            </TabsTrigger>
             <TabsTrigger value="invoices" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <FileText className="h-3 w-3 mr-1" />Invoices
             </TabsTrigger>
@@ -513,6 +517,10 @@ export default function ClientDashboard() {
                 </CardContent>
               </Card>
             </section>
+          </TabsContent>
+
+          <TabsContent value="plans">
+            <SubscriptionPlans />
           </TabsContent>
 
           <TabsContent value="invoices">
