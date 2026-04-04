@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, FileText, CreditCard } from "lucide-react";
+import { toast } from "sonner";
 
 interface Invoice {
   id: string;
@@ -31,6 +33,7 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -43,6 +46,25 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
         setLoading(false);
       });
   }, [clientId]);
+
+  const handlePayInvoice = async (invoiceId: string) => {
+    setPayingId(invoiceId);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-invoice-payment", {
+        body: { invoiceId },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create payment session");
+    } finally {
+      setPayingId(null);
+    }
+  };
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
@@ -113,6 +135,28 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
                 </p>
               )}
               {inv.notes && <p className="text-xs text-muted-foreground italic">{inv.notes}</p>}
+
+              {/* Pay Now button for sent/overdue invoices */}
+              {(inv.status === "sent" || inv.status === "overdue") && (
+                <Button
+                  onClick={() => handlePayInvoice(inv.id)}
+                  disabled={payingId === inv.id}
+                  className="w-full rounded-lg mt-2"
+                  size="sm"
+                >
+                  {payingId === inv.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <CreditCard className="h-4 w-4 mr-1" />
+                  )}
+                  Pay Now — ${Number(inv.total).toFixed(2)}
+                </Button>
+              )}
+              {inv.status === "paid" && inv.paid_at && (
+                <p className="text-xs text-emerald-600 font-medium">
+                  ✓ Paid on {new Date(inv.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </p>
+              )}
             </CardContent>
           )}
         </Card>
