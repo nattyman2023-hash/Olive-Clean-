@@ -292,6 +292,9 @@ export default function ClientDashboard() {
             <TabsTrigger value="home" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <CalendarDays className="h-3 w-3 mr-1" />Home
             </TabsTrigger>
+            <TabsTrigger value="plans" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <CreditCard className="h-3 w-3 mr-1" />Plans
+            </TabsTrigger>
             <TabsTrigger value="invoices" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <FileText className="h-3 w-3 mr-1" />Invoices
             </TabsTrigger>
