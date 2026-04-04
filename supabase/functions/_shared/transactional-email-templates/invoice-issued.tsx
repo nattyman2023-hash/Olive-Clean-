@@ -1,6 +1,6 @@
 import * as React from 'npm:react@18.3.1'
 import {
-  Body, Container, Head, Heading, Html, Preview, Text, Section, Hr,
+  Body, Container, Head, Heading, Html, Preview, Text, Section, Hr, Button,
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
 
@@ -12,9 +12,10 @@ interface InvoiceIssuedProps {
   invoiceNumber?: string
   total?: string
   dueDate?: string
+  paymentUrl?: string
 }
 
-const InvoiceIssuedEmail = ({ name, invoiceNumber, total, dueDate }: InvoiceIssuedProps) => (
+const InvoiceIssuedEmail = ({ name, invoiceNumber, total, dueDate, paymentUrl }: InvoiceIssuedProps) => (
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>Invoice {invoiceNumber || ''} from {SITE_NAME}</Preview>
@@ -46,6 +47,21 @@ const InvoiceIssuedEmail = ({ name, invoiceNumber, total, dueDate }: InvoiceIssu
             </>
           )}
         </Section>
+        {paymentUrl && (
+          <Section style={{ textAlign: 'center' as const, margin: '0 0 24px' }}>
+            <Button
+              href={paymentUrl}
+              style={payButton}
+            >
+              Pay Now — {total || 'View Invoice'}
+            </Button>
+          </Section>
+        )}
+        <Text style={text}>
+          {paymentUrl
+            ? 'Click the button above to pay securely online, or log into your client dashboard to view and pay your invoices.'
+            : 'Log into your client dashboard to view and pay your invoices online.'}
+        </Text>
         <Text style={text}>
           If you have any questions about this invoice, please reply to this email. Thank you for choosing {SITE_NAME}!
         </Text>
@@ -60,7 +76,7 @@ export const template = {
   component: InvoiceIssuedEmail,
   subject: (data) => `Invoice ${data.invoiceNumber || ''} from ${SITE_NAME}`,
   displayName: 'Invoice issued',
-  previewData: { name: 'Jane', invoiceNumber: 'INV-001', total: '$280.00', dueDate: 'April 15, 2026' },
+  previewData: { name: 'Jane', invoiceNumber: 'INV-001', total: '$280.00', dueDate: 'April 15, 2026', paymentUrl: 'https://example.com/pay' },
 } satisfies TemplateEntry
 
 const main = { backgroundColor: '#ffffff', fontFamily: "'Poppins', Arial, sans-serif" }
@@ -72,5 +88,15 @@ const text = { fontSize: '14px', color: '#55575d', lineHeight: '1.6', margin: '0
 const detailBox = { backgroundColor: '#f7f6f3', borderRadius: '12px', padding: '16px 20px', margin: '0 0 20px' }
 const detailLabel = { fontSize: '11px', fontWeight: '600', color: '#999', textTransform: 'uppercase' as const, letterSpacing: '0.5px', margin: '0 0 2px' }
 const detailValue = { fontSize: '14px', fontWeight: '500', color: '#2e2e2e', margin: '0 0 12px' }
+const payButton = {
+  backgroundColor: PRIMARY_COLOR,
+  color: '#ffffff',
+  padding: '14px 32px',
+  borderRadius: '8px',
+  fontSize: '16px',
+  fontWeight: '600' as const,
+  textDecoration: 'none',
+  display: 'inline-block' as const,
+}
 const hr = { borderColor: '#e8e5e0', margin: '24px 0' }
 const footer = { fontSize: '12px', color: '#999', margin: '0', textAlign: 'center' as const }
