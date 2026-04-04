@@ -1194,6 +1194,8 @@ export type Database = {
           is_active: boolean
           name: string
           show_on_portal: boolean
+          stripe_price_id: string | null
+          stripe_product_id: string | null
         }
         Insert: {
           checklist_items?: Json
@@ -1205,6 +1207,8 @@ export type Database = {
           is_active?: boolean
           name: string
           show_on_portal?: boolean
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
         }
         Update: {
           checklist_items?: Json
@@ -1216,6 +1220,8 @@ export type Database = {
           is_active?: boolean
           name?: string
           show_on_portal?: boolean
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
         }
         Relationships: []
       }

@@ -5,10 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
-import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2 } from "lucide-react";
+import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Eye, X } from "lucide-react";
 
 const STATUS_ORDER = ["new", "quoted", "scheduled", "converted"] as const;
 const STATUS_LABELS: Record<string, string> = { new: "New", quoted: "Quoted", scheduled: "Scheduled", converted: "Converted" };
@@ -24,6 +27,9 @@ export default function LeadsTab() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [editingLead, setEditingLead] = useState<any | null>(null);
+  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["admin-leads"],
@@ -37,7 +43,6 @@ export default function LeadsTab() {
     },
   });
 
-  // Realtime
   useEffect(() => {
     const channel = supabase
       .channel("leads-rt")
@@ -59,9 +64,36 @@ export default function LeadsTab() {
     },
   });
 
+  const updateLead = useMutation({
+    mutationFn: async (lead: any) => {
+      const { id, ...updates } = lead;
+      const { error } = await supabase.from("leads").update(updates as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+      setEditingLead(null);
+      toast.success("Lead updated");
+    },
+    onError: (e) => toast.error("Update failed: " + (e as Error).message),
+  });
+
+  const deleteLead = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("leads").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+      setDeleteLeadId(null);
+      setSelectedLead(null);
+      toast.success("Lead deleted");
+    },
+    onError: (e) => toast.error("Delete failed: " + (e as Error).message),
+  });
+
   const convertToJob = useMutation({
     mutationFn: async (lead: any) => {
-      // Create client if needed
       let clientId: string;
       if (lead.email) {
         const { data: existing } = await supabase.from("clients").select("id").eq("email", lead.email).maybeSingle();
@@ -86,7 +118,6 @@ export default function LeadsTab() {
         clientId = newClient!.id;
       }
 
-      // Create job
       const { data: job, error: jobErr } = await supabase.from("jobs").insert({
         client_id: clientId,
         service: lead.frequency === "one-time" ? "deep-clean" : "general",
@@ -96,7 +127,6 @@ export default function LeadsTab() {
       }).select("id").single();
       if (jobErr) throw jobErr;
 
-      // Update lead
       await supabase.from("leads").update({ status: "converted", converted_job_id: job!.id } as any).eq("id", lead.id);
     },
     onSuccess: () => {
@@ -167,7 +197,6 @@ export default function LeadsTab() {
               <Card key={lead.id} className={`${isStale ? "border-destructive/50 bg-destructive/5" : ""}`}>
                 <CardContent className="py-4 px-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    {/* Main info */}
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-foreground">{lead.name || "Unknown"}</p>
@@ -189,6 +218,15 @@ export default function LeadsTab() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedLead(lead)} title="View details">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingLead({ ...lead })} title="Edit">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeleteLeadId(lead.id)} title="Delete">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
                       {lead.status !== "converted" && (
                         <>
                           {lead.status === "new" && (
@@ -219,6 +257,168 @@ export default function LeadsTab() {
           })}
         </div>
       )}
+
+      {/* Lead Detail Dialog */}
+      <Dialog open={!!selectedLead} onOpenChange={(o) => { if (!o) setSelectedLead(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base">Lead Details</DialogTitle>
+          </DialogHeader>
+          {selectedLead && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Name</p>
+                  <p className="font-medium text-foreground">{selectedLead.name || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <Badge variant="secondary" className={STATUS_COLORS[selectedLead.status] || ""}>{STATUS_LABELS[selectedLead.status] || selectedLead.status}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Email</p>
+                  <p className="text-foreground">{selectedLead.email || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Phone</p>
+                  <p className="text-foreground">{selectedLead.phone || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Location</p>
+                  <p className="text-foreground">{selectedLead.location || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Score</p>
+                  <Badge variant="secondary" className={scoreColor(selectedLead.score)}>{selectedLead.score}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Source</p>
+                  <p className="text-foreground capitalize">{selectedLead.source}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Frequency</p>
+                  <p className="text-foreground capitalize">{selectedLead.frequency || "—"}</p>
+                </div>
+                {selectedLead.bedrooms && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Home Size</p>
+                    <p className="text-foreground">{selectedLead.bedrooms} bed / {selectedLead.bathrooms || "?"} bath</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-muted-foreground">Urgency</p>
+                  <p className="text-foreground capitalize">{selectedLead.urgency || "—"}</p>
+                </div>
+              </div>
+              {selectedLead.notes && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                  <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{selectedLead.notes}</p>
+                </div>
+              )}
+              {selectedLead.chat_transcript && Array.isArray(selectedLead.chat_transcript) && selectedLead.chat_transcript.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Chat Transcript</p>
+                  <div className="bg-muted/30 rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
+                    {selectedLead.chat_transcript.map((msg: any, idx: number) => (
+                      <div key={idx} className={`text-xs ${msg.role === "user" ? "text-foreground" : "text-muted-foreground"}`}>
+                        <span className="font-medium">{msg.role === "user" ? "Visitor" : "Olivia"}:</span>{" "}
+                        {msg.content || msg.text || JSON.stringify(msg)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-[0.65rem] text-muted-foreground">
+                Created {format(new Date(selectedLead.created_at), "MMM d, yyyy 'at' h:mm a")}
+              </p>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" className="text-xs rounded-lg" onClick={() => { setEditingLead({ ...selectedLead }); setSelectedLead(null); }}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs rounded-lg text-destructive hover:text-destructive" onClick={() => { setDeleteLeadId(selectedLead.id); setSelectedLead(null); }}>
+                  <Trash2 className="h-3 w-3 mr-1" /> Delete
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Lead Dialog */}
+      <Dialog open={!!editingLead} onOpenChange={(o) => { if (!o) setEditingLead(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base">Edit Lead</DialogTitle>
+          </DialogHeader>
+          {editingLead && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Name</label>
+                  <Input value={editingLead.name || ""} onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Email</label>
+                  <Input value={editingLead.email || ""} onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Phone</label>
+                  <Input value={editingLead.phone || ""} onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Location</label>
+                  <Input value={editingLead.location || ""} onChange={(e) => setEditingLead({ ...editingLead, location: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Status</label>
+                  <select value={editingLead.status} onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+                    {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Frequency</label>
+                  <Input value={editingLead.frequency || ""} onChange={(e) => setEditingLead({ ...editingLead, frequency: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Bedrooms</label>
+                  <Input type="number" value={editingLead.bedrooms || ""} onChange={(e) => setEditingLead({ ...editingLead, bedrooms: e.target.value ? Number(e.target.value) : null })} className="rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Bathrooms</label>
+                  <Input type="number" value={editingLead.bathrooms || ""} onChange={(e) => setEditingLead({ ...editingLead, bathrooms: e.target.value ? Number(e.target.value) : null })} className="rounded-lg" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Notes</label>
+                <Textarea value={editingLead.notes || ""} onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })} rows={2} className="rounded-lg" />
+              </div>
+              <Button
+                onClick={() => updateLead.mutate(editingLead)}
+                disabled={updateLead.isPending}
+                className="w-full rounded-lg"
+              >
+                {updateLead.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteLeadId} onOpenChange={() => setDeleteLeadId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove this lead and its data. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteLeadId && deleteLead.mutate(deleteLeadId)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

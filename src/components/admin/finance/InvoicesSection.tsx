@@ -62,6 +62,8 @@ export default function InvoicesSection() {
       if (inv?.client_id) {
         supabase.from("clients").select("email, name").eq("id", inv.client_id).maybeSingle().then(({ data: cl }) => {
           if (cl?.email) {
+            const origin = window.location.origin;
+            const paymentUrl = `${origin}/client-dashboard?tab=invoices`;
             supabase.functions.invoke("send-transactional-email", {
               body: {
                 templateName: "invoice-issued",
@@ -72,6 +74,7 @@ export default function InvoicesSection() {
                   invoiceNumber: inv.invoice_number,
                   total: `$${Number(inv.total).toFixed(2)}`,
                   dueDate: inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : undefined,
+                  paymentUrl,
                 },
               },
             });
