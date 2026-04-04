@@ -729,6 +729,54 @@ export default function PerksTab() {
           )}
         </div>
       </div>
+
+      {/* Program Management Dialog */}
+      <Dialog open={showProgramManager} onOpenChange={setShowProgramManager}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingProgram ? "Edit Program" : "Manage Loyalty Programs"}</DialogTitle>
+          </DialogHeader>
+          {!editingProgram && (
+            <div className="space-y-2 mb-4">
+              {programs.map((p) => (
+                <div key={p.id} className="flex items-center justify-between bg-muted/30 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.discount_percent}% discount · {p.is_active ? "Active" : "Inactive"}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditProgram(p)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteProgram(p.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                  </div>
+                </div>
+              ))}
+              {programs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No programs yet.</p>}
+            </div>
+          )}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Program Name *</Label>
+              <Input value={programForm.name} onChange={(e) => setProgramForm({ ...programForm, name: e.target.value })} className="rounded-lg" />
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea value={programForm.description} onChange={(e) => setProgramForm({ ...programForm, description: e.target.value })} rows={2} className="rounded-lg" />
+            </div>
+            <div>
+              <Label className="text-xs">Discount %</Label>
+              <Input type="number" value={programForm.discount_percent} onChange={(e) => setProgramForm({ ...programForm, discount_percent: e.target.value })} className="rounded-lg" />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={programForm.is_active} onCheckedChange={(c) => setProgramForm({ ...programForm, is_active: c })} />
+              <Label className="text-xs">Active</Label>
+            </div>
+            <Button onClick={saveProgram} disabled={!programForm.name || savingProgram} className="w-full rounded-lg">
+              {savingProgram && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {editingProgram ? "Update Program" : "Create Program"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
