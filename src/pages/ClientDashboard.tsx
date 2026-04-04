@@ -519,6 +519,10 @@ export default function ClientDashboard() {
             </section>
           </TabsContent>
 
+          <TabsContent value="plans">
+            <SubscriptionPlans />
+          </TabsContent>
+
           <TabsContent value="invoices">
             <ClientInvoices clientId={client.id} />
           </TabsContent>
