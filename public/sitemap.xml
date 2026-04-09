@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://oliveclean.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://oliveclean.com/about</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/why-us</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/perks</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://oliveclean.com/team</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://oliveclean.com/careers</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://oliveclean.com/book</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://oliveclean.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
-  <url><loc>https://oliveclean.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://oliveclean.com/</loc><lastmod>2026-04-09</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://oliveclean.com/about</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/why-us</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/perks</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://oliveclean.com/team</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://oliveclean.com/careers</loc><lastmod>2026-04-09</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://oliveclean.com/book</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://oliveclean.com/terms</loc><lastmod>2026-04-09</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://oliveclean.com/privacy</loc><lastmod>2026-04-09</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <!-- Services -->
-  <url><loc>https://oliveclean.com/services/essential</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/services/general</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/services/deep-clean</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/services/makeover</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/services/essential</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/services/general</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/services/deep-clean</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/services/makeover</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <!-- Areas -->
-  <url><loc>https://oliveclean.com/areas/belle-meade</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/areas/brentwood</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/areas/franklin</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/areas/green-hills</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://oliveclean.com/areas/west-nashville</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/areas/belle-meade</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/areas/brentwood</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/areas/franklin</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/areas/green-hills</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://oliveclean.com/areas/west-nashville</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
 </urlset>

@@ -1,12 +1,13 @@
 import { useParams, Link, Navigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ArrowLeft, MapPin, Sparkles, Shield, Leaf, Star, Navigation } from "lucide-react";
+import { ArrowRight, MapPin, Sparkles, Shield, Leaf, Star, Navigation } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import { getSEO, SITE_URL } from "@/lib/seo";
 import { useMapTilerKey } from "@/hooks/useMapTilerKey";
+import Breadcrumbs, { breadcrumbJsonLd } from "@/components/Breadcrumbs";
 
 interface AreaData {
   name: string;
@@ -231,6 +232,12 @@ export default function AreaDetail() {
     },
   };
 
+  const breadcrumbItems = [
+    { label: "Home", href: "/" },
+    { label: "Areas" },
+    { label: area.name },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
@@ -239,7 +246,7 @@ export default function AreaDetail() {
         keywords={seo.keywords}
         ogImage={area.heroImage}
         canonicalPath={`/areas/${slug}`}
-        jsonLd={localBusinessSchema}
+        jsonLd={[localBusinessSchema, breadcrumbJsonLd(breadcrumbItems)]}
       />
       <Navbar />
 
@@ -253,9 +260,7 @@ export default function AreaDetail() {
         }}
       >
         <div className="container max-w-3xl text-center space-y-4 relative z-10">
-          <Link to="/" className="inline-flex items-center gap-1 text-sm text-primary-foreground/60 hover:text-primary-foreground/80 transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Home
-          </Link>
+          <Breadcrumbs items={breadcrumbItems} className="mb-4 justify-center" />
           <div className="flex items-center justify-center gap-2 text-primary-foreground/60">
             <MapPin className="h-5 w-5" />
             <span className="text-sm font-medium uppercase tracking-widest">Service Area</span>

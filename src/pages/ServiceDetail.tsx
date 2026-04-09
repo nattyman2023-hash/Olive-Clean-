@@ -2,10 +2,11 @@ import { useParams, Link, Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, ArrowLeft } from "lucide-react";
+import { Check, ArrowRight } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import SEOHead from "@/components/SEOHead";
 import { getSEO, SITE_URL } from "@/lib/seo";
+import Breadcrumbs from "@/components/Breadcrumbs";
 
 const services: Record<string, {
   name: string;
@@ -124,9 +125,14 @@ export default function ServiceDetail() {
       {/* Hero */}
       <section className="pt-28 pb-16 md:pt-36 md:pb-24 bg-primary">
         <div className="container max-w-3xl text-center space-y-4">
-          <Link to="/#services" className="inline-flex items-center gap-1 text-sm text-primary-foreground/60 hover:text-primary-foreground/80 transition-colors">
-            <ArrowLeft className="h-4 w-4" /> All Services
-          </Link>
+          <Breadcrumbs
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Services" },
+              { label: service.name },
+            ]}
+            className="mb-4 justify-center [&_*]:text-primary-foreground/70 [&_a]:hover:text-primary-foreground"
+          />
           <h1 className="text-3xl md:text-5xl font-bold text-primary-foreground -tracking-[0.02em]">{service.name}</h1>
           <p className="text-primary-foreground/70 text-lg">{service.tagline}</p>
           <div className="pt-2">

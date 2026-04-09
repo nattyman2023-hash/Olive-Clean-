@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 
 let cachedKey: string | null = null;
 
@@ -16,7 +17,7 @@ export function useMapTilerKey() {
         cachedKey = data.key;
         setKey(data.key);
       } catch {
-        console.error("Failed to fetch MapTiler key");
+        logger.error("Failed to fetch MapTiler key");
       } finally {
         setLoading(false);
       }
