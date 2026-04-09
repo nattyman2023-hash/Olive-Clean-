@@ -835,12 +835,30 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
           )}
 
 
-          {preferences && Object.keys(preferences).length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-              <p className="text-xs font-semibold text-amber-800 mb-1.5 flex items-center gap-1"><Home className="h-3 w-3" />Home Memory</p>
+          {/* Client Tasks from Preferences */}
+          {prefTasks.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-800 flex items-center gap-1"><Home className="h-3 w-3" />Client Tasks ({completedPrefTasks}/{prefTasks.length})</p>
+              <div className="space-y-1.5">
+                {prefTasks.map((pt) => (
+                  <button key={pt.id} onClick={() => toggleCheckItem(pt.id)} className="flex items-center gap-2 w-full text-left">
+                    <div className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checklistState[pt.id] ? "bg-amber-600 border-amber-600" : "border-amber-400"}`}>
+                      {checklistState[pt.id] && <CheckCircle2 className="h-3 w-3 text-white" />}
+                    </div>
+                    <span className={`text-xs ${checklistState[pt.id] ? "text-amber-600/60 line-through" : "text-amber-900"}`}>{pt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Info notes (gate code, alarm, etc.) */}
+          {infoEntries.length > 0 && (
+            <div className="bg-muted/50 border border-border rounded-xl p-3">
+              <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1">📋 Access Info</p>
               <ul className="space-y-1">
-                {Object.entries(preferences).map(([key, val]) => (
-                  <li key={key} className="text-xs text-amber-900">
+                {infoEntries.map(([key, val]) => (
+                  <li key={key} className="text-xs text-foreground">
                     <span className="font-medium">{key.replace(/_/g, " ")}:</span> {String(val)}
                   </li>
                 ))}
