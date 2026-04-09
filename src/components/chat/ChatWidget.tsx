@@ -3,6 +3,7 @@ import { MessageCircle, X, Send, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { logger } from "@/lib/logger";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -101,7 +102,7 @@ export default function ChatWidget() {
         setSuggestedReplies(updated.length > 3 ? MID_SUGGESTIONS : INITIAL_SUGGESTIONS);
       }
     } catch (e) {
-      console.error("Chat error:", e);
+      logger.error("Chat error", e);
       setMessages(prev => [...prev, { role: "assistant", content: "Oops, something went wrong. You can reach us at **(615) 555-0142** or [book online](/book)!" }]);
       setSuggestedReplies(["Try again", "Book online"]);
     } finally {

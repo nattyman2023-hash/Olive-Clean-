@@ -45,9 +45,21 @@ const values = [
 
 export default function About() {
   const seo = getSEO("/about");
+  const aboutSchema = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "name": seo.title,
+    "description": seo.description,
+    "mainEntity": {
+      "@type": "Organization",
+      "name": "Olive Clean",
+      "description": "Premium eco-friendly residential cleaning in Nashville, Tennessee.",
+      "foundingLocation": { "@type": "Place", "name": "Nashville, TN" },
+    },
+  };
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/about" />
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath="/about" jsonLd={aboutSchema} />
       <Navbar />
 
       {/* Hero */}

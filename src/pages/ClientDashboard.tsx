@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import SEOHead from "@/components/SEOHead";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -270,6 +271,7 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-muted/30">
+      <SEOHead title="Client Dashboard — Olive Clean" description="Manage your cleaning appointments and preferences." noindex />
       <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <img src={oliveLogo} alt="Olive Clean" className="h-8" />

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import {
   Search,
   Clock,
@@ -74,7 +75,7 @@ export default function BookingsTab() {
       if (data?.error) throw new Error(data.error);
       toast.success(`Account setup email sent to ${booking.email}`);
     } catch (err: any) {
-      console.error("Invite error:", err);
+      logger.error("Invite error", err);
       toast.error(err.message || "Failed to send invitation.");
     }
   };
@@ -110,7 +111,7 @@ export default function BookingsTab() {
               bathrooms: booking.bathrooms,
             },
           },
-        }).catch((err) => console.error("Booking confirmation email failed:", err));
+        }).catch((err) => logger.error("Booking confirmation email failed", err));
         // Auto-invite client
         inviteClient(booking);
         // Find or create client record, then create a scheduled job
@@ -164,7 +165,7 @@ export default function BookingsTab() {
             notes: `From booking. ${booking.bedrooms} bed / ${booking.bathrooms} bath, ${booking.frequency}. ${booking.notes || ""}`.trim(),
           });
           if (jobErr) {
-            console.error("Failed to auto-create job:", jobErr);
+            logger.error("Failed to auto-create job", jobErr);
           } else {
             toast.success("Job created — assign a technician in the Jobs tab.");
           }
