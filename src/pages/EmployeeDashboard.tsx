@@ -49,6 +49,36 @@ const getChecklist = (service: string): string[] => {
   return TIER_CHECKLISTS[service] || TIER_CHECKLISTS["standard-clean"];
 };
 
+const INFO_KEYS = new Set(["gate_code", "alarm_code", "parking_info", "access_notes", "key_location"]);
+
+interface PrefTask {
+  id: string;
+  label: string;
+}
+
+function getPreferenceTasks(preferences: Record<string, any> | null | undefined): PrefTask[] {
+  if (!preferences) return [];
+  const tasks: PrefTask[] = [];
+  for (const [key, val] of Object.entries(preferences)) {
+    if (!val || INFO_KEYS.has(key.toLowerCase().replace(/\s+/g, "_"))) continue;
+    const k = key.toLowerCase().replace(/\s+/g, "_");
+    if (k === "pets") {
+      tasks.push({ id: `pref_${k}`, label: `Be mindful of pets: ${val}` });
+    } else if (k === "allergies") {
+      tasks.push({ id: `pref_${k}`, label: `Avoid products containing: ${val}` });
+    } else if (k === "special_instructions" || k === "special instructions") {
+      tasks.push({ id: `pref_${k}`, label: `Special: ${val}` });
+    } else if (k === "preferred_products" || k === "preferred products") {
+      tasks.push({ id: `pref_${k}`, label: `Use client's preferred products: ${val}` });
+    } else if (k === "rooms_priority" || k === "rooms priority") {
+      tasks.push({ id: `pref_${k}`, label: `Prioritize: ${val}` });
+    } else if (k === "no_go_areas" || k === "no go areas") {
+      tasks.push({ id: `pref_${k}`, label: `Avoid area: ${val}` });
+    }
+  }
+  return tasks;
+}
+
 export default function EmployeeDashboard() {
   const { user, isStaff, isAdmin, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedUserId, impersonatedRole } = useAuth();
   const navigate = useNavigate();
@@ -553,6 +583,8 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
 
   const checklistItems = getChecklist(job.service);
   const checklistState: Record<string, boolean> = (job.checklist_state as any) || {};
+  const prefTasks = getPreferenceTasks(preferences);
+  const infoEntries = preferences ? Object.entries(preferences).filter(([key]) => INFO_KEYS.has(key.toLowerCase().replace(/\s+/g, "_"))) : [];
 
   const statusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
@@ -641,7 +673,10 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   });
 
   const completedChecks = checklistItems.filter((item) => checklistState[item]).length;
-  const allChecked = completedChecks === checklistItems.length;
+  const completedPrefTasks = prefTasks.filter((pt) => checklistState[pt.id]).length;
+  const totalCheckable = checklistItems.length + prefTasks.length;
+  const totalCompleted = completedChecks + completedPrefTasks;
+  const allChecked = totalCompleted === totalCheckable;
 
   // Color coding based on time of day
   const jobHour = new Date(job.scheduled_at).getHours();
@@ -706,7 +741,7 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
           <div className="flex items-center gap-2 mt-1.5">
             <Badge variant="outline" className="text-[0.6rem]">{job.service}</Badge>
             <span className={`text-[0.6rem] font-semibold px-2 py-0.5 rounded-full ${statusInfo.color}`}>{statusInfo.label}</span>
-            {checklistItems.length > 0 && <span className="text-[0.6rem] text-muted-foreground">{completedChecks}/{checklistItems.length}</span>}
+            {totalCheckable > 0 && <span className="text-[0.6rem] text-muted-foreground">{totalCompleted}/{totalCheckable}</span>}
           </div>
         </div>
         {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -800,12 +835,30 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
           )}
 
 
-          {preferences && Object.keys(preferences).length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-              <p className="text-xs font-semibold text-amber-800 mb-1.5 flex items-center gap-1"><Home className="h-3 w-3" />Home Memory</p>
+          {/* Client Tasks from Preferences */}
+          {prefTasks.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-800 flex items-center gap-1"><Home className="h-3 w-3" />Client Tasks ({completedPrefTasks}/{prefTasks.length})</p>
+              <div className="space-y-1.5">
+                {prefTasks.map((pt) => (
+                  <button key={pt.id} onClick={() => toggleCheckItem(pt.id)} className="flex items-center gap-2 w-full text-left">
+                    <div className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checklistState[pt.id] ? "bg-amber-600 border-amber-600" : "border-amber-400"}`}>
+                      {checklistState[pt.id] && <CheckCircle2 className="h-3 w-3 text-white" />}
+                    </div>
+                    <span className={`text-xs ${checklistState[pt.id] ? "text-amber-600/60 line-through" : "text-amber-900"}`}>{pt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Info notes (gate code, alarm, etc.) */}
+          {infoEntries.length > 0 && (
+            <div className="bg-muted/50 border border-border rounded-xl p-3">
+              <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1">📋 Access Info</p>
               <ul className="space-y-1">
-                {Object.entries(preferences).map(([key, val]) => (
-                  <li key={key} className="text-xs text-amber-900">
+                {infoEntries.map(([key, val]) => (
+                  <li key={key} className="text-xs text-foreground">
                     <span className="font-medium">{key.replace(/_/g, " ")}:</span> {String(val)}
                   </li>
                 ))}
