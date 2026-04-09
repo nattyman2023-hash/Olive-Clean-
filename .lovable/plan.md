@@ -1,89 +1,61 @@
 
 
-## Next Phase: Loading, Logging, Error Handling & SEO Improvements
+## Plan: Stripe Webhook, Preference-to-Tasks Conversion & Testing Notes
 
-### What We Found
+### Testing Notes (Manual)
 
-- **No Error Boundary** — any component crash takes down the entire app with a white screen
-- **No lazy loading** — all 20+ page components are bundled upfront, increasing initial load time
-- **No loading skeletons** on most data-fetching pages (only Team and Admin have them)
-- **No structured logging** — scattered `console.error` calls with no centralization
-- **SEO gaps** — missing JSON-LD on most pages, no breadcrumb markup, no FAQ schema on service pages, no `lastmod` in sitemap
+The following items need manual verification from the admin dashboard:
+- Create a service template with a price and confirm the Stripe sync badge appears
+- Mark an invoice as "sent" and verify the email contains a Pay Now button
+- Click a lead, edit its details, and delete it
 
----
-
-### Plan
-
-#### 1. Add Global Error Boundary
-
-Create `src/components/ErrorBoundary.tsx` — a React class component that catches render errors and shows a friendly fallback UI with a "Try Again" button. Wrap the app routes in `App.tsx` with it.
-
-#### 2. Lazy-Load All Page Components
-
-Convert all 20 page imports in `App.tsx` to `React.lazy()` with a `Suspense` wrapper showing a branded loading spinner. This splits the bundle so users only download code for the page they visit.
-
-#### 3. Add Loading Skeletons to Data-Fetching Pages
-
-Add skeleton placeholders to pages that fetch data on mount:
-- **WhyUs** (employee list)
-- **Careers** (job openings)
-- **ClientDashboard** (jobs, invoices)
-- **EmployeeDashboard** (schedule)
-- **AreaDetail** (map loading)
-
-#### 4. Centralized Logger Utility
-
-Create `src/lib/logger.ts` with `logger.info()`, `logger.warn()`, `logger.error()` methods that:
-- Log to console in development
-- Could be extended to send errors to an external service (Sentry, etc.) in production
-- Replace scattered `console.error` calls across the codebase
-
-#### 5. Enhanced SEO — JSON-LD Structured Data
-
-Add structured data to pages that currently lack it:
-- **Homepage**: `LocalBusiness` + `WebSite` with `SearchAction`
-- **About**: `AboutPage` schema
-- **Service pages**: `Service` schema with `offers` (already partially done — verify and enhance with `AggregateRating`)
-- **Area pages**: `LocalBusiness` with `areaServed` (already partially done — verify)
-- **Careers**: `JobPosting` schema for each open position
-- **FAQ sections**: `FAQPage` schema on service detail pages
-
-#### 6. Enhanced SEO — Breadcrumb Navigation + Schema
-
-Add visual breadcrumbs to interior pages (Services, Areas, About, Why Us, etc.) and emit matching `BreadcrumbList` JSON-LD so Google shows breadcrumb trails in search results.
-
-#### 7. Dynamic Sitemap with `lastmod`
-
-Update `sitemap.xml` to include `<lastmod>` dates. Add a note about generating it dynamically in the future when content changes.
-
-#### 8. Meta Improvements
-
-- Add `<meta name="robots" content="index, follow">` to public pages
-- Add `noindex` to dashboard/login pages (Admin, Client, Employee dashboards and logins)
-- Ensure all pages have unique, descriptive `<title>` tags (verify client/employee/admin pages)
+These are existing features — no code changes needed. Test them in the live preview.
 
 ---
 
-### Files to Create/Modify
+### 1. Stripe Webhook for Auto-Marking Invoices as Paid
+
+**What it does:** When a customer completes a Stripe Checkout payment, Stripe sends a `checkout.session.completed` event to our webhook. The webhook verifies the signature, reads the `invoice_id` from session metadata, and updates the invoice status to "paid" with a timestamp.
+
+**New file:** `supabase/functions/stripe-webhook/index.ts`
+
+- Listens for POST requests from Stripe
+- Verifies the webhook signature using a `STRIPE_WEBHOOK_SECRET` secret
+- Handles `checkout.session.completed` events
+- Reads `metadata.invoice_id` from the session
+- Updates the `invoices` table: `status = 'paid'`, `paid_at = now()`
+- Returns 200 to Stripe
+
+**Config:** Add `[functions.stripe-webhook]` with `verify_jwt = false` to `supabase/config.toml` (Stripe sends unsigned requests, no JWT).
+
+**Secret needed:** `STRIPE_WEBHOOK_SECRET` — the user will need to configure a webhook endpoint in their Stripe Dashboard pointing to the edge function URL, then provide the signing secret.
+
+---
+
+### 2. Convert Customer Preferences to Cleaner Tasks
+
+**What it does:** Currently, client preferences (pets, allergies, special instructions, parking info, etc.) are shown as raw key-value pairs in a "Home Memory" box. This change converts relevant preferences into actionable checklist items that appear alongside the service checklist.
+
+**Modified file:** `src/pages/EmployeeDashboard.tsx`
+
+- Add a `getPreferenceTasks()` function that maps preference keys to concrete task items:
+  - `Pets` → "Be mindful of pets: {value}" 
+  - `Allergies` → "Avoid products containing: {value}"
+  - `Special Instructions` → each instruction as a task
+  - `Preferred Products` → "Use client's preferred products: {value}"
+  - `Rooms Priority` → "Prioritize: {value}"
+  - `Gate Code` / `Alarm Code` / `Parking Info` → shown as info notes (not checkable tasks)
+- Display preference-derived tasks in a separate "Client Tasks" section above the standard service checklist, with a distinct visual style (amber/olive themed)
+- These are checkable items stored in `checklist_state` alongside regular checklist items, prefixed with `pref_` to distinguish them
+- The "Home Memory" raw display remains but is collapsed by default since the actionable items are now surfaced as tasks
+
+---
+
+### Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/ErrorBoundary.tsx` | Create |
-| `src/lib/logger.ts` | Create |
-| `src/App.tsx` | Lazy imports + ErrorBoundary + Suspense |
-| `src/components/SEOHead.tsx` | Add robots meta support |
-| `src/lib/seo.ts` | Add noindex config for dashboard pages |
-| `src/pages/WhyUs.tsx` | Add skeletons |
-| `src/pages/Careers.tsx` | Add skeletons + JobPosting JSON-LD |
-| `src/pages/Index.tsx` | Add WebSite + LocalBusiness JSON-LD |
-| `src/pages/About.tsx` | Add AboutPage JSON-LD |
-| `src/pages/ServiceDetail.tsx` | Add FAQPage JSON-LD |
-| `src/pages/AreaDetail.tsx` | Add breadcrumbs |
-| `src/pages/ClientDashboard.tsx` | Add noindex SEO, skeletons |
-| `src/pages/AdminDashboard.tsx` | Add noindex SEO |
-| `src/pages/EmployeeDashboard.tsx` | Add noindex SEO |
-| `src/hooks/useMapTilerKey.ts` | Use logger |
-| `src/components/chat/ChatWidget.tsx` | Use logger |
-| `src/components/admin/BookingsTab.tsx` | Use logger |
-| `public/sitemap.xml` | Add lastmod dates |
+| `supabase/functions/stripe-webhook/index.ts` | Create — webhook handler |
+| `supabase/config.toml` | Add `stripe-webhook` with `verify_jwt = false` |
+| `src/pages/EmployeeDashboard.tsx` | Modify — preference-to-tasks logic |
 
