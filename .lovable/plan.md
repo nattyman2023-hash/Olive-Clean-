@@ -1,108 +1,89 @@
 
 
-# GPS Clock In/Out & Verified Attendance
+## Next Phase: Loading, Logging, Error Handling & SEO Improvements
 
-## Overview
-Add a point-in-time geolocation clock-in/clock-out system. Employees tap "Clock In" on a job, the browser captures GPS, the system validates proximity to the job site, and admins see verified attendance data with a map.
+### What We Found
 
----
-
-## 1. Database Migration
-
-**New table: `job_time_logs`**
-```sql
-CREATE TABLE public.job_time_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id UUID NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
-  employee_user_id UUID NOT NULL,
-  action_type TEXT NOT NULL CHECK (action_type IN ('clock_in', 'clock_out')),
-  recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  latitude DECIMAL(9,6),
-  longitude DECIMAL(9,6),
-  is_verified_location BOOLEAN DEFAULT false,
-  distance_from_site FLOAT
-);
-
-ALTER TABLE public.job_time_logs ENABLE ROW LEVEL SECURITY;
-
--- Staff can insert their own logs
-CREATE POLICY "Staff can insert own time logs" ON public.job_time_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (employee_user_id = auth.uid() AND has_role(auth.uid(), 'staff'));
-
--- Staff can view own logs
-CREATE POLICY "Staff can view own time logs" ON public.job_time_logs
-  FOR SELECT TO authenticated
-  USING (employee_user_id = auth.uid());
-
--- Admin full access
-CREATE POLICY "Admin full access time logs" ON public.job_time_logs
-  FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin'))
-  WITH CHECK (has_role(auth.uid(), 'admin'));
-```
-
-Note: `employee_user_id` references `auth.users(id)` pattern (matching how `assigned_to` works on `jobs`). No FK to `auth.users` per project conventions.
+- **No Error Boundary** — any component crash takes down the entire app with a white screen
+- **No lazy loading** — all 20+ page components are bundled upfront, increasing initial load time
+- **No loading skeletons** on most data-fetching pages (only Team and Admin have them)
+- **No structured logging** — scattered `console.error` calls with no centralization
+- **SEO gaps** — missing JSON-LD on most pages, no breadcrumb markup, no FAQ schema on service pages, no `lastmod` in sitemap
 
 ---
 
-## 2. Employee Dashboard — Clock In/Out UI
+### Plan
 
-**Changes to `src/pages/EmployeeDashboard.tsx` (inside `JobCard` component)**
+#### 1. Add Global Error Boundary
 
-- Add a **"Clock In" / "Clock Out" button** that appears based on job status:
-  - Show "Clock In" when job is `on_site` and no clock_in log exists
-  - Show "Clock Out" when a clock_in exists but no clock_out
-  - Show verified badge when both exist
-- On click:
-  1. Call `navigator.geolocation.getCurrentPosition()`
-  2. Calculate distance to `job.clients.lat/lng` using Haversine formula
-  3. Mark `is_verified_location = true` if distance < 200m, flag yellow if > 200m
-  4. Insert row into `job_time_logs`
-  5. Show toast with verification status (green checkmark or yellow warning)
-- Query existing time logs for each job to determine button state
-- Display elapsed time between clock-in and current time as a live counter
+Create `src/components/ErrorBoundary.tsx` — a React class component that catches render errors and shows a friendly fallback UI with a "Try Again" button. Wrap the app routes in `App.tsx` with it.
 
-**New utility**: `src/lib/geo.ts`
-- `haversineDistance(lat1, lng1, lat2, lng2): number` — returns meters
-- Used by both employee and admin views
+#### 2. Lazy-Load All Page Components
+
+Convert all 20 page imports in `App.tsx` to `React.lazy()` with a `Suspense` wrapper showing a branded loading spinner. This splits the bundle so users only download code for the page they visit.
+
+#### 3. Add Loading Skeletons to Data-Fetching Pages
+
+Add skeleton placeholders to pages that fetch data on mount:
+- **WhyUs** (employee list)
+- **Careers** (job openings)
+- **ClientDashboard** (jobs, invoices)
+- **EmployeeDashboard** (schedule)
+- **AreaDetail** (map loading)
+
+#### 4. Centralized Logger Utility
+
+Create `src/lib/logger.ts` with `logger.info()`, `logger.warn()`, `logger.error()` methods that:
+- Log to console in development
+- Could be extended to send errors to an external service (Sentry, etc.) in production
+- Replace scattered `console.error` calls across the codebase
+
+#### 5. Enhanced SEO — JSON-LD Structured Data
+
+Add structured data to pages that currently lack it:
+- **Homepage**: `LocalBusiness` + `WebSite` with `SearchAction`
+- **About**: `AboutPage` schema
+- **Service pages**: `Service` schema with `offers` (already partially done — verify and enhance with `AggregateRating`)
+- **Area pages**: `LocalBusiness` with `areaServed` (already partially done — verify)
+- **Careers**: `JobPosting` schema for each open position
+- **FAQ sections**: `FAQPage` schema on service detail pages
+
+#### 6. Enhanced SEO — Breadcrumb Navigation + Schema
+
+Add visual breadcrumbs to interior pages (Services, Areas, About, Why Us, etc.) and emit matching `BreadcrumbList` JSON-LD so Google shows breadcrumb trails in search results.
+
+#### 7. Dynamic Sitemap with `lastmod`
+
+Update `sitemap.xml` to include `<lastmod>` dates. Add a note about generating it dynamically in the future when content changes.
+
+#### 8. Meta Improvements
+
+- Add `<meta name="robots" content="index, follow">` to public pages
+- Add `noindex` to dashboard/login pages (Admin, Client, Employee dashboards and logins)
+- Ensure all pages have unique, descriptive `<title>` tags (verify client/employee/admin pages)
 
 ---
 
-## 3. Admin Dashboard — Attendance & Verification Card
-
-**Changes to `src/components/admin/JobsTab.tsx`**
-
-- When a job is selected/expanded, add an **"Attendance & Verification"** card section showing:
-  - Clock-in time, clock-out time, total verified duration
-  - Verification status badges (Green: on-site, Yellow: flagged)
-  - Distance from site in meters
-  - A small MapTiler map (reusing `useMapTilerKey`) with two pins: job address vs actual clock-in location
-- Fetch `job_time_logs` for the selected job
-- Show "Expected: X min" vs "Actual: Y min" comparison
-
----
-
-## 4. Privacy Design
-
-- GPS is requested **only** on button click — no background tracking
-- Location permission prompt handled gracefully with fallback messaging if denied
-- A small "GPS only used at clock-in" note displayed near the button
-
----
-
-## Files Summary
+### Files to Create/Modify
 
 | File | Action |
-|---|---|
-| Migration SQL | New `job_time_logs` table with RLS |
-| `src/lib/geo.ts` | New: Haversine distance utility |
-| `src/pages/EmployeeDashboard.tsx` | Clock In/Out buttons in JobCard, geolocation capture, time log queries |
-| `src/components/admin/JobsTab.tsx` | Attendance verification card with map, duration comparison |
-
-## Implementation Order
-1. Run database migration for `job_time_logs`
-2. Create `geo.ts` utility
-3. Add clock-in/out to employee JobCard
-4. Add attendance card to admin JobsTab
+|------|--------|
+| `src/components/ErrorBoundary.tsx` | Create |
+| `src/lib/logger.ts` | Create |
+| `src/App.tsx` | Lazy imports + ErrorBoundary + Suspense |
+| `src/components/SEOHead.tsx` | Add robots meta support |
+| `src/lib/seo.ts` | Add noindex config for dashboard pages |
+| `src/pages/WhyUs.tsx` | Add skeletons |
+| `src/pages/Careers.tsx` | Add skeletons + JobPosting JSON-LD |
+| `src/pages/Index.tsx` | Add WebSite + LocalBusiness JSON-LD |
+| `src/pages/About.tsx` | Add AboutPage JSON-LD |
+| `src/pages/ServiceDetail.tsx` | Add FAQPage JSON-LD |
+| `src/pages/AreaDetail.tsx` | Add breadcrumbs |
+| `src/pages/ClientDashboard.tsx` | Add noindex SEO, skeletons |
+| `src/pages/AdminDashboard.tsx` | Add noindex SEO |
+| `src/pages/EmployeeDashboard.tsx` | Add noindex SEO |
+| `src/hooks/useMapTilerKey.ts` | Use logger |
+| `src/components/chat/ChatWidget.tsx` | Use logger |
+| `src/components/admin/BookingsTab.tsx` | Use logger |
+| `public/sitemap.xml` | Add lastmod dates |
 
