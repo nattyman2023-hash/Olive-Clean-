@@ -741,7 +741,7 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
           <div className="flex items-center gap-2 mt-1.5">
             <Badge variant="outline" className="text-[0.6rem]">{job.service}</Badge>
             <span className={`text-[0.6rem] font-semibold px-2 py-0.5 rounded-full ${statusInfo.color}`}>{statusInfo.label}</span>
-            {checklistItems.length > 0 && <span className="text-[0.6rem] text-muted-foreground">{completedChecks}/{checklistItems.length}</span>}
+            {totalCheckable > 0 && <span className="text-[0.6rem] text-muted-foreground">{totalCompleted}/{totalCheckable}</span>}
           </div>
         </div>
         {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
