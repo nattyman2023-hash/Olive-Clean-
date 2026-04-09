@@ -49,6 +49,36 @@ const getChecklist = (service: string): string[] => {
   return TIER_CHECKLISTS[service] || TIER_CHECKLISTS["standard-clean"];
 };
 
+const INFO_KEYS = new Set(["gate_code", "alarm_code", "parking_info", "access_notes", "key_location"]);
+
+interface PrefTask {
+  id: string;
+  label: string;
+}
+
+function getPreferenceTasks(preferences: Record<string, any> | null | undefined): PrefTask[] {
+  if (!preferences) return [];
+  const tasks: PrefTask[] = [];
+  for (const [key, val] of Object.entries(preferences)) {
+    if (!val || INFO_KEYS.has(key.toLowerCase().replace(/\s+/g, "_"))) continue;
+    const k = key.toLowerCase().replace(/\s+/g, "_");
+    if (k === "pets") {
+      tasks.push({ id: `pref_${k}`, label: `Be mindful of pets: ${val}` });
+    } else if (k === "allergies") {
+      tasks.push({ id: `pref_${k}`, label: `Avoid products containing: ${val}` });
+    } else if (k === "special_instructions" || k === "special instructions") {
+      tasks.push({ id: `pref_${k}`, label: `Special: ${val}` });
+    } else if (k === "preferred_products" || k === "preferred products") {
+      tasks.push({ id: `pref_${k}`, label: `Use client's preferred products: ${val}` });
+    } else if (k === "rooms_priority" || k === "rooms priority") {
+      tasks.push({ id: `pref_${k}`, label: `Prioritize: ${val}` });
+    } else if (k === "no_go_areas" || k === "no go areas") {
+      tasks.push({ id: `pref_${k}`, label: `Avoid area: ${val}` });
+    }
+  }
+  return tasks;
+}
+
 export default function EmployeeDashboard() {
   const { user, isStaff, isAdmin, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedUserId, impersonatedRole } = useAuth();
   const navigate = useNavigate();
