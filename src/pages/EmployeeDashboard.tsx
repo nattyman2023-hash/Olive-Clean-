@@ -583,6 +583,8 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
 
   const checklistItems = getChecklist(job.service);
   const checklistState: Record<string, boolean> = (job.checklist_state as any) || {};
+  const prefTasks = getPreferenceTasks(preferences);
+  const infoEntries = preferences ? Object.entries(preferences).filter(([key]) => INFO_KEYS.has(key.toLowerCase().replace(/\s+/g, "_"))) : [];
 
   const statusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
@@ -671,7 +673,10 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
   });
 
   const completedChecks = checklistItems.filter((item) => checklistState[item]).length;
-  const allChecked = completedChecks === checklistItems.length;
+  const completedPrefTasks = prefTasks.filter((pt) => checklistState[pt.id]).length;
+  const totalCheckable = checklistItems.length + prefTasks.length;
+  const totalCompleted = completedChecks + completedPrefTasks;
+  const allChecked = totalCompleted === totalCheckable;
 
   // Color coding based on time of day
   const jobHour = new Date(job.scheduled_at).getHours();
