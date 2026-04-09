@@ -7,12 +7,14 @@ interface SEOHeadProps {
   keywords?: string;
   ogImage?: string;
   canonicalPath?: string;
-  jsonLd?: Record<string, any>;
+  jsonLd?: Record<string, any> | Record<string, any>[];
+  noindex?: boolean;
 }
 
-export default function SEOHead({ title, description, keywords, ogImage, canonicalPath, jsonLd }: SEOHeadProps) {
+export default function SEOHead({ title, description, keywords, ogImage, canonicalPath, jsonLd, noindex }: SEOHeadProps) {
   const image = ogImage || DEFAULT_OG_IMAGE;
   const canonical = canonicalPath ? `${SITE_URL}${canonicalPath}` : undefined;
+  const jsonLdArray = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 
   return (
     <Helmet>
@@ -20,6 +22,7 @@ export default function SEOHead({ title, description, keywords, ogImage, canonic
       <meta name="description" content={description} />
       {keywords && <meta name="keywords" content={keywords} />}
       {canonical && <link rel="canonical" href={canonical} />}
+      <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow"} />
 
       <meta property="og:type" content="website" />
       <meta property="og:title" content={title} />
@@ -32,11 +35,11 @@ export default function SEOHead({ title, description, keywords, ogImage, canonic
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
 
-      {jsonLd && (
-        <script type="application/ld+json">
-          {JSON.stringify(jsonLd)}
+      {jsonLdArray.map((ld, i) => (
+        <script key={i} type="application/ld+json">
+          {JSON.stringify(ld)}
         </script>
-      )}
+      ))}
     </Helmet>
   );
 }
