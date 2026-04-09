@@ -96,9 +96,29 @@ export default function ServiceDetail() {
     "offers": { "@type": "Offer", "price": service.price.replace(/[^0-9]/g, ""), "priceCurrency": "USD" },
   };
 
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": service.faqs.map((faq) => ({
+      "@type": "Question",
+      "name": faq.q,
+      "acceptedAnswer": { "@type": "Answer", "text": faq.a },
+    })),
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL },
+      { "@type": "ListItem", "position": 2, "name": "Services", "item": `${SITE_URL}/#services` },
+      { "@type": "ListItem", "position": 3, "name": service.name },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath={`/services/${slug}`} jsonLd={serviceSchema} />
+      <SEOHead title={seo.title} description={seo.description} keywords={seo.keywords} canonicalPath={`/services/${slug}`} jsonLd={[serviceSchema, faqSchema, breadcrumbSchema]} />
       <Navbar />
 
       {/* Hero */}

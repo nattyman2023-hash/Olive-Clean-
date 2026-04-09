@@ -180,6 +180,7 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="min-h-screen bg-muted/30">
+      <SEOHead title="Employee Dashboard — Olive Clean" description="Olive Clean employee portal." noindex />
       <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <img src={oliveLogo} alt="Olive Clean" className="h-8" />
