@@ -67,7 +67,7 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
 
 export default function AdminDashboard() {
   const { user, isAdmin, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
-  const { canAccess, loading: permsLoading } = usePermissions();
+  const { canAccess, canEdit, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("bookings");
 
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
 
             <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl">
               {isAdmin && <LowStockWidget />}
-              {renderSection(activeSection, canAccess, isAdmin)}
+              {renderSection(activeSection, canAccess, canEdit, isAdmin)}
             </main>
           </div>
         </div>
