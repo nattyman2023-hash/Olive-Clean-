@@ -88,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsClient(false);
         setIsFinance(false);
         setIsAdminAssistant(false);
+        setIsCleaner(false);
         setRolesLoading(false);
         // Clear impersonation on logout
         setImpersonatedUserId(null);
@@ -126,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsClient(!!clientRes.data);
         setIsFinance(!!financeRes.data);
         setIsAdminAssistant(!!assistantRes.data);
+        setIsCleaner(!!cleanerRes.data);
         resolvedUserIdRef.current = user.id;
       } catch {
         // roles stay false on failure
@@ -146,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, loading, rolesLoading, isAdmin, isStaff, isClient, isFinance, isAdminAssistant, signOut,
+      user, session, loading, rolesLoading, isAdmin, isStaff, isClient, isFinance, isAdminAssistant, isCleaner, signOut,
       impersonatedUserId, impersonatedRole, impersonatedName,
       isImpersonating: !!impersonatedUserId,
       startImpersonation, stopImpersonation,
