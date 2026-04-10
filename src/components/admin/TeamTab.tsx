@@ -513,7 +513,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                   placeholder="Internal notes about this employee..."
                 />
               </div>
-              {profileEmployee.email && (
+              {!readOnly && profileEmployee.email && (
                 <div className="space-y-2">
                   <Button
                     onClick={() => inviteMutation.mutate(profileEmployee)}
@@ -538,55 +538,59 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
               >
                 <Eye className="h-4 w-4 mr-1" /> View Portal
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setPasswordDialogOpen(true)}
-                className="w-full rounded-full active:scale-[0.97] transition-transform"
-              >
-                <KeyRound className="h-4 w-4 mr-1" /> Set Password
-              </Button>
-              <SetPasswordDialog
-                open={passwordDialogOpen}
-                onOpenChange={setPasswordDialogOpen}
-                userId={profileEmployee.user_id}
-                userName={profileEmployee.name}
-              />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+              {!readOnly && (
+                <>
                   <Button
                     variant="outline"
-                    className="w-full rounded-full text-destructive hover:text-destructive hover:bg-destructive/10 active:scale-[0.97] transition-transform"
+                    onClick={() => setPasswordDialogOpen(true)}
+                    className="w-full rounded-full active:scale-[0.97] transition-transform"
                   >
-                    <Trash2 className="h-4 w-4 mr-1" /> Delete Employee
+                    <KeyRound className="h-4 w-4 mr-1" /> Set Password
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete {profileEmployee.name}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently remove this employee record and cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      onClick={async () => {
-                        const { error } = await supabase.from("employees").delete().eq("id", profileEmployee.id);
-                        if (error) {
-                          toast.error("Failed to delete employee.");
-                          return;
-                        }
-                        toast.success("Employee deleted.");
-                        setProfileEmployee(null);
-                        queryClient.invalidateQueries({ queryKey: ["employees"] });
-                      }}
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                  <SetPasswordDialog
+                    open={passwordDialogOpen}
+                    onOpenChange={setPasswordDialogOpen}
+                    userId={profileEmployee.user_id}
+                    userName={profileEmployee.name}
+                  />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full rounded-full text-destructive hover:text-destructive hover:bg-destructive/10 active:scale-[0.97] transition-transform"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Delete Employee
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {profileEmployee.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove this employee record and cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={async () => {
+                            const { error } = await supabase.from("employees").delete().eq("id", profileEmployee.id);
+                            if (error) {
+                              toast.error("Failed to delete employee.");
+                              return;
+                            }
+                            toast.success("Employee deleted.");
+                            setProfileEmployee(null);
+                            queryClient.invalidateQueries({ queryKey: ["employees"] });
+                          }}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
             </CardContent>
           </Card>
 
