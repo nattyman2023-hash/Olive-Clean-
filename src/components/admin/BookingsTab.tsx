@@ -295,84 +295,33 @@ export default function BookingsTab() {
           )}
         </div>
 
-        {/* Detail Panel */}
-        <div className="lg:col-span-1">
-          {selected ? (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">{selected.name}</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Submitted {new Date(selected.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                </p>
+        {/* Detail Panel — desktop inline, mobile/tablet drawer */}
+        {isDesktop ? (
+          <div className="lg:col-span-1">
+            {selected ? (
+              <BookingDetailContent booking={selected} isAdmin={isAdmin} statusConfig={statusConfig} updateStatus={updateStatus} />
+            ) : (
+              <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
+                <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Select a booking to view details</p>
               </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="h-4 w-4 shrink-0" />
-                  <a href={`mailto:${selected.email}`} className="hover:text-foreground transition-colors truncate">{selected.email}</a>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4 shrink-0" />
-                  <a href={`tel:${selected.phone}`} className="hover:text-foreground transition-colors">{selected.phone}</a>
-                </div>
-                {selected.address && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Home className="h-4 w-4 shrink-0" />
-                    <span>{selected.address}</span>
-                  </div>
-                )}
-              </div>
-              <div className="border-t border-border pt-4 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Service</span>
-                  <span className="font-medium text-foreground">{selected.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Home Type</span>
-                  <span className="font-medium text-foreground">{selected.home_type}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Size</span>
-                  <span className="font-medium text-foreground">{selected.bedrooms} bed / {selected.bathrooms} bath</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Frequency</span>
-                  <span className="font-medium text-foreground">{selected.frequency}</span>
-                </div>
-              </div>
-              {selected.notes && (
-                <div className="border-t border-border pt-4">
-                  <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                  <p className="text-sm text-foreground">{selected.notes}</p>
-                </div>
+            )}
+          </div>
+        ) : (
+          <Drawer open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+            <DrawerContent className="max-h-[85vh] overflow-y-auto px-4 pb-6">
+              <DrawerHeader className="text-left">
+                <DrawerTitle>{selected?.name || "Booking Details"}</DrawerTitle>
+                <DrawerDescription>
+                  {selected?.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) || ""}
+                </DrawerDescription>
+              </DrawerHeader>
+              {selected && (
+                <BookingDetailContent booking={selected} isAdmin={isAdmin} statusConfig={statusConfig} updateStatus={updateStatus} />
               )}
-              {isAdmin && (
-                <div className="border-t border-border pt-4">
-                  <p className="text-xs text-muted-foreground mb-2">Update Status</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["pending", "confirmed", "completed", "cancelled"].map((s) => {
-                      const sc = statusConfig[s];
-                      return (
-                        <button
-                          key={s}
-                          onClick={() => updateStatus(selected.id, s)}
-                          disabled={selected.status === s}
-                          className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-[0.97] disabled:opacity-40 ${sc.className}`}
-                        >
-                          {sc.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
-              <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Select a booking to view details</p>
-            </div>
-          )}
-        </div>
+            </DrawerContent>
+          </Drawer>
+        )}
       </div>
     </div>
   );
