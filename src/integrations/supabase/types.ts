@@ -349,43 +349,52 @@ export type Database = {
           certifications: Json | null
           created_at: string | null
           email: string | null
+          fixed_job_rate: number | null
           hired_at: string | null
           id: string
           name: string
           notes: string | null
           onboarding_checklist: Json | null
+          pay_type: string
           phone: string | null
           photo_url: string | null
           status: string
           user_id: string
+          worker_classification: string
         }
         Insert: {
           certifications?: Json | null
           created_at?: string | null
           email?: string | null
+          fixed_job_rate?: number | null
           hired_at?: string | null
           id?: string
           name: string
           notes?: string | null
           onboarding_checklist?: Json | null
+          pay_type?: string
           phone?: string | null
           photo_url?: string | null
           status?: string
           user_id: string
+          worker_classification?: string
         }
         Update: {
           certifications?: Json | null
           created_at?: string | null
           email?: string | null
+          fixed_job_rate?: number | null
           hired_at?: string | null
           id?: string
           name?: string
           notes?: string | null
           onboarding_checklist?: Json | null
+          pay_type?: string
           phone?: string | null
           photo_url?: string | null
           status?: string
           user_id?: string
+          worker_classification?: string
         }
         Relationships: []
       }
@@ -745,6 +754,7 @@ export type Database = {
           scheduled_at: string
           service: string
           status: string
+          tip_amount: number | null
         }
         Insert: {
           actual_duration_minutes?: number | null
@@ -761,6 +771,7 @@ export type Database = {
           scheduled_at: string
           service: string
           status?: string
+          tip_amount?: number | null
         }
         Update: {
           actual_duration_minutes?: number | null
@@ -777,6 +788,7 @@ export type Database = {
           scheduled_at?: string
           service?: string
           status?: string
+          tip_amount?: number | null
         }
         Relationships: [
           {
@@ -999,6 +1011,8 @@ export type Database = {
           id: string
           paid_at: string | null
           paid_by: string
+          pay_type: string
+          tips: number
           total_payout: number
           week_end: string
           week_start: string
@@ -1013,6 +1027,8 @@ export type Database = {
           id?: string
           paid_at?: string | null
           paid_by: string
+          pay_type?: string
+          tips?: number
           total_payout?: number
           week_end: string
           week_start: string
@@ -1027,6 +1043,8 @@ export type Database = {
           id?: string
           paid_at?: string | null
           paid_by?: string
+          pay_type?: string
+          tips?: number
           total_payout?: number
           week_end?: string
           week_start?: string

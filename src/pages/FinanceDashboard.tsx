@@ -5,24 +5,43 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, DollarSign, CreditCard, Receipt, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, DollarSign, CreditCard, Receipt, Download } from "lucide-react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import ExpensesSection from "@/components/admin/finance/ExpensesSection";
 
-// ── Payouts Tab ──────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────
 
 interface EmployeePayout {
   employee_id: string;
   employee_name: string;
+  pay_type: string;
+  worker_classification: string;
   hours_worked: number;
   hourly_rate: number;
+  fixed_job_rate: number;
+  completed_jobs_count: number;
   base_pay: number;
+  tips: number;
   approved_expenses: number;
   total_payout: number;
   already_paid: boolean;
   paid_at?: string;
 }
+
+interface StripePayment {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  created: number;
+  customer_name: string | null;
+  customer_email: string | null;
+  tip_amount: number | null;
+}
+
+// ── Payouts Tab ──────────────────────────────────────────────
 
 function PayoutsTab() {
   const { user } = useAuth();
@@ -37,10 +56,9 @@ function PayoutsTab() {
   const fetchPayouts = async () => {
     setLoading(true);
     try {
-      // Get active employees
       const { data: employees } = await supabase
         .from("employees")
-        .select("id, name, user_id")
+        .select("id, name, user_id, pay_type, fixed_job_rate, worker_classification")
         .eq("status", "active");
 
       if (!employees?.length) { setPayouts([]); setLoading(false); return; }
@@ -64,7 +82,6 @@ function PayoutsTab() {
         .lte("recorded_at", weekEnd.toISOString())
         .order("recorded_at", { ascending: true });
 
-      // Calculate hours per employee user_id
       const userIdToHours: Record<string, number> = {};
       const openClocks: Record<string, string> = {};
       timeLogs?.forEach((log) => {
@@ -76,6 +93,23 @@ function PayoutsTab() {
           const hours = (end - start) / 3600000;
           userIdToHours[log.employee_user_id] = (userIdToHours[log.employee_user_id] || 0) + hours;
           delete openClocks[log.employee_user_id];
+        }
+      });
+
+      // Get completed jobs for the week (for per_job pay and tips)
+      const { data: completedJobs } = await supabase
+        .from("jobs")
+        .select("id, assigned_to, tip_amount")
+        .eq("status", "completed")
+        .gte("completed_at", weekStart.toISOString())
+        .lte("completed_at", weekEnd.toISOString());
+
+      const jobCountByUser: Record<string, number> = {};
+      const tipsByUser: Record<string, number> = {};
+      completedJobs?.forEach((j) => {
+        if (j.assigned_to) {
+          jobCountByUser[j.assigned_to] = (jobCountByUser[j.assigned_to] || 0) + 1;
+          tipsByUser[j.assigned_to] = (tipsByUser[j.assigned_to] || 0) + Number(j.tip_amount || 0);
         }
       });
 
@@ -102,19 +136,34 @@ function PayoutsTab() {
       const paidMap: Record<string, string> = {};
       existing?.forEach((r) => { paidMap[r.employee_id] = r.paid_at || ""; });
 
-      const result: EmployeePayout[] = employees.map((emp) => {
+      const result: EmployeePayout[] = employees.map((emp: any) => {
+        const payType = emp.pay_type || "hourly";
+        const classification = emp.worker_classification || "w2";
         const hours = Math.round((userIdToHours[emp.user_id] || 0) * 100) / 100;
         const rate = rateMap[emp.id] || 0;
-        const basePay = Math.round(hours * rate * 100) / 100;
+        const fixedRate = Number(emp.fixed_job_rate) || 0;
+        const jobsCount = jobCountByUser[emp.user_id] || 0;
+
+        const basePay = payType === "hourly"
+          ? Math.round(hours * rate * 100) / 100
+          : Math.round(jobsCount * fixedRate * 100) / 100;
+
+        const tips = Math.round((tipsByUser[emp.user_id] || 0) * 100) / 100;
         const approvedExp = expenseMap[emp.id] || 0;
+
         return {
           employee_id: emp.id,
           employee_name: emp.name,
+          pay_type: payType,
+          worker_classification: classification,
           hours_worked: hours,
           hourly_rate: rate,
+          fixed_job_rate: fixedRate,
+          completed_jobs_count: jobsCount,
           base_pay: basePay,
+          tips,
           approved_expenses: approvedExp,
-          total_payout: Math.round((basePay + approvedExp) * 100) / 100,
+          total_payout: Math.round((basePay + tips + approvedExp) * 100) / 100,
           already_paid: !!paidMap[emp.id],
           paid_at: paidMap[emp.id] || undefined,
         };
@@ -142,20 +191,53 @@ function PayoutsTab() {
       approved_expenses: p.approved_expenses,
       total_payout: p.total_payout,
       paid_by: user.id,
-    });
+      tips: p.tips,
+      pay_type: p.pay_type,
+    } as any);
     setMarking(null);
     if (error) { toast.error("Failed to record payout."); return; }
     toast.success(`${p.employee_name} marked as paid.`);
     fetchPayouts();
   };
 
+  const downloadCSV = () => {
+    const headers = ["Employee Name", "Classification", "Pay Method", "Hours Worked", "Jobs Completed", "Pay Rate", "Base Pay", "Tips", "Expenses", "Total Owed"];
+    const rows = payouts.map((p) => [
+      p.employee_name,
+      p.worker_classification === "w2" ? "W-2" : "1099",
+      p.pay_type === "hourly" ? "Hourly" : "Per Job",
+      p.hours_worked.toFixed(2),
+      p.completed_jobs_count,
+      p.pay_type === "hourly" ? `$${p.hourly_rate.toFixed(2)}` : `$${p.fixed_job_rate.toFixed(2)}`,
+      `$${p.base_pay.toFixed(2)}`,
+      `$${p.tips.toFixed(2)}`,
+      `$${p.approved_expenses.toFixed(2)}`,
+      `$${p.total_payout.toFixed(2)}`,
+    ]);
+    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `payroll_${format(now, "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
 
   return (
     <div>
-      <p className="text-xs text-muted-foreground mb-4">
-        Week of {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-muted-foreground">
+          Week of {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
+        </p>
+        {payouts.length > 0 && (
+          <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5 text-xs">
+            <Download className="h-3.5 w-3.5" /> Download Payroll Report
+          </Button>
+        )}
+      </div>
       {payouts.length === 0 ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
           <p className="text-sm text-muted-foreground">No active employees found.</p>
@@ -166,9 +248,10 @@ function PayoutsTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
-                <TableHead className="text-right">Rate</TableHead>
+                <TableHead>Pay Method</TableHead>
+                <TableHead className="text-right">{/* Hours / Jobs */}Details</TableHead>
                 <TableHead className="text-right">Base Pay</TableHead>
+                <TableHead className="text-right">Tips</TableHead>
                 <TableHead className="text-right">Expenses</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Status</TableHead>
@@ -177,10 +260,28 @@ function PayoutsTab() {
             <TableBody>
               {payouts.map((p) => (
                 <TableRow key={p.employee_id}>
-                  <TableCell className="font-medium">{p.employee_name}</TableCell>
-                  <TableCell className="text-right">{p.hours_worked.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${p.hourly_rate.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{p.employee_name}</span>
+                      <Badge variant="outline" className="text-[0.6rem] px-1.5 py-0">
+                        {p.worker_classification === "w2" ? "W-2" : "1099"}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-[0.65rem]">
+                      {p.pay_type === "hourly" ? "Hourly" : "Per Job"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-sm">
+                    {p.pay_type === "hourly" ? (
+                      <span>{p.hours_worked.toFixed(2)} hrs × ${p.hourly_rate.toFixed(2)}</span>
+                    ) : (
+                      <span>{p.completed_jobs_count} jobs × ${p.fixed_job_rate.toFixed(2)}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">${p.base_pay.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${p.tips.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${p.approved_expenses.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-bold">${p.total_payout.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
@@ -210,16 +311,6 @@ function PayoutsTab() {
 }
 
 // ── Customer Payments Tab ────────────────────────────────────
-
-interface StripePayment {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  created: number;
-  customer_name: string | null;
-  customer_email: string | null;
-}
 
 function CustomerPaymentsTab() {
   const [payments, setPayments] = useState<StripePayment[]>([]);
@@ -254,6 +345,7 @@ function CustomerPaymentsTab() {
           <TableRow>
             <TableHead>Customer</TableHead>
             <TableHead className="text-right">Amount</TableHead>
+            <TableHead className="text-right">Tip</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Transaction ID</TableHead>
             <TableHead>Status</TableHead>
@@ -273,6 +365,9 @@ function CustomerPaymentsTab() {
                 <TableCell className="text-right font-bold">
                   ${(p.amount / 100).toFixed(2)} <span className="text-xs text-muted-foreground uppercase">{p.currency}</span>
                 </TableCell>
+                <TableCell className="text-right text-sm">
+                  {p.tip_amount ? `$${p.tip_amount.toFixed(2)}` : "—"}
+                </TableCell>
                 <TableCell className="text-sm">{format(new Date(p.created * 1000), "MMM d, yyyy")}</TableCell>
                 <TableCell className="text-xs font-mono text-muted-foreground">{p.id}</TableCell>
                 <TableCell>
@@ -291,10 +386,6 @@ function CustomerPaymentsTab() {
     </div>
   );
 }
-
-// ── Expense Approvals Tab (reuses ExpensesSection) ───────────
-
-import ExpensesSection from "@/components/admin/finance/ExpensesSection";
 
 // ── Main Dashboard ───────────────────────────────────────────
 

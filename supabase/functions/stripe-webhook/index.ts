@@ -37,13 +37,15 @@ serve(async (req) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const invoiceId = session.metadata?.invoice_id;
+    const jobId = session.metadata?.job_id;
+    const tipAmountRaw = session.metadata?.tip_amount;
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     if (invoiceId) {
-      const supabaseAdmin = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
-
       const { error } = await supabaseAdmin
         .from("invoices")
         .update({ status: "paid", paid_at: new Date().toISOString() })
@@ -57,6 +59,23 @@ serve(async (req) => {
       console.log(`Invoice ${invoiceId} marked as paid`);
     } else {
       console.log("No invoice_id in session metadata — skipping");
+    }
+
+    // Save tip amount to the job if present
+    if (jobId && tipAmountRaw) {
+      const tipAmount = parseFloat(tipAmountRaw);
+      if (!isNaN(tipAmount) && tipAmount > 0) {
+        const { error: tipError } = await supabaseAdmin
+          .from("jobs")
+          .update({ tip_amount: tipAmount })
+          .eq("id", jobId);
+
+        if (tipError) {
+          console.error("Failed to save tip:", tipError.message);
+        } else {
+          console.log(`Tip of $${tipAmount} saved for job ${jobId}`);
+        }
+      }
     }
   }
 

@@ -42,6 +42,9 @@ interface Employee {
   hired_at: string;
   notes: string | null;
   photo_url: string | null;
+  pay_type: string;
+  fixed_job_rate: number | null;
+  worker_classification: string;
 }
 
 interface PerformanceRecord {
@@ -110,6 +113,9 @@ export default function TeamTab() {
   const [formNotes, setFormNotes] = useState("");
   const [formCerts, setFormCerts] = useState("");
   const [newCert, setNewCert] = useState("");
+  const [formPayType, setFormPayType] = useState("hourly");
+  const [formFixedRate, setFormFixedRate] = useState("");
+  const [formClassification, setFormClassification] = useState("w2");
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["employees"],
@@ -140,7 +146,7 @@ export default function TeamTab() {
 
   const upsertMutation = useMutation({
     mutationFn: async (emp: Partial<Employee> & { id?: string }) => {
-      const payload = {
+      const payload: Record<string, any> = {
         name: emp.name!,
         phone: emp.phone || null,
         email: emp.email || null,
@@ -148,12 +154,15 @@ export default function TeamTab() {
         status: emp.status || "onboarding",
         notes: emp.notes || null,
         certifications: emp.certifications || [],
+        pay_type: emp.pay_type || "hourly",
+        fixed_job_rate: emp.fixed_job_rate ?? null,
+        worker_classification: emp.worker_classification || "w2",
       };
       if (emp.id) {
-        const { error } = await supabase.from("employees").update(payload).eq("id", emp.id);
+        const { error } = await supabase.from("employees").update(payload as any).eq("id", emp.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("employees").insert(payload);
+        const { error } = await supabase.from("employees").insert(payload as any);
         if (error) throw error;
       }
     },
@@ -215,6 +224,9 @@ export default function TeamTab() {
     setFormStatus("onboarding");
     setFormNotes("");
     setFormCerts("");
+    setFormPayType("hourly");
+    setFormFixedRate("");
+    setFormClassification("w2");
   };
 
   const openAddDialog = () => {
@@ -252,6 +264,9 @@ export default function TeamTab() {
     setFormStatus(emp.status);
     setFormNotes(emp.notes || "");
     setNewCert("");
+    setFormPayType(emp.pay_type || "hourly");
+    setFormFixedRate(emp.fixed_job_rate != null ? String(emp.fixed_job_rate) : "");
+    setFormClassification(emp.worker_classification || "w2");
   };
 
   const saveProfileField = (field: string, value: any) => {
@@ -282,6 +297,9 @@ export default function TeamTab() {
       status: updated.status,
       notes: updated.notes,
       certifications: updated.certifications,
+      pay_type: updated.pay_type,
+      fixed_job_rate: updated.fixed_job_rate,
+      worker_classification: updated.worker_classification,
     });
   };
 
@@ -429,6 +447,59 @@ export default function TeamTab() {
                     <SelectItem value="onboarding">Onboarding</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Pay Settings */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Pay Type</Label>
+                  <Select
+                    value={formPayType}
+                    onValueChange={(v) => {
+                      setFormPayType(v);
+                      saveProfileField("pay_type", v);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">Hourly</SelectItem>
+                      <SelectItem value="per_job">Fixed Per Job</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formPayType === "per_job" && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fixed Rate ($)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formFixedRate}
+                      onChange={(e) => setFormFixedRate(e.target.value)}
+                      onBlur={() => {
+                        const val = formFixedRate ? parseFloat(formFixedRate) : null;
+                        if (val !== profileEmployee.fixed_job_rate) saveProfileField("fixed_job_rate", val);
+                      }}
+                      className="rounded-xl mt-1"
+                      placeholder="e.g. 100"
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Worker Classification</Label>
+                <Select
+                  value={formClassification}
+                  onValueChange={(v) => {
+                    setFormClassification(v);
+                    saveProfileField("worker_classification", v);
+                  }}
+                >
+                  <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="w2">W-2 / Staff</SelectItem>
+                    <SelectItem value="contractor">1099 / Contractor</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
