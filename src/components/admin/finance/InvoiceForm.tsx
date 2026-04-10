@@ -78,6 +78,7 @@ export default function InvoiceForm({ type, onClose, onSaved, initial }: Invoice
     } else {
       payload.estimate_number = `EST-${Date.now().toString(36).toUpperCase()}`;
       payload.valid_until = validUntil || null;
+      payload.approval_token = crypto.randomUUID();
       const { error } = await supabase.from("estimates").insert(payload);
       setSaving(false);
       if (error) { toast.error("Failed to create estimate."); return; }

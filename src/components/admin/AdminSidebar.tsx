@@ -85,13 +85,13 @@ const NAV_GROUPS: NavGroup[] = [
       { value: "analytics", label: "Analytics", icon: TrendingUp },
       { value: "services", label: "Services", icon: Wrench },
       { value: "supplies", label: "Supplies", icon: Package },
+      { value: "quotes", label: "Quotes", icon: BookOpen },
     ],
   },
   {
     label: "Assets",
     icon: FolderOpen,
     items: [
-      { value: "emails", label: "Emails", icon: Mail },
       { value: "photos", label: "Photos", icon: Camera },
     ],
   },

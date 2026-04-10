@@ -37,6 +37,7 @@ const WhyUs = React.lazy(() => import("./pages/WhyUs.tsx"));
 const PerksPage = React.lazy(() => import("./pages/PerksPage.tsx"));
 const Team = React.lazy(() => import("./pages/Team.tsx"));
 const FinanceDashboard = React.lazy(() => import("./pages/FinanceDashboard.tsx"));
+const QuoteView = React.lazy(() => import("./pages/QuoteView.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,7 @@ const App = () => (
                 <Route path="/perks" element={<PerksPage />} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/finance" element={<FinanceDashboard />} />
+                <Route path="/quote/:token" element={<QuoteView />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
