@@ -32,7 +32,7 @@ interface UsageLog {
   logged_at: string;
 }
 
-export default function SuppliesTab() {
+export default function SuppliesTab({ readOnly }: { readOnly?: boolean }) {
   const [addOpen, setAddOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -139,21 +139,23 @@ export default function SuppliesTab() {
             {items.length} item{items.length !== 1 ? "s" : ""} tracked
           </p>
         </div>
-        <div className="flex gap-2">
-          <LogUsageDialog
-            open={logOpen}
-            onOpenChange={setLogOpen}
-            items={items}
-            onSubmit={(data) => logUsageMutation.mutate(data)}
-            loading={logUsageMutation.isPending}
-          />
-          <AddItemDialog
-            open={addOpen}
-            onOpenChange={setAddOpen}
-            onSubmit={(data) => addItemMutation.mutate(data)}
-            loading={addItemMutation.isPending}
-          />
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <LogUsageDialog
+              open={logOpen}
+              onOpenChange={setLogOpen}
+              items={items}
+              onSubmit={(data) => logUsageMutation.mutate(data)}
+              loading={logUsageMutation.isPending}
+            />
+            <AddItemDialog
+              open={addOpen}
+              onOpenChange={setAddOpen}
+              onSubmit={(data) => addItemMutation.mutate(data)}
+              loading={addItemMutation.isPending}
+            />
+          </div>
+        )}
       </div>
 
       {/* Low stock alert */}
@@ -228,7 +230,7 @@ export default function SuppliesTab() {
       )}
 
       {/* Staff Supply Requests */}
-      <StaffSupplyRequests items={items} />
+      <StaffSupplyRequests items={items} readOnly={readOnly} />
     </div>
   );
 }
@@ -350,7 +352,7 @@ function LogUsageDialog({ open, onOpenChange, items, onSubmit, loading }: {
   );
 }
 
-function StaffSupplyRequests({ items }: { items: SupplyItem[] }) {
+function StaffSupplyRequests({ items, readOnly }: { items: SupplyItem[]; readOnly?: boolean }) {
   const queryClient = useQueryClient();
 
   const { data: requests = [], isLoading } = useQuery({
@@ -416,7 +418,7 @@ function StaffSupplyRequests({ items }: { items: SupplyItem[] }) {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Badge className={`text-[0.6rem] px-1.5 py-0 ${statusBadge[r.status] || ""}`}>{r.status}</Badge>
-                  {r.status === "pending" && (
+                  {r.status === "pending" && !readOnly && (
                     <>
                       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateMutation.mutate({ id: r.id, status: "approved" })}>
                         <Check className="h-3 w-3 text-emerald-600" />

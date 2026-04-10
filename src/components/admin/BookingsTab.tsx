@@ -48,7 +48,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; classNam
   cancelled: { label: "Cancelled", icon: XCircle, className: "text-destructive bg-destructive/10" },
 };
 
-export default function BookingsTab() {
+export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
   const isDesktop = useIsDesktop();
   const { isAdmin } = useAuth();
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
@@ -299,7 +299,7 @@ export default function BookingsTab() {
         {isDesktop ? (
           <div className="lg:col-span-1">
             {selected ? (
-              <BookingDetailContent booking={selected} isAdmin={isAdmin} statusConfig={statusConfig} updateStatus={updateStatus} />
+              <BookingDetailContent booking={selected} isAdmin={isAdmin} readOnly={readOnly} statusConfig={statusConfig} updateStatus={updateStatus} />
             ) : (
               <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
                 <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
@@ -317,7 +317,7 @@ export default function BookingsTab() {
                 </DrawerDescription>
               </DrawerHeader>
               {selected && (
-                <BookingDetailContent booking={selected} isAdmin={isAdmin} statusConfig={statusConfig} updateStatus={updateStatus} />
+                <BookingDetailContent booking={selected} isAdmin={isAdmin} readOnly={readOnly} statusConfig={statusConfig} updateStatus={updateStatus} />
               )}
             </DrawerContent>
           </Drawer>
@@ -337,6 +337,7 @@ function BookingDetailContent({
 }: {
   booking: BookingRequest;
   isAdmin: boolean;
+  readOnly?: boolean;
   statusConfig: Record<string, { label: string; icon: typeof Clock; className: string }>;
   updateStatus: (id: string, status: string) => void;
 }) {
@@ -388,7 +389,7 @@ function BookingDetailContent({
           <p className="text-sm text-foreground">{booking.notes}</p>
         </div>
       )}
-      {isAdmin && (
+      {isAdmin && !readOnly && (
         <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground mb-2">Update Status</p>
           <div className="grid grid-cols-2 gap-2">
