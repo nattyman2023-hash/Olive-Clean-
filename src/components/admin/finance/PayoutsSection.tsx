@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Download, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
+import { Loader2, Download, ChevronLeft, ChevronRight, CalendarIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameWeek } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 interface EmployeePayout {
   employee_id: string;
   employee_name: string;
+  user_id: string;
   pay_type: string;
   worker_classification: string;
   hours_worked: number;
@@ -28,12 +29,25 @@ interface EmployeePayout {
   paid_at?: string;
 }
 
+interface TimeSession { clock_in: string; clock_out: string; hours: number; }
+interface JobDetail { id: string; tip: number; service?: string; }
+interface ExpenseDetail { id: string; amount: number; description: string; category: string; }
+
+const DEFAULT_HOURLY_RATE = 25;
+
 export default function PayoutsSection({ readOnly }: { readOnly?: boolean }) {
   const { user } = useAuth();
   const [payouts, setPayouts] = useState<EmployeePayout[]>([]);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailData, setDetailData] = useState<{
+    sessions: TimeSession[];
+    jobs: JobDetail[];
+    expenses: ExpenseDetail[];
+  } | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -121,7 +135,7 @@ export default function PayoutsSection({ readOnly }: { readOnly?: boolean }) {
         const payType = emp.pay_type || "hourly";
         const classification = emp.worker_classification || "w2";
         const hours = Math.round((userIdToHours[emp.user_id] || 0) * 100) / 100;
-        const rate = rateMap[emp.id] || 0;
+        const rate = rateMap[emp.id] || DEFAULT_HOURLY_RATE;
         const fixedRate = Number(emp.fixed_job_rate) || 0;
         const jobsCount = jobCountByUser[emp.user_id] || 0;
 
@@ -135,6 +149,7 @@ export default function PayoutsSection({ readOnly }: { readOnly?: boolean }) {
         return {
           employee_id: emp.id,
           employee_name: emp.name,
+          user_id: emp.user_id,
           pay_type: payType,
           worker_classification: classification,
           hours_worked: hours,
@@ -158,6 +173,55 @@ export default function PayoutsSection({ readOnly }: { readOnly?: boolean }) {
   }, [weekStart.toISOString(), weekEnd.toISOString()]);
 
   useEffect(() => { fetchPayouts(); }, [fetchPayouts]);
+
+  const toggleDetail = async (p: EmployeePayout) => {
+    if (expandedId === p.employee_id) {
+      setExpandedId(null);
+      setDetailData(null);
+      return;
+    }
+    setExpandedId(p.employee_id);
+    setDetailLoading(true);
+
+    const [timeRes, jobsRes, expRes] = await Promise.all([
+      supabase.from("job_time_logs")
+        .select("action_type, recorded_at")
+        .eq("employee_user_id", p.user_id)
+        .gte("recorded_at", weekStart.toISOString())
+        .lte("recorded_at", weekEnd.toISOString())
+        .order("recorded_at", { ascending: true }),
+      supabase.from("jobs")
+        .select("id, tip_amount, service")
+        .eq("assigned_to", p.user_id)
+        .eq("status", "complete")
+        .gte("completed_at", weekStart.toISOString())
+        .lte("completed_at", weekEnd.toISOString()),
+      supabase.from("expenses")
+        .select("id, amount, description, category")
+        .eq("employee_id", p.employee_id)
+        .eq("status", "approved")
+        .gte("submitted_at", weekStart.toISOString())
+        .lte("submitted_at", weekEnd.toISOString()),
+    ]);
+
+    const sessions: TimeSession[] = [];
+    let openClock: string | null = null;
+    timeRes.data?.forEach((log) => {
+      if (log.action_type === "clock_in") openClock = log.recorded_at;
+      else if (log.action_type === "clock_out" && openClock) {
+        const hrs = (new Date(log.recorded_at).getTime() - new Date(openClock).getTime()) / 3600000;
+        sessions.push({ clock_in: openClock, clock_out: log.recorded_at, hours: Math.round(hrs * 100) / 100 });
+        openClock = null;
+      }
+    });
+
+    setDetailData({
+      sessions,
+      jobs: (jobsRes.data || []).map((j) => ({ id: j.id, tip: Number(j.tip_amount || 0), service: j.service })),
+      expenses: (expRes.data || []).map((e) => ({ id: e.id, amount: Number(e.amount), description: e.description, category: e.category })),
+    });
+    setDetailLoading(false);
+  };
 
   const markPaid = async (p: EmployeePayout) => {
     if (!user || readOnly) return;
@@ -265,6 +329,7 @@ export default function PayoutsSection({ readOnly }: { readOnly?: boolean }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead></TableHead>
                 <TableHead>Employee</TableHead>
                 <TableHead>Pay Method</TableHead>
                 <TableHead className="text-right">Details</TableHead>
@@ -277,50 +342,112 @@ export default function PayoutsSection({ readOnly }: { readOnly?: boolean }) {
             </TableHeader>
             <TableBody>
               {payouts.map((p) => (
-                <TableRow key={p.employee_id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{p.employee_name}</span>
-                      <Badge variant="outline" className="text-[0.6rem] px-1.5 py-0">
-                        {p.worker_classification === "w2" ? "W-2" : "1099"}
+                <>
+                  <TableRow key={p.employee_id} className="cursor-pointer" onClick={() => toggleDetail(p)}>
+                    <TableCell className="w-8 px-2">
+                      {expandedId === p.employee_id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{p.employee_name}</span>
+                        <Badge variant="outline" className="text-[0.6rem] px-1.5 py-0">
+                          {p.worker_classification === "w2" ? "W-2" : "1099"}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-[0.65rem]">
+                        {p.pay_type === "hourly" ? "Hourly" : "Per Job"}
                       </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-[0.65rem]">
-                      {p.pay_type === "hourly" ? "Hourly" : "Per Job"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-sm">
-                    {p.pay_type === "hourly" ? (
-                      <span>{p.hours_worked.toFixed(2)} hrs × ${p.hourly_rate.toFixed(2)}</span>
-                    ) : (
-                      <span>{p.completed_jobs_count} jobs × ${p.fixed_job_rate.toFixed(2)}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">${p.base_pay.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${p.tips.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${p.approved_expenses.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-bold">${p.total_payout.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    {p.already_paid ? (
-                      <Badge variant="default" className="bg-emerald-600 text-white text-[0.65rem]">
-                        Paid {p.paid_at ? format(new Date(p.paid_at), "MMM d") : ""}
-                      </Badge>
-                    ) : readOnly ? (
-                      <Badge variant="secondary" className="text-[0.65rem]">Unpaid</Badge>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => markPaid(p)}
-                        disabled={marking === p.employee_id || p.total_payout === 0}
-                        className="h-7 text-xs"
-                      >
-                        {marking === p.employee_id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark as Paid"}
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {p.pay_type === "hourly" ? (
+                        <span>{p.hours_worked.toFixed(2)} hrs × ${p.hourly_rate.toFixed(2)}</span>
+                      ) : (
+                        <span>{p.completed_jobs_count} jobs × ${p.fixed_job_rate.toFixed(2)}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">${p.base_pay.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${p.tips.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${p.approved_expenses.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-bold">${p.total_payout.toFixed(2)}</TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {p.already_paid ? (
+                        <Badge variant="default" className="bg-emerald-600 text-white text-[0.65rem]">
+                          Paid {p.paid_at ? format(new Date(p.paid_at), "MMM d") : ""}
+                        </Badge>
+                      ) : readOnly ? (
+                        <Badge variant="secondary" className="text-[0.65rem]">Unpaid</Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => markPaid(p)}
+                          disabled={marking === p.employee_id || p.total_payout === 0}
+                          className="h-7 text-xs"
+                        >
+                          {marking === p.employee_id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark as Paid"}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {expandedId === p.employee_id && (
+                    <TableRow key={`${p.employee_id}-detail`}>
+                      <TableCell colSpan={9} className="bg-muted/30 p-4">
+                        {detailLoading ? (
+                          <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>
+                        ) : detailData ? (
+                          <div className="grid md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <h4 className="font-semibold text-foreground mb-2">Clock Sessions</h4>
+                              {detailData.sessions.length === 0 ? (
+                                <p className="text-muted-foreground text-xs">No time logs this week</p>
+                              ) : (
+                                <div className="space-y-1">
+                                  {detailData.sessions.map((s, i) => (
+                                    <div key={i} className="flex justify-between text-xs">
+                                      <span>{format(new Date(s.clock_in), "EEE MMM d, h:mm a")} → {format(new Date(s.clock_out), "h:mm a")}</span>
+                                      <span className="font-medium">{s.hours.toFixed(2)}h</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-foreground mb-2">Completed Jobs</h4>
+                              {detailData.jobs.length === 0 ? (
+                                <p className="text-muted-foreground text-xs">No completed jobs this week</p>
+                              ) : (
+                                <div className="space-y-1">
+                                  {detailData.jobs.map((j, i) => (
+                                    <div key={i} className="flex justify-between text-xs">
+                                      <span>{j.service || "Job"}</span>
+                                      {j.tip > 0 && <span className="text-emerald-600">+${j.tip.toFixed(2)} tip</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-foreground mb-2">Approved Expenses</h4>
+                              {detailData.expenses.length === 0 ? (
+                                <p className="text-muted-foreground text-xs">No expenses this week</p>
+                              ) : (
+                                <div className="space-y-1">
+                                  {detailData.expenses.map((e, i) => (
+                                    <div key={i} className="flex justify-between text-xs">
+                                      <span>{e.description}</span>
+                                      <span className="font-medium">${e.amount.toFixed(2)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               ))}
             </TableBody>
           </Table>
