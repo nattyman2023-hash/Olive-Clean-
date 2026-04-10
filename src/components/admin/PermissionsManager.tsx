@@ -19,10 +19,12 @@ const ALL_SECTIONS = [
 const CONFIGURABLE_ROLES = ["staff", "finance"] as const;
 type ConfigRole = (typeof CONFIGURABLE_ROLES)[number];
 
+interface CellState { view: boolean; edit: boolean }
+
 export default function PermissionsManager() {
-  const [matrix, setMatrix] = useState<Record<ConfigRole, Set<string>>>({
-    staff: new Set(),
-    finance: new Set(),
+  const [matrix, setMatrix] = useState<Record<ConfigRole, Record<string, CellState>>>({
+    staff: {},
+    finance: {},
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,7 +33,7 @@ export default function PermissionsManager() {
     (async () => {
       const { data, error } = await supabase
         .from("role_permissions")
-        .select("role, section")
+        .select("role, section, can_edit")
         .in("role", [...CONFIGURABLE_ROLES]);
 
       if (error) {
@@ -40,10 +42,10 @@ export default function PermissionsManager() {
         return;
       }
 
-      const m: Record<ConfigRole, Set<string>> = { staff: new Set(), finance: new Set() };
+      const m: Record<ConfigRole, Record<string, CellState>> = { staff: {}, finance: {} };
       for (const row of data ?? []) {
         if (row.role in m) {
-          (m as any)[row.role].add(row.section);
+          (m as any)[row.role][row.section] = { view: true, edit: !!(row as any).can_edit };
         }
       }
       setMatrix(m);
@@ -51,19 +53,40 @@ export default function PermissionsManager() {
     })();
   }, []);
 
-  const toggle = (role: ConfigRole, section: string) => {
+  const getCell = (role: ConfigRole, section: string): CellState =>
+    matrix[role][section] ?? { view: false, edit: false };
+
+  const toggleView = (role: ConfigRole, section: string) => {
     setMatrix((prev) => {
-      const next = { ...prev, [role]: new Set(prev[role]) };
-      if (next[role].has(section)) next[role].delete(section);
-      else next[role].add(section);
-      return next;
+      const cell = prev[role][section] ?? { view: false, edit: false };
+      const newView = !cell.view;
+      return {
+        ...prev,
+        [role]: {
+          ...prev[role],
+          [section]: { view: newView, edit: newView ? cell.edit : false },
+        },
+      };
+    });
+  };
+
+  const toggleEdit = (role: ConfigRole, section: string) => {
+    setMatrix((prev) => {
+      const cell = prev[role][section] ?? { view: false, edit: false };
+      const newEdit = !cell.edit;
+      return {
+        ...prev,
+        [role]: {
+          ...prev[role],
+          [section]: { view: newEdit ? true : cell.view, edit: newEdit },
+        },
+      };
     });
   };
 
   const save = async () => {
     setSaving(true);
     try {
-      // Delete existing non-admin permissions
       for (const role of CONFIGURABLE_ROLES) {
         await supabase
           .from("role_permissions")
@@ -71,11 +94,13 @@ export default function PermissionsManager() {
           .eq("role", role as any);
       }
 
-      // Insert new
-      const rows: { role: string; section: string }[] = [];
+      const rows: { role: string; section: string; can_edit: boolean }[] = [];
       for (const role of CONFIGURABLE_ROLES) {
-        for (const section of matrix[role]) {
-          rows.push({ role, section });
+        for (const section of ALL_SECTIONS) {
+          const cell = getCell(role, section);
+          if (cell.view) {
+            rows.push({ role, section, can_edit: cell.edit });
+          }
         }
       }
 
@@ -107,7 +132,7 @@ export default function PermissionsManager() {
         <h2 className="text-lg font-semibold">Role Permissions</h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        Configure which dashboard sections each role can access. Admins always have full access.
+        Configure which dashboard sections each role can <strong>view</strong> or <strong>edit</strong>. Admins always have full access.
       </p>
 
       <div className="border rounded-lg overflow-auto">
@@ -116,9 +141,18 @@ export default function PermissionsManager() {
             <TableRow>
               <TableHead className="sticky left-0 bg-card z-10 min-w-[120px]">Section</TableHead>
               {CONFIGURABLE_ROLES.map((role) => (
-                <TableHead key={role} className="text-center capitalize min-w-[100px]">
+                <TableHead key={role} colSpan={2} className="text-center capitalize min-w-[160px]">
                   {role}
                 </TableHead>
+              ))}
+            </TableRow>
+            <TableRow>
+              <TableHead className="sticky left-0 bg-card z-10" />
+              {CONFIGURABLE_ROLES.map((role) => (
+                <>
+                  <TableHead key={`${role}-view`} className="text-center text-xs text-muted-foreground">View</TableHead>
+                  <TableHead key={`${role}-edit`} className="text-center text-xs text-muted-foreground">Edit</TableHead>
+                </>
               ))}
             </TableRow>
           </TableHeader>
@@ -128,14 +162,25 @@ export default function PermissionsManager() {
                 <TableCell className="sticky left-0 bg-card z-10 font-medium capitalize">
                   {section.replace("-", " ")}
                 </TableCell>
-                {CONFIGURABLE_ROLES.map((role) => (
-                  <TableCell key={role} className="text-center">
-                    <Checkbox
-                      checked={matrix[role].has(section)}
-                      onCheckedChange={() => toggle(role, section)}
-                    />
-                  </TableCell>
-                ))}
+                {CONFIGURABLE_ROLES.map((role) => {
+                  const cell = getCell(role, section);
+                  return (
+                    <>
+                      <TableCell key={`${role}-${section}-view`} className="text-center">
+                        <Checkbox
+                          checked={cell.view}
+                          onCheckedChange={() => toggleView(role, section)}
+                        />
+                      </TableCell>
+                      <TableCell key={`${role}-${section}-edit`} className="text-center">
+                        <Checkbox
+                          checked={cell.edit}
+                          onCheckedChange={() => toggleEdit(role, section)}
+                        />
+                      </TableCell>
+                    </>
+                  );
+                })}
               </TableRow>
             ))}
           </TableBody>
