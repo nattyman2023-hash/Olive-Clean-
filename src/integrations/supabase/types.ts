@@ -1445,18 +1445,21 @@ export type Database = {
         Row: {
           author_id: string
           created_at: string
+          expires_at: string | null
           id: string
           message: string
         }
         Insert: {
           author_id: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           message: string
         }
         Update: {
           author_id?: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           message?: string
         }

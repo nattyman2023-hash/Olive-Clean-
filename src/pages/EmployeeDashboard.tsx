@@ -193,9 +193,12 @@ export default function EmployeeDashboard() {
         .from("team_messages" as any)
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(10);
       if (error) throw error;
-      return (data as any[]) || [];
+      const now = new Date();
+      return ((data as any[]) || []).filter(
+        (msg: any) => !msg.expires_at || new Date(msg.expires_at) > now
+      );
     },
   });
 
