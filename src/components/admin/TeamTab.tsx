@@ -297,6 +297,9 @@ export default function TeamTab() {
       status: updated.status,
       notes: updated.notes,
       certifications: updated.certifications,
+      pay_type: updated.pay_type,
+      fixed_job_rate: updated.fixed_job_rate,
+      worker_classification: updated.worker_classification,
     });
   };
 
