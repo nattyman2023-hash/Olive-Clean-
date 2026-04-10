@@ -373,34 +373,38 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    id="employee-photo-upload"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file || !profileEmployee) return;
-                      const ext = file.name.split(".").pop();
-                      const path = `${profileEmployee.id}/${crypto.randomUUID()}.${ext}`;
-                      const { error: uploadError } = await supabase.storage.from("employee_photos").upload(path, file);
-                      if (uploadError) { toast.error("Upload failed"); return; }
-                      const { data: { publicUrl } } = supabase.storage.from("employee_photos").getPublicUrl(path);
-                      const { error: updateError } = await supabase.from("employees").update({ photo_url: publicUrl }).eq("id", profileEmployee.id);
-                      if (updateError) { toast.error("Failed to save photo"); return; }
-                      setProfileEmployee({ ...profileEmployee, photo_url: publicUrl });
-                      queryClient.invalidateQueries({ queryKey: ["employees"] });
-                      toast.success("Photo updated");
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full text-xs gap-1"
-                    onClick={() => document.getElementById("employee-photo-upload")?.click()}
-                  >
-                    <Camera className="h-3 w-3" /> Upload Photo
-                  </Button>
+                  {!readOnly && (
+                    <>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        id="employee-photo-upload"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !profileEmployee) return;
+                          const ext = file.name.split(".").pop();
+                          const path = `${profileEmployee.id}/${crypto.randomUUID()}.${ext}`;
+                          const { error: uploadError } = await supabase.storage.from("employee_photos").upload(path, file);
+                          if (uploadError) { toast.error("Upload failed"); return; }
+                          const { data: { publicUrl } } = supabase.storage.from("employee_photos").getPublicUrl(path);
+                          const { error: updateError } = await supabase.from("employees").update({ photo_url: publicUrl }).eq("id", profileEmployee.id);
+                          if (updateError) { toast.error("Failed to save photo"); return; }
+                          setProfileEmployee({ ...profileEmployee, photo_url: publicUrl });
+                          queryClient.invalidateQueries({ queryKey: ["employees"] });
+                          toast.success("Photo updated");
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full text-xs gap-1"
+                        onClick={() => document.getElementById("employee-photo-upload")?.click()}
+                      >
+                        <Camera className="h-3 w-3" /> Upload Photo
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
               <div>
@@ -410,6 +414,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                   onChange={(e) => setFormName(e.target.value)}
                   onBlur={() => formName !== profileEmployee.name && saveProfileField("name", formName)}
                   className="rounded-xl mt-1"
+                  disabled={readOnly}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -421,6 +426,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                     onChange={(e) => setFormEmail(e.target.value)}
                     onBlur={() => formEmail !== (profileEmployee.email || "") && saveProfileField("email", formEmail || null)}
                     className="rounded-xl mt-1"
+                    disabled={readOnly}
                   />
                 </div>
                 <div>
@@ -430,6 +436,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                     onChange={(e) => setFormPhone(e.target.value)}
                     onBlur={() => formPhone !== (profileEmployee.phone || "") && saveProfileField("phone", formPhone || null)}
                     className="rounded-xl mt-1"
+                    disabled={readOnly}
                   />
                 </div>
               </div>
@@ -441,6 +448,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                     setFormStatus(v);
                     saveProfileField("status", v);
                   }}
+                  disabled={readOnly}
                 >
                   <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -460,6 +468,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                       setFormPayType(v);
                       saveProfileField("pay_type", v);
                     }}
+                    disabled={readOnly}
                   >
                     <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -483,6 +492,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                       }}
                       className="rounded-xl mt-1"
                       placeholder="e.g. 100"
+                      disabled={readOnly}
                     />
                   </div>
                 )}
@@ -495,6 +505,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                     setFormClassification(v);
                     saveProfileField("worker_classification", v);
                   }}
+                  disabled={readOnly}
                 >
                   <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -511,6 +522,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                   onBlur={() => formNotes !== (profileEmployee.notes || "") && saveProfileField("notes", formNotes || null)}
                   className="rounded-xl mt-1 min-h-[80px]"
                   placeholder="Internal notes about this employee..."
+                  disabled={readOnly}
                 />
               </div>
               {!readOnly && profileEmployee.email && (
@@ -610,6 +622,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                 <label key={key} className="flex items-center gap-3 cursor-pointer group">
                   <Checkbox
                     checked={cl[key] || false}
+                    disabled={readOnly}
                     onCheckedChange={(checked) => {
                       const updated = { ...cl, [key]: !!checked };
                       setProfileEmployee({ ...profileEmployee, onboarding_checklist: updated });
@@ -635,24 +648,29 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                 {(profileEmployee.certifications || []).map((c) => (
                   <Badge key={c} variant="secondary" className="text-xs pl-2 pr-1 py-0.5 gap-1">
                     {c}
-                    <button onClick={() => removeCert(c)} className="hover:text-destructive transition-colors">
-                      <X className="h-3 w-3" />
+                    {!readOnly && (
+                      <button onClick={() => removeCert(c)} className="hover:text-destructive transition-colors">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
                     </button>
                   </Badge>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <Input
-                  value={newCert}
-                  onChange={(e) => setNewCert(e.target.value)}
-                  placeholder="Add certification..."
-                  className="rounded-xl text-sm"
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCert())}
-                />
-                <Button size="sm" variant="outline" onClick={addCert} disabled={!newCert.trim()} className="rounded-xl active:scale-[0.97] transition-transform">
-                  Add
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex gap-2">
+                  <Input
+                    value={newCert}
+                    onChange={(e) => setNewCert(e.target.value)}
+                    placeholder="Add certification..."
+                    className="rounded-xl text-sm"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCert())}
+                  />
+                  <Button size="sm" variant="outline" onClick={addCert} disabled={!newCert.trim()} className="rounded-xl active:scale-[0.97] transition-transform">
+                    Add
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
