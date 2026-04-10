@@ -27,7 +27,7 @@ interface Payslip {
   employees?: { name: string } | null;
 }
 
-export default function PayslipsSection() {
+export default function PayslipsSection({ readOnly }: { readOnly?: boolean }) {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +219,7 @@ export default function PayslipsSection() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" />Payslips</h3>
-        <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />Generate Payslip</Button>
+        {!readOnly && <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />Generate Payslip</Button>}
       </div>
 
       {showForm && (
@@ -273,7 +273,7 @@ export default function PayslipsSection() {
                   <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${p.status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>{p.status}</span>
                 </div>
                 <Button size="icon" variant="ghost" onClick={() => openPreview(p, false)} title="View"><Eye className="h-3.5 w-3.5" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => openPreview(p, true)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
+                {!readOnly && <Button size="icon" variant="ghost" onClick={() => openPreview(p, true)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>}
               </div>
             </div>
           ))}

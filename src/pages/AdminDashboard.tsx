@@ -27,6 +27,7 @@ import LeadsTab from "@/components/admin/LeadsTab";
 import PermissionsManager from "@/components/admin/PermissionsManager";
 import NotificationBell from "@/components/NotificationBell";
 import LowStockWidget from "@/components/admin/LowStockWidget";
+import ReadOnlyBanner from "@/components/admin/ReadOnlyBanner";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
 function AdminGate() {
@@ -42,27 +43,37 @@ function AdminGate() {
 function renderSection(section: string, canAccess: (s: string) => boolean, canEdit: (s: string) => boolean, isAdmin: boolean) {
   if (!canAccess(section)) return <AdminGate />;
   const editable = canEdit(section);
+  const readOnly = !editable;
 
-  switch (section) {
-    case "bookings": return <BookingsTab />;
-    case "clients": return <ClientsTab />;
-    case "jobs": return <JobsTab />;
-    case "leads": return <LeadsTab />;
-    case "perks": return <PerksTab />;
-    case "analytics": return <AnalyticsTab />;
-    case "team": return <TeamTab />;
-    case "hiring": return <HiringTab />;
-    case "services": return <ServicesManager />;
-    case "routes": return <RoutesTab />;
-    case "supplies": return <SuppliesTab />;
-    case "finance": return <FinanceTab />;
-    case "calendar": return <CalendarTab />;
-    case "time-off": return <TimeOffManager isAdmin={isAdmin} />;
-    case "emails": return <EmailsTab />;
-    case "photos": return <RecentUploads />;
-    case "permissions": return <PermissionsManager />;
-    default: return <BookingsTab />;
-  }
+  const content = (() => {
+    switch (section) {
+      case "bookings": return <BookingsTab />;
+      case "clients": return <ClientsTab />;
+      case "jobs": return <JobsTab readOnly={readOnly} />;
+      case "leads": return <LeadsTab />;
+      case "perks": return <PerksTab />;
+      case "analytics": return <AnalyticsTab />;
+      case "team": return <TeamTab readOnly={readOnly} />;
+      case "hiring": return <HiringTab />;
+      case "services": return <ServicesManager />;
+      case "routes": return <RoutesTab />;
+      case "supplies": return <SuppliesTab />;
+      case "finance": return <FinanceTab readOnly={readOnly} />;
+      case "calendar": return <CalendarTab />;
+      case "time-off": return <TimeOffManager isAdmin={isAdmin} />;
+      case "emails": return <EmailsTab />;
+      case "photos": return <RecentUploads />;
+      case "permissions": return <PermissionsManager />;
+      default: return <BookingsTab />;
+    }
+  })();
+
+  return (
+    <>
+      <ReadOnlyBanner readOnly={readOnly} />
+      {content}
+    </>
+  );
 }
 
 export default function AdminDashboard() {

@@ -4,7 +4,7 @@ import EstimatesSection from "./finance/EstimatesSection";
 import PayslipsSection from "./finance/PayslipsSection";
 import ExpensesSection from "./finance/ExpensesSection";
 
-export default function FinanceTab() {
+export default function FinanceTab({ readOnly }: { readOnly?: boolean }) {
   return (
     <Tabs defaultValue="invoices" className="space-y-4">
       <TabsList className="bg-card border border-border rounded-lg p-1 h-auto">
@@ -13,10 +13,10 @@ export default function FinanceTab() {
         <TabsTrigger value="payslips" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Payslips</TabsTrigger>
         <TabsTrigger value="expenses" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Expenses</TabsTrigger>
       </TabsList>
-      <TabsContent value="invoices"><InvoicesSection /></TabsContent>
-      <TabsContent value="estimates"><EstimatesSection /></TabsContent>
-      <TabsContent value="payslips"><PayslipsSection /></TabsContent>
-      <TabsContent value="expenses"><ExpensesSection /></TabsContent>
+      <TabsContent value="invoices"><InvoicesSection readOnly={readOnly} /></TabsContent>
+      <TabsContent value="estimates"><EstimatesSection readOnly={readOnly} /></TabsContent>
+      <TabsContent value="payslips"><PayslipsSection readOnly={readOnly} /></TabsContent>
+      <TabsContent value="expenses"><ExpensesSection readOnly={readOnly} /></TabsContent>
     </Tabs>
   );
 }

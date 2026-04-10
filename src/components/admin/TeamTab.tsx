@@ -95,7 +95,7 @@ const getOptionalEmployeeEmail = (value: string | null | undefined) => {
   return { success: true as const, email: parsed.data };
 };
 
-export default function TeamTab() {
+export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
   const { startImpersonation } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

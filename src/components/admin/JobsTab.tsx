@@ -83,7 +83,7 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
 
 const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
-export default function JobsTab() {
+export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
   const isDesktop = useIsDesktop();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -486,9 +486,11 @@ export default function JobsTab() {
               </span>
             )}
           </button>
-          <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg active:scale-[0.97]">
-            <Plus className="h-4 w-4 mr-1" /> New Job
-          </Button>
+          {!readOnly && (
+            <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg active:scale-[0.97]">
+              <Plus className="h-4 w-4 mr-1" /> New Job
+            </Button>
+          )}
         </div>
       </div>
 
