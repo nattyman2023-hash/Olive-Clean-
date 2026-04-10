@@ -1,70 +1,78 @@
 
 
-## Finance Role, Dashboard & Stripe Integration
+## Finance Dashboard Enhancements: Pay Types, Tips, Worker Classification & CSV Export
 
 ### Overview
-Add a new "finance" role, a dedicated Finance Dashboard at `/finance`, and connect Stripe payment data. The employee expense submission flow already exists — we just need to wire approved expenses into the payout calculation.
+Four interconnected changes to the employee pay system and finance dashboard: support for hourly vs. flat-rate pay, automatic Stripe tip tracking, contractor/W2 classification, and a payroll CSV export button.
 
 ---
 
-### 1. Database: Add Finance Role & Payout Tracking
+### 1. Database Changes (Single Migration)
 
-**Migration:**
-- Add `'finance'` to the `app_role` enum
-- Create `payout_records` table to track "Mark as Paid" actions:
-  - `id`, `employee_id`, `week_start`, `week_end`, `hours_worked`, `hourly_rate`, `base_pay`, `approved_expenses`, `total_payout`, `paid_at`, `paid_by`, `created_at`
-- Add RLS: admin and finance roles get full access to `payout_records`
-- Add RLS policies so finance role can SELECT on `employees`, `expenses`, `payslips`, `invoices`, `job_time_logs`, and `jobs` (read-only)
-- Add RLS so finance role can UPDATE expenses (for approve/reject)
+**Add columns to `employees` table:**
+- `pay_type TEXT NOT NULL DEFAULT 'hourly'` — either `'hourly'` or `'per_job'`
+- `fixed_job_rate NUMERIC` — the flat dollar amount when pay_type is `'per_job'`
+- `worker_classification TEXT NOT NULL DEFAULT 'w2'` — either `'w2'` or `'contractor'`
 
-### 2. Auth: Add Finance Role Detection
+**Add columns to `payout_records` table:**
+- `tips NUMERIC NOT NULL DEFAULT 0`
+- `pay_type TEXT NOT NULL DEFAULT 'hourly'`
 
-**File: `src/hooks/useAuth.tsx`**
-- Add `isFinance` boolean state
-- Add `has_role` check for `'finance'` alongside existing admin/staff/client checks
-- Expose `isFinance` in context
+**Add columns to `jobs` table:**
+- `tip_amount NUMERIC DEFAULT 0` — tip received for this specific job
 
-### 3. Finance Dashboard Page
+**RLS:** Existing policies on `employees`, `payout_records`, and `jobs` already cover admin/finance access. No new policies needed.
 
-**New file: `src/pages/FinanceDashboard.tsx`**
-- Route guard: only accessible to users with `finance` or `admin` role
-- Three tabs: **Payouts**, **Customer Payments**, **Expense Approvals**
+---
 
-**Payouts Tab:**
-- Table of all active employees
-- For each: name, verified clock-in hours (from `job_time_logs` clock_in/clock_out for the selected week), hourly rate (from latest payslip or a default), calculated pay
-- Include approved expenses for the week as a separate column added to total
-- "Mark as Paid" button → inserts into `payout_records` with timestamp
-- Already-paid rows show paid date with a green badge
+### 2. Admin Team Tab: Employee Pay Settings
 
-**Customer Payments Tab:**
-- Fetches recent Stripe payment intents via an edge function (to keep the Stripe secret key server-side)
-- Shows: customer name/email, amount, date, Stripe transaction ID, status
-- Failed payments highlighted in red
+**File: `src/components/admin/TeamTab.tsx`**
 
-**Expense Approvals Tab:**
-- Reuses the existing `ExpensesSection` component (already has approve/reject UI)
-- When approved, the expense amount is automatically included in the employee's payout calculation
+In the employee edit form, add:
+- **Pay Type** dropdown: "Hourly" or "Fixed Per Job"
+- **Fixed Rate** input (visible only when "Fixed Per Job" is selected)
+- **Worker Classification** toggle: "W2 / Staff" or "Contractor"
 
-### 4. Stripe Payments Edge Function
+These fields save to the new `employees` columns.
 
-**New file: `supabase/functions/list-stripe-payments/index.ts`**
-- Accepts optional `limit` and `starting_after` params
-- Uses `STRIPE_SECRET_KEY` (already configured) to call Stripe's payment intents API
-- Returns formatted list with customer details, amount, status, created date
-- CORS headers included
+---
 
-### 5. Routing & Navigation
+### 3. Stripe Tip Extraction
 
-**File: `src/App.tsx`**
-- Add lazy-loaded route for `/finance` → `FinanceDashboard`
+**File: `supabase/functions/stripe-webhook/index.ts`**
 
-**File: `src/components/SmartRedirect.tsx`**
-- Add finance role redirect: finance users go to `/finance` when opening the installed app
+When handling `checkout.session.completed`, also read the tip amount from `session.metadata.tip_amount` (if present) and save it to the `jobs.tip_amount` column using the `job_id` from metadata.
 
-### 6. Admin Panel: Restricted Access for Finance Role
+**File: `supabase/functions/list-stripe-payments/index.ts`**
 
-Finance users who also have admin access already see everything. No changes needed to the admin panel itself — the finance dashboard is a separate, focused view.
+Include `metadata` in the Stripe API response mapping so the finance dashboard can display tip amounts extracted from payment intents.
+
+---
+
+### 4. Finance Dashboard: Enhanced Payouts Tab
+
+**File: `src/pages/FinanceDashboard.tsx`**
+
+Update `PayoutsTab` to:
+- Fetch `pay_type`, `fixed_job_rate`, `worker_classification` from `employees`
+- For **hourly** employees: calculate as today (hours × rate)
+- For **per_job** employees: count completed jobs for the week, multiply by `fixed_job_rate`
+- Fetch `tip_amount` from completed `jobs` for the week and sum per employee
+- Add columns to the table: **Pay Method** (badge: "Hourly" or "Per Job"), **Tips**, and update **Total** to include tips
+- Show worker classification as a small badge (W2 / 1099) next to the employee name
+- Store `tips` and `pay_type` in `payout_records` when marking as paid
+
+---
+
+### 5. CSV Export Button
+
+**File: `src/pages/FinanceDashboard.tsx`**
+
+Add a "Download Payroll Report" button above the payouts table that:
+- Generates a CSV with columns: Employee Name, Classification, Pay Method, Hours Worked, Pay Rate, Base Pay, Tips, Expenses, Total Owed
+- Uses `Blob` + `URL.createObjectURL` for client-side download (no server needed)
+- Filename: `payroll_YYYY-MM-DD.csv`
 
 ---
 
@@ -72,10 +80,9 @@ Finance users who also have admin access already see everything. No changes need
 
 | File | Action |
 |------|--------|
-| Migration SQL | Add `finance` to enum, create `payout_records`, add RLS |
-| `src/hooks/useAuth.tsx` | Add `isFinance` role check |
-| `src/pages/FinanceDashboard.tsx` | Create — 3-tab dashboard |
-| `supabase/functions/list-stripe-payments/index.ts` | Create — Stripe API proxy |
-| `src/App.tsx` | Add `/finance` route |
-| `src/components/SmartRedirect.tsx` | Add finance redirect |
+| Migration SQL | Add `pay_type`, `fixed_job_rate`, `worker_classification` to employees; `tips`, `pay_type` to payout_records; `tip_amount` to jobs |
+| `src/components/admin/TeamTab.tsx` | Add pay type, fixed rate, and worker classification fields to employee edit form |
+| `supabase/functions/stripe-webhook/index.ts` | Save tip_amount from session metadata to jobs |
+| `supabase/functions/list-stripe-payments/index.ts` | Include tip metadata in response |
+| `src/pages/FinanceDashboard.tsx` | Enhanced payouts with pay method logic, tips column, classification badges, CSV export |
 
