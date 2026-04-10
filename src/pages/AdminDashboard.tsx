@@ -20,7 +20,7 @@ import SuppliesTab from "@/components/admin/SuppliesTab";
 import FinanceTab from "@/components/admin/FinanceTab";
 import CalendarTab from "@/components/admin/CalendarTab";
 import TimeOffManager from "@/components/admin/TimeOffManager";
-import EmailsTab from "@/components/admin/EmailsTab";
+import QuotesTab from "@/components/admin/QuotesTab";
 import RecentUploads from "@/components/admin/RecentUploads";
 import ServicesManager from "@/components/admin/ServicesManager";
 import LeadsTab from "@/components/admin/LeadsTab";
@@ -62,7 +62,7 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
       case "finance": return <FinanceTab readOnly={readOnly} />;
       case "calendar": return <CalendarTab />;
       case "time-off": return <TimeOffManager isAdmin={isAdmin} />;
-      case "emails": return <EmailsTab />;
+      case "quotes": return <QuotesTab readOnly={readOnly} />;
       case "photos": return <RecentUploads />;
       case "permissions": return <PermissionsManager />;
       default: return <BookingsTab readOnly={readOnly} />;
