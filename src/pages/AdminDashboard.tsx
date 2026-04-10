@@ -77,8 +77,8 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
 }
 
 export default function AdminDashboard() {
-  const { user, isAdmin, isStaff, isAdminAssistant, loading: authLoading, rolesLoading, signOut } = useAuth();
-  const { canAccess, canEdit, loading: permsLoading } = usePermissions();
+  const { user, isAdmin, isStaff, isAdminAssistant, isCleaner, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { canAccess, canEdit, allowedSections, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("bookings");
 
@@ -88,12 +88,13 @@ export default function AdminDashboard() {
     }
   }, [authLoading, user, navigate]);
 
+  // Allow access if user has any dashboard role or has any permissions
   useEffect(() => {
-    if (!authLoading && !rolesLoading && user && !isAdmin && !isStaff && !isAdminAssistant) {
+    if (!authLoading && !rolesLoading && !permsLoading && user && !isAdmin && !isStaff && !isAdminAssistant && !isCleaner && allowedSections.length === 0) {
       toast("You don't have access to this dashboard.");
       navigate("/");
     }
-  }, [authLoading, rolesLoading, user, isAdmin, isStaff, isAdminAssistant, navigate]);
+  }, [authLoading, rolesLoading, permsLoading, user, isAdmin, isStaff, isAdminAssistant, isCleaner, allowedSections, navigate]);
 
   if (authLoading || rolesLoading || permsLoading) {
     return (

@@ -1180,11 +1180,19 @@ function TeamAnnouncements() {
 
 function RoleAssignmentCard({ userId, employeeName }: { userId: string; employeeName: string }) {
   const queryClient = useQueryClient();
-  const ASSIGNABLE_ROLES: Array<{ value: string; label: string; description: string }> = [
-    { value: "staff", label: "Staff", description: "Access to employee dashboard and job tools" },
-    { value: "finance", label: "Finance", description: "Access to invoices, payslips, and payouts" },
-    { value: "admin_assistant", label: "Admin Assistant", description: "Limited admin access based on configured permissions" },
-  ];
+
+  // Fetch available roles from custom_roles table
+  const { data: availableRoles = [] } = useQuery({
+    queryKey: ["custom_roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_roles")
+        .select("name, description")
+        .order("created_at");
+      if (error) throw error;
+      return data as Array<{ name: string; description: string | null }>;
+    },
+  });
 
   const { data: currentRoles = [], isLoading } = useQuery({
     queryKey: ["user_roles", userId],
@@ -1227,15 +1235,15 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
         ) : (
-          ASSIGNABLE_ROLES.map((r) => (
-            <label key={r.value} className="flex items-start gap-3 cursor-pointer group">
+          availableRoles.map((r) => (
+            <label key={r.name} className="flex items-start gap-3 cursor-pointer group">
               <Checkbox
-                checked={currentRoles.includes(r.value as any)}
-                onCheckedChange={() => toggleRole(r.value)}
+                checked={currentRoles.includes(r.name as any)}
+                onCheckedChange={() => toggleRole(r.name)}
               />
               <div>
-                <span className="text-sm font-medium group-hover:text-foreground transition-colors">{r.label}</span>
-                <p className="text-xs text-muted-foreground">{r.description}</p>
+                <span className="text-sm font-medium group-hover:text-foreground transition-colors capitalize">{r.name.replace(/_/g, " ")}</span>
+                {r.description && <p className="text-xs text-muted-foreground">{r.description}</p>}
               </div>
             </label>
           ))
