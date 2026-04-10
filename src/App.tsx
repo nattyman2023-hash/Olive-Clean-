@@ -10,6 +10,7 @@ import ScrollToTop from "@/components/layout/ScrollToTop";
 import ChatWidget from "@/components/chat/ChatWidget";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import PageLoader from "@/components/PageLoader";
+import SmartRedirect from "@/components/SmartRedirect";
 import React, { Suspense } from "react";
 
 // Lazy-load all page components for code-splitting
@@ -47,6 +48,7 @@ const App = () => (
       <BrowserRouter>
         <ScrollToTop />
         <AuthProvider>
+          <SmartRedirect />
           <ImpersonationBar />
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
