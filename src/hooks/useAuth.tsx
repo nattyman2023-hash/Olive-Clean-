@@ -109,12 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-      const [adminRes, staffRes, clientRes, financeRes, assistantRes] = await Promise.all([
-          supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }),
-          supabase.rpc("has_role", { _user_id: user.id, _role: "staff" }),
-          supabase.rpc("has_role", { _user_id: user.id, _role: "client" as never }),
-          supabase.rpc("has_role", { _user_id: user.id, _role: "finance" as never }),
-          supabase.rpc("has_role", { _user_id: user.id, _role: "admin_assistant" as never }),
+      const [adminRes, staffRes, clientRes, financeRes, assistantRes, cleanerRes] = await Promise.all([
+          supabase.rpc("has_role", { _user_id: user.id, _role: "admin" as any }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "staff" as any }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "client" as any }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "finance" as any }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "admin_assistant" as any }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "cleaner" as any }),
         ]);
         if (cancelled) return;
         setIsAdmin(!!adminRes.data);
