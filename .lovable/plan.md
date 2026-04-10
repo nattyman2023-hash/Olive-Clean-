@@ -1,76 +1,48 @@
 
 
-## Add "Cleaner" Role & Custom Role Creation
+## Fix Role Assignment, Add "Preview as Role", and Populate Demo Data
 
-### Overview
-Add `cleaner` to the `app_role` enum, and introduce a system where admins can create entirely new roles beyond the hardcoded ones. Since Postgres enums can't be extended at runtime by app users, the approach is to replace the enum-based `role` column in `role_permissions` and `user_roles` with a plain `text` column, and add a `custom_roles` table to store admin-defined roles.
+### Problem Analysis
+
+1. **"Failed to add role" error**: Employees like Daniela Cruz and Maria Santos have fake `user_id` values that don't exist in `auth.users`. The `user_roles` table has a foreign key constraint (`user_roles_user_id_fkey`) referencing `auth.users(id)`, so inserts fail for these employees. The fix: show a better error message for employees without real auth accounts, and only allow role assignment for employees with valid auth accounts.
+
+2. **"Preview as Finance" feature**: The impersonation system already exists but is tied to specific users. Add a simpler "Preview as Role" button in the Permissions tab that lets admin temporarily view the dashboard as if they had a specific role's permissions — without needing to pick a user.
+
+3. **Demo data for Finance**: Populate `job_time_logs` with realistic clock-in/clock-out entries for employees with real auth accounts (Aisha, Siye, Tyler, Yonas) across the current and past weeks, so the Finance Dashboard payroll calculations have data to display.
 
 ### Changes
 
-#### 1. Database Migration
-- Add `cleaner` to `app_role` enum: `ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'cleaner';`
-- Create a `custom_roles` table for admin-defined roles:
-  ```sql
-  CREATE TABLE public.custom_roles (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name text NOT NULL UNIQUE,
-    description text,
-    created_at timestamptz NOT NULL DEFAULT now()
-  );
-  ALTER TABLE public.custom_roles ENABLE ROW LEVEL SECURITY;
-  -- Admin-only write, all authenticated can read
-  ```
-- Seed it with the built-in roles so they appear in the UI: staff, finance, admin_assistant, cleaner
+#### 1. Fix Role Assignment Error (TeamTab.tsx)
+- In `RoleAssignmentCard`, check if the employee's `user_id` exists in `auth.users` (use a query to `profiles` table as proxy — all real auth users have a profile via the trigger)
+- If no auth account exists, show a disabled state with message "This employee has no login account — roles can only be assigned to users with accounts"
+- Improve error toast to show the actual error message
 
-#### 2. Update `PermissionsManager.tsx`
-- Instead of hardcoded `CONFIGURABLE_ROLES`, fetch roles from `custom_roles` table
-- Dynamically render columns for each role in the permission matrix
-- Add a "Create Role" button with a dialog (name + description) that inserts into `custom_roles`
-- Add ability to delete custom roles (with confirmation)
+#### 2. Add "Preview as Role" Feature
+**File: `src/components/admin/PermissionsManager.tsx`**
+- Add an `Eye` icon button next to each role in the permissions matrix header
+- Clicking it triggers impersonation with a synthetic preview that overrides `usePermissions` to use that role's configured permissions
+- Simpler approach: use existing `startImpersonation` from `useAuth` + update `usePermissions` to respect impersonation by fetching permissions for the impersonated role instead of the real user
 
-#### 3. Update `RoleAssignmentCard` in `TeamTab.tsx`
-- Fetch available roles from `custom_roles` instead of hardcoded `ASSIGNABLE_ROLES`
-- Render checkboxes dynamically for all roles
-- Role toggle logic stays the same (insert/delete from `user_roles`)
+**File: `src/hooks/usePermissions.ts`**
+- When `impersonatedRole` is set, fetch permissions for that role from `role_permissions` instead of the user's actual roles
 
-#### 4. Update `useAuth.tsx`
-- Add `isCleaner` state resolved via `has_role` RPC (for any built-in gating)
+**File: `src/pages/AdminDashboard.tsx`**
+- When impersonating, hide the Admin badge and show the impersonation bar
+- Import and render `ImpersonationBar`
 
-#### 5. Adjust `role_permissions` and `user_roles` columns
-- Since `user_roles.role` and `role_permissions.role` use the `app_role` enum, new custom roles can't be stored there without altering the enum each time. Two options:
-  - **Option A**: Keep enum, add new values via migration each time (not dynamic)
-  - **Option B**: Change columns to `text` type for full flexibility
-
-Given the user wants dynamic role creation, **Option B** is the right path. The migration will:
-- Alter `user_roles.role` from `app_role` to `text`
-- Alter `role_permissions.role` from `app_role` to `text`
-- Keep the `has_role` function working by updating it to compare text
-- The `app_role` enum can remain for backward compatibility but won't constrain the columns
-
-### Technical Detail: Enum to Text Migration
-```sql
--- Convert columns to text
-ALTER TABLE public.user_roles ALTER COLUMN role TYPE text USING role::text;
-ALTER TABLE public.role_permissions ALTER COLUMN role TYPE text USING role::text;
-
--- Update has_role function to accept text
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role text)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = _role
-  )
-$$;
-```
+#### 3. Populate Demo Data (Database Insert)
+Insert job_time_logs for employees with real auth accounts:
+- ~20-30 clock-in/clock-out pairs across current and past 2 weeks
+- Varying hours (6-9 hour days) for realistic payroll data
+- Also ensure some jobs exist for these employees in the current period
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| Migration SQL | Add `cleaner` to enum, create `custom_roles` table, convert role columns to text, update `has_role` function |
-| `src/components/admin/PermissionsManager.tsx` | Fetch roles from `custom_roles`, add Create/Delete role UI |
-| `src/components/admin/TeamTab.tsx` | Fetch roles from `custom_roles` for dynamic assignment |
-| `src/hooks/useAuth.tsx` | Add `isCleaner` check |
-| `src/pages/AdminDashboard.tsx` | Allow cleaners to access dashboard if they have permissions |
+| `src/components/admin/TeamTab.tsx` | Fix RoleAssignmentCard to handle missing auth accounts gracefully |
+| `src/components/admin/PermissionsManager.tsx` | Add "Preview as Role" button per role |
+| `src/hooks/usePermissions.ts` | Respect impersonated role for permission lookups |
+| `src/pages/AdminDashboard.tsx` | Add ImpersonationBar, handle role preview mode |
+| Database insert | Populate `job_time_logs` with demo clock-in/out data |
 
