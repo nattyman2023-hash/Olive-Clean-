@@ -774,7 +774,8 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       <Card>
