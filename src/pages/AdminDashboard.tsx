@@ -121,8 +121,6 @@ export default function AdminDashboard() {
 
           <div className="flex-1 flex flex-col min-w-0">
             <ImpersonationBar />
-
-          <div className="flex-1 flex flex-col min-w-0">
             <header className="bg-card border-b border-border px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30">
               <div className="flex items-center gap-2">
                 <SidebarTrigger className="shrink-0" />
