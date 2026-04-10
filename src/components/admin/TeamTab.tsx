@@ -264,6 +264,9 @@ export default function TeamTab() {
     setFormStatus(emp.status);
     setFormNotes(emp.notes || "");
     setNewCert("");
+    setFormPayType(emp.pay_type || "hourly");
+    setFormFixedRate(emp.fixed_job_rate != null ? String(emp.fixed_job_rate) : "");
+    setFormClassification(emp.worker_classification || "w2");
   };
 
   const saveProfileField = (field: string, value: any) => {
