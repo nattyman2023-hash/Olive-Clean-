@@ -83,7 +83,7 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
 
 const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
-export default function JobsTab() {
+export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
   const isDesktop = useIsDesktop();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -486,9 +486,11 @@ export default function JobsTab() {
               </span>
             )}
           </button>
-          <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg active:scale-[0.97]">
-            <Plus className="h-4 w-4 mr-1" /> New Job
-          </Button>
+          {!readOnly && (
+            <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg active:scale-[0.97]">
+              <Plus className="h-4 w-4 mr-1" /> New Job
+            </Button>
+          )}
         </div>
       </div>
 
@@ -710,7 +712,7 @@ export default function JobsTab() {
       )}
 
       {/* Bulk Action Toolbar */}
-      {selectedJobs.size > 0 && (
+      {!readOnly && selectedJobs.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-xl px-6 py-3 flex items-center gap-4">
           <span className="text-sm font-medium text-foreground">{selectedJobs.size} selected</span>
           <div className="h-5 w-px bg-border" />

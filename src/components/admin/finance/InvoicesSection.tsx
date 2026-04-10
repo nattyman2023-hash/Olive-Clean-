@@ -31,7 +31,7 @@ const STATUS_STYLES: Record<string, string> = {
   overdue: "bg-red-100 text-red-800",
 };
 
-export default function InvoicesSection() {
+export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -113,7 +113,7 @@ export default function InvoicesSection() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Invoices</h3>
-        <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />New Invoice</Button>
+        {!readOnly && <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />New Invoice</Button>}
       </div>
 
       {showForm && <InvoiceForm type="invoice" onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); fetch_(); }} />}
@@ -133,11 +133,11 @@ export default function InvoicesSection() {
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>{inv.status}</span>
                 <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(false); setPreview(inv); }} className="h-7 w-7" title="View"><Eye className="h-3.5 w-3.5" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(true); setPreview(inv); }} className="h-7 w-7" title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
-                {inv.status === "draft" && (
+                {!readOnly && <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(true); setPreview(inv); }} className="h-7 w-7" title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>}
+                {!readOnly && inv.status === "draft" && (
                   <Button size="sm" variant="outline" onClick={() => updateStatus(inv.id, "sent")} className="text-xs h-7 rounded-lg">Send</Button>
                 )}
-                {inv.status === "sent" && (
+                {!readOnly && inv.status === "sent" && (
                   <Button size="sm" variant="outline" onClick={() => updateStatus(inv.id, "paid")} className="text-xs h-7 rounded-lg"><DollarSign className="h-3 w-3 mr-1" />Paid</Button>
                 )}
               </div>

@@ -24,7 +24,7 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: "bg-red-100 text-red-800",
 };
 
-export default function ExpensesSection() {
+export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -79,7 +79,7 @@ export default function ExpensesSection() {
                   <a href={exp.receipt_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80"><ExternalLink className="h-3.5 w-3.5" /></a>
                 )}
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[exp.status] || STATUS_STYLES.pending}`}>{exp.status}</span>
-                {exp.status === "pending" && (
+                {!readOnly && exp.status === "pending" && (
                   <>
                     <Button size="sm" variant="ghost" onClick={() => updateStatus(exp.id, "approved")} className="h-7 w-7 p-0 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></Button>
                     <Button size="sm" variant="ghost" onClick={() => updateStatus(exp.id, "rejected")} className="h-7 w-7 p-0 text-red-600"><XCircle className="h-4 w-4" /></Button>
