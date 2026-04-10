@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, DollarSign, CreditCard, Receipt, Download } from "lucide-react";
-import { format, startOfWeek, endOfWeek } from "date-fns";
+import { Loader2, DollarSign, CreditCard, Receipt, Download, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameWeek } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import ExpensesSection from "@/components/admin/finance/ExpensesSection";
 
 // ── Types ────────────────────────────────────────────────────
@@ -48,12 +51,13 @@ function PayoutsTab() {
   const [payouts, setPayouts] = useState<EmployeePayout[]>([]);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
+  const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 1 });
 
-  const fetchPayouts = async () => {
+  const fetchPayouts = useCallback(async () => {
     setLoading(true);
     try {
       const { data: employees } = await supabase
@@ -63,7 +67,6 @@ function PayoutsTab() {
 
       if (!employees?.length) { setPayouts([]); setLoading(false); return; }
 
-      // Get latest payslip hourly rates
       const { data: payslips } = await supabase
         .from("payslips")
         .select("employee_id, hourly_rate")
@@ -74,7 +77,6 @@ function PayoutsTab() {
         if (!rateMap[p.employee_id]) rateMap[p.employee_id] = Number(p.hourly_rate);
       });
 
-      // Get verified clock-in hours for the week
       const { data: timeLogs } = await supabase
         .from("job_time_logs")
         .select("employee_user_id, action_type, recorded_at")
@@ -96,7 +98,6 @@ function PayoutsTab() {
         }
       });
 
-      // Get completed jobs for the week (for per_job pay and tips)
       const { data: completedJobs } = await supabase
         .from("jobs")
         .select("id, assigned_to, tip_amount")
@@ -113,7 +114,6 @@ function PayoutsTab() {
         }
       });
 
-      // Get approved expenses for the week
       const { data: expenses } = await supabase
         .from("expenses")
         .select("employee_id, amount")
@@ -126,7 +126,6 @@ function PayoutsTab() {
         expenseMap[e.employee_id] = (expenseMap[e.employee_id] || 0) + Number(e.amount);
       });
 
-      // Check existing payout records for the week
       const { data: existing } = await supabase
         .from("payout_records")
         .select("employee_id, paid_at")
@@ -174,9 +173,9 @@ function PayoutsTab() {
       toast.error("Failed to load payouts.");
     }
     setLoading(false);
-  };
+  }, [weekStart.toISOString(), weekEnd.toISOString()]);
 
-  useEffect(() => { fetchPayouts(); }, []);
+  useEffect(() => { fetchPayouts(); }, [fetchPayouts]);
 
   const markPaid = async (p: EmployeePayout) => {
     if (!user) return;
@@ -219,26 +218,64 @@ function PayoutsTab() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `payroll_${format(now, "yyyy-MM-dd")}.csv`;
+    a.download = `payroll_${format(weekStart, "yyyy-MM-dd")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+  const goToPreviousWeek = () => setSelectedDate(subWeeks(selectedDate, 1));
+  const goToNextWeek = () => { if (!isCurrentWeek) setSelectedDate(addWeeks(selectedDate, 1)); };
+  const goToCurrentWeek = () => setSelectedDate(new Date());
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-xs text-muted-foreground">
-          Week of {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
-        </p>
-        {payouts.length > 0 && (
-          <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5 text-xs">
-            <Download className="h-3.5 w-3.5" /> Download Payroll Report
+      {/* Week picker */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPreviousWeek}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 min-w-[200px] justify-center">
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => { if (date) setSelectedDate(date); }}
+                disabled={(date) => date > new Date()}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToNextWeek} disabled={isCurrentWeek}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {!isCurrentWeek && (
+          <Button variant="ghost" size="sm" className="text-xs h-8" onClick={goToCurrentWeek}>
+            Current Week
           </Button>
         )}
+
+        <div className="ml-auto">
+          {payouts.length > 0 && (
+            <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5 text-xs h-8">
+              <Download className="h-3.5 w-3.5" /> Download Payroll Report
+            </Button>
+          )}
+        </div>
       </div>
-      {payouts.length === 0 ? (
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+      ) : payouts.length === 0 ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
           <p className="text-sm text-muted-foreground">No active employees found.</p>
         </div>
@@ -249,7 +286,7 @@ function PayoutsTab() {
               <TableRow>
                 <TableHead>Employee</TableHead>
                 <TableHead>Pay Method</TableHead>
-                <TableHead className="text-right">{/* Hours / Jobs */}Details</TableHead>
+                <TableHead className="text-right">Details</TableHead>
                 <TableHead className="text-right">Base Pay</TableHead>
                 <TableHead className="text-right">Tips</TableHead>
                 <TableHead className="text-right">Expenses</TableHead>
