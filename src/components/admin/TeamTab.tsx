@@ -159,10 +159,10 @@ export default function TeamTab() {
         worker_classification: emp.worker_classification || "w2",
       };
       if (emp.id) {
-        const { error } = await supabase.from("employees").update(payload).eq("id", emp.id);
+        const { error } = await supabase.from("employees").update(payload as any).eq("id", emp.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("employees").insert(payload);
+        const { error } = await supabase.from("employees").insert(payload as any);
         if (error) throw error;
       }
     },
