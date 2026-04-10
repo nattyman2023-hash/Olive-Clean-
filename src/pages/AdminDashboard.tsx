@@ -47,24 +47,24 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
 
   const content = (() => {
     switch (section) {
-      case "bookings": return <BookingsTab />;
-      case "clients": return <ClientsTab />;
+      case "bookings": return <BookingsTab readOnly={readOnly} />;
+      case "clients": return <ClientsTab readOnly={readOnly} />;
       case "jobs": return <JobsTab readOnly={readOnly} />;
       case "leads": return <LeadsTab />;
       case "perks": return <PerksTab />;
       case "analytics": return <AnalyticsTab />;
       case "team": return <TeamTab readOnly={readOnly} />;
-      case "hiring": return <HiringTab />;
+      case "hiring": return <HiringTab readOnly={readOnly} />;
       case "services": return <ServicesManager />;
       case "routes": return <RoutesTab />;
-      case "supplies": return <SuppliesTab />;
+      case "supplies": return <SuppliesTab readOnly={readOnly} />;
       case "finance": return <FinanceTab readOnly={readOnly} />;
       case "calendar": return <CalendarTab />;
       case "time-off": return <TimeOffManager isAdmin={isAdmin} />;
       case "emails": return <EmailsTab />;
       case "photos": return <RecentUploads />;
       case "permissions": return <PermissionsManager />;
-      default: return <BookingsTab />;
+      default: return <BookingsTab readOnly={readOnly} />;
     }
   })();
 

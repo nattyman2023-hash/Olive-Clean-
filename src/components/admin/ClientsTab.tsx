@@ -56,7 +56,7 @@ interface Client {
 
 const NEIGHBORHOODS = ["Belle Meade", "Brentwood", "Franklin", "Green Hills", "West Nashville"];
 
-export default function ClientsTab() {
+export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
   const isDesktop = useIsDesktop();
   const { user, startImpersonation } = useAuth();
   const navigate = useNavigate();
@@ -213,9 +213,11 @@ export default function ClientsTab() {
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
-          <Button size="sm" onClick={openNew} className="rounded-lg active:scale-[0.97]">
-            <Plus className="h-4 w-4 mr-1" /> Add Client
-          </Button>
+          {!readOnly && (
+            <Button size="sm" onClick={openNew} className="rounded-lg active:scale-[0.97]">
+              <Plus className="h-4 w-4 mr-1" /> Add Client
+            </Button>
+          )}
         </div>
       </div>
 
@@ -344,9 +346,11 @@ export default function ClientsTab() {
                     </Badge>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => openEdit(selected)} className="active:scale-95">
-                  Edit
-                </Button>
+                {!readOnly && (
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(selected)} className="active:scale-95">
+                    Edit
+                  </Button>
+                )}
               </div>
               <div className="space-y-3 text-sm">
                 {selected.email && (
@@ -401,21 +405,23 @@ export default function ClientsTab() {
                     <Eye className="h-4 w-4 mr-1" />
                     View Portal
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full rounded-lg active:scale-[0.97]"
-                    onClick={() => {
-                      setPasswordTarget({ userId: selected.client_user_id!, name: selected.name });
-                      setPasswordDialogOpen(true);
-                    }}
-                  >
-                    <KeyRound className="h-4 w-4 mr-1" />
-                    Set Password
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full rounded-lg active:scale-[0.97]"
+                      onClick={() => {
+                        setPasswordTarget({ userId: selected.client_user_id!, name: selected.name });
+                        setPasswordDialogOpen(true);
+                      }}
+                    >
+                      <KeyRound className="h-4 w-4 mr-1" />
+                      Set Password
+                    </Button>
+                  )}
                 </div>
               )}
-              {!selected.client_user_id && selected.email && (
+              {!readOnly && !selected.client_user_id && selected.email && (
                 <div className="border-t border-border pt-4">
                   <Button
                     size="sm"
@@ -444,7 +450,7 @@ export default function ClientsTab() {
                   </Button>
                 </div>
               )}
-              <div className="border-t border-border pt-4">
+              {!readOnly && (<div className="border-t border-border pt-4">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
@@ -486,7 +492,7 @@ export default function ClientsTab() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </div>
+              </div>)}
             </div>
           ) : null;
 

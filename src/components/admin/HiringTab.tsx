@@ -45,7 +45,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; classNam
 
 const STATUSES = ["all", "applied", "screening", "interview", "hired", "rejected"];
 
-export default function HiringTab() {
+export default function HiringTab({ readOnly }: { readOnly?: boolean }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -166,7 +166,7 @@ export default function HiringTab() {
   return (
     <div>
       {/* Job Postings Management */}
-      <JobPostingsSection />
+      <JobPostingsSection readOnly={readOnly} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -203,12 +203,14 @@ export default function HiringTab() {
               {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
-          <AddApplicantDialog
-            open={addOpen}
-            onOpenChange={setAddOpen}
-            onSubmit={(data) => addApplicantMutation.mutate(data)}
-            loading={addApplicantMutation.isPending}
-          />
+          {!readOnly && (
+            <AddApplicantDialog
+              open={addOpen}
+              onOpenChange={setAddOpen}
+              onSubmit={(data) => addApplicantMutation.mutate(data)}
+              loading={addApplicantMutation.isPending}
+            />
+          )}
         </div>
       </div>
 
@@ -304,20 +306,23 @@ export default function HiringTab() {
                   onChange={(e) => setNoteText(e.target.value)}
                   placeholder="Add screening notes..."
                   className="rounded-lg text-sm min-h-[80px]"
+                  disabled={readOnly}
                 />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2 rounded-lg active:scale-[0.97]"
-                  disabled={updateNotesMutation.isPending}
-                  onClick={() => updateNotesMutation.mutate({ id: selected.id, notes: noteText })}
-                >
-                  Save Notes
-                </Button>
+                {!readOnly && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 rounded-lg active:scale-[0.97]"
+                    disabled={updateNotesMutation.isPending}
+                    onClick={() => updateNotesMutation.mutate({ id: selected.id, notes: noteText })}
+                  >
+                    Save Notes
+                  </Button>
+                )}
               </div>
 
               {/* Status actions */}
-              <div className="border-t border-border pt-4">
+              {!readOnly && (<div className="border-t border-border pt-4">
                 <p className="text-xs text-muted-foreground mb-2">Update Status</p>
                 <div className="grid grid-cols-2 gap-2">
                   {["applied", "screening", "interview", "rejected"].map((s) => {
@@ -334,10 +339,10 @@ export default function HiringTab() {
                     );
                   })}
                 </div>
-              </div>
+              </div>)}
 
               {/* Move to Team */}
-              {selected.status === "interview" && (
+              {!readOnly && selected.status === "interview" && (
                 <div className="border-t border-border pt-4">
                   <Button
                     className="w-full rounded-lg active:scale-[0.97]"
@@ -415,7 +420,7 @@ function AddApplicantDialog({ open, onOpenChange, onSubmit, loading }: {
   );
 }
 
-function JobPostingsSection() {
+function JobPostingsSection({ readOnly }: { readOnly?: boolean }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -464,7 +469,7 @@ function JobPostingsSection() {
     <div className="mb-10">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-foreground">Job Postings</h3>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        {!readOnly && (<Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />New Posting</Button>
           </DialogTrigger>
@@ -484,7 +489,7 @@ function JobPostingsSection() {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
+        </Dialog>)}
       </div>
       {postings.length === 0 ? (
         <p className="text-sm text-muted-foreground bg-card rounded-xl border border-border p-6 text-center">No job postings yet.</p>
@@ -496,9 +501,11 @@ function JobPostingsSection() {
                 <p className="text-sm font-medium text-foreground">{p.title}</p>
                 <p className="text-xs text-muted-foreground">{p.type} · {p.location}</p>
               </div>
-              <Button size="sm" variant={p.status === "open" ? "outline" : "default"} className="rounded-lg text-xs" onClick={() => toggleMutation.mutate({ id: p.id, status: p.status })}>
-                {p.status === "open" ? "Close" : "Reopen"}
-              </Button>
+              {!readOnly && (
+                <Button size="sm" variant={p.status === "open" ? "outline" : "default"} className="rounded-lg text-xs" onClick={() => toggleMutation.mutate({ id: p.id, status: p.status })}>
+                  {p.status === "open" ? "Close" : "Reopen"}
+                </Button>
+              )}
             </div>
           ))}
         </div>
