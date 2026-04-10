@@ -96,7 +96,7 @@ const getOptionalEmployeeEmail = (value: string | null | undefined) => {
 };
 
 export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
-  const { startImpersonation } = useAuth();
+  const { startImpersonation, isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -605,6 +605,11 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
               )}
             </CardContent>
           </Card>
+
+          {/* Role Assignment (admin-only, not in read-only) */}
+          {isAdmin && !readOnly && (
+            <RoleAssignmentCard userId={profileEmployee.user_id} employeeName={profileEmployee.name} />
+          )}
 
           {/* Onboarding Checklist */}
           <Card>
