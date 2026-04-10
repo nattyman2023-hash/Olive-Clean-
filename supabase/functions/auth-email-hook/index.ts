@@ -36,7 +36,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "olive-sanctuary-stack"
+const SITE_NAME = "Olive Clean"
 const SENDER_DOMAIN = "notify.oliveclean.co"
 const ROOT_DOMAIN = "oliveclean.co"
 const FROM_DOMAIN = "oliveclean.co" // Domain shown in From address (may be root or sender subdomain)
