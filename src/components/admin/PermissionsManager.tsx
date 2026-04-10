@@ -37,12 +37,18 @@ interface CellState { view: boolean; edit: boolean }
 
 export default function PermissionsManager() {
   const queryClient = useQueryClient();
+  const { startImpersonation } = useAuth();
   const [matrix, setMatrix] = useState<Record<string, Record<string, CellState>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+
+  const handlePreviewRole = (roleName: string) => {
+    startImpersonation("__role_preview__", roleName, roleName.replace(/_/g, " "));
+    toast.info(`Previewing dashboard as "${roleName.replace(/_/g, " ")}" role`);
+  };
 
   // Fetch custom roles
   const { data: roles = [], isLoading: rolesLoading, refetch: refetchRoles } = useQuery({
