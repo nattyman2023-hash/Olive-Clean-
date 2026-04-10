@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Loader2, X, DollarSign, Printer, Pencil, Eye, Save } from "lucide-react";
+import { Plus, Loader2, X, DollarSign, Printer, Pencil, Eye, Save, Send } from "lucide-react";
 import { format } from "date-fns";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
@@ -52,6 +52,7 @@ export default function PayslipsSection({ readOnly }: { readOnly?: boolean }) {
   const [notes, setNotes] = useState("");
   const [calcHours, setCalcHours] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("employees").select("id, name, user_id").eq("status", "active").order("name").then(({ data }) => setEmployees(data || []));
