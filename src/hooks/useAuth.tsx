@@ -11,6 +11,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isStaff: boolean;
   isClient: boolean;
+  isFinance: boolean;
   signOut: () => Promise<void>;
   // Impersonation
   impersonatedUserId: string | null;
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isStaff: false,
   isClient: false,
+  isFinance: false,
   signOut: async () => {},
   impersonatedUserId: null,
   impersonatedRole: null,
@@ -46,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isFinance, setIsFinance] = useState(false);
   const resolvedUserIdRef = useRef<string | null>(null);
 
   // Impersonation state
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAdmin(false);
         setIsStaff(false);
         setIsClient(false);
+        setIsFinance(false);
         setRolesLoading(false);
         // Clear impersonation on logout
         setImpersonatedUserId(null);
@@ -101,15 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const [adminRes, staffRes, clientRes] = await Promise.all([
+      const [adminRes, staffRes, clientRes, financeRes] = await Promise.all([
           supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }),
           supabase.rpc("has_role", { _user_id: user.id, _role: "staff" }),
           supabase.rpc("has_role", { _user_id: user.id, _role: "client" as never }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "finance" as never }),
         ]);
         if (cancelled) return;
         setIsAdmin(!!adminRes.data);
         setIsStaff(!!staffRes.data);
         setIsClient(!!clientRes.data);
+        setIsFinance(!!financeRes.data);
         resolvedUserIdRef.current = user.id;
       } catch {
         // roles stay false on failure
@@ -130,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, loading, rolesLoading, isAdmin, isStaff, isClient, signOut,
+      user, session, loading, rolesLoading, isAdmin, isStaff, isClient, isFinance, signOut,
       impersonatedUserId, impersonatedRole, impersonatedName,
       isImpersonating: !!impersonatedUserId,
       startImpersonation, stopImpersonation,
