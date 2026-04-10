@@ -421,6 +421,8 @@ export type Database = {
       }
       estimates: {
         Row: {
+          approval_token: string | null
+          approved_at: string | null
           client_id: string
           converted_invoice_id: string | null
           created_at: string
@@ -428,14 +430,20 @@ export type Database = {
           id: string
           items: Json
           notes: string | null
+          scheduled_at: string | null
+          sent_at: string | null
           status: string
           subtotal: number
           tax_amount: number
           tax_rate: number
           total: number
           valid_until: string | null
+          view_count: number
+          viewed_at: string | null
         }
         Insert: {
+          approval_token?: string | null
+          approved_at?: string | null
           client_id: string
           converted_invoice_id?: string | null
           created_at?: string
@@ -443,14 +451,20 @@ export type Database = {
           id?: string
           items?: Json
           notes?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
           status?: string
           subtotal?: number
           tax_amount?: number
           tax_rate?: number
           total?: number
           valid_until?: string | null
+          view_count?: number
+          viewed_at?: string | null
         }
         Update: {
+          approval_token?: string | null
+          approved_at?: string | null
           client_id?: string
           converted_invoice_id?: string | null
           created_at?: string
@@ -458,12 +472,16 @@ export type Database = {
           id?: string
           items?: Json
           notes?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
           status?: string
           subtotal?: number
           tax_amount?: number
           tax_rate?: number
           total?: number
           valid_until?: string | null
+          view_count?: number
+          viewed_at?: string | null
         }
         Relationships: [
           {
