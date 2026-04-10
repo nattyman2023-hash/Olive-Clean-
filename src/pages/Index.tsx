@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 import ServicesSection from "@/components/ServicesSection";
 import WhyUsSection from "@/components/WhyUsSection";
 import TimeSavedCalculator from "@/components/TimeSavedCalculator";
@@ -63,6 +64,7 @@ const Index = () => {
         jsonLd={[localBusinessSchema, webSiteSchema]}
       />
       <Navbar />
+      <PWAInstallBanner mode="banner" />
       <HeroSection />
       <ServicesSection />
       <WhyUsSection />
