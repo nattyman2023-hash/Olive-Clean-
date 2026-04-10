@@ -391,6 +391,8 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
                   <p className="text-sm text-foreground">{selected.notes}</p>
                 </div>
               )}
+              {/* Quotes history */}
+              <ClientQuotesSection clientId={selected.id} />
               {selected.client_user_id && (
                 <div className="border-t border-border pt-4 space-y-2">
                   <Button
