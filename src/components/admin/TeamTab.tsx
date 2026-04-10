@@ -721,12 +721,13 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
             </SelectContent>
           </Select>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full active:scale-[0.97] transition-transform" onClick={openAddDialog}>
-              <Plus className="h-4 w-4 mr-1" /> Add Employee
-            </Button>
-          </DialogTrigger>
+        {!readOnly && (
+          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="rounded-full active:scale-[0.97] transition-transform" onClick={openAddDialog}>
+                <Plus className="h-4 w-4 mr-1" /> Add Employee
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Add Employee</DialogTitle>
