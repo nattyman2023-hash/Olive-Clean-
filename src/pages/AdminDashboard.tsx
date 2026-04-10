@@ -116,8 +116,11 @@ export default function AdminDashboard() {
             activeSection={activeSection}
             onSectionChange={setActiveSection}
             canAccess={canAccess}
-            isAdmin={isAdmin}
+            isAdmin={isImpersonating ? false : isAdmin}
           />
+
+          <div className="flex-1 flex flex-col min-w-0">
+            <ImpersonationBar />
 
           <div className="flex-1 flex flex-col min-w-0">
             <header className="bg-card border-b border-border px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30">
