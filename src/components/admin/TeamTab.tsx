@@ -1183,6 +1183,7 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
   const ASSIGNABLE_ROLES: Array<{ value: string; label: string; description: string }> = [
     { value: "staff", label: "Staff", description: "Access to employee dashboard and job tools" },
     { value: "finance", label: "Finance", description: "Access to invoices, payslips, and payouts" },
+    { value: "admin_assistant", label: "Admin Assistant", description: "Limited admin access based on configured permissions" },
   ];
 
   const { data: currentRoles = [], isLoading } = useQuery({

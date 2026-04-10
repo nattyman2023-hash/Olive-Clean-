@@ -16,7 +16,7 @@ const ALL_SECTIONS = [
   "emails", "photos", "permissions",
 ] as const;
 
-const CONFIGURABLE_ROLES = ["staff", "finance"] as const;
+const CONFIGURABLE_ROLES = ["staff", "finance", "admin_assistant"] as const;
 type ConfigRole = (typeof CONFIGURABLE_ROLES)[number];
 
 interface CellState { view: boolean; edit: boolean }
