@@ -5,6 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useIsDesktop } from "@/hooks/use-mobile";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,6 +84,7 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
 const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
 export default function JobsTab() {
+  const isDesktop = useIsDesktop();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
@@ -656,24 +665,47 @@ export default function JobsTab() {
             )}
           </div>
 
-          {/* Detail */}
-          <div className="lg:col-span-1">
-            {selected ? (
-              <JobDetailPanel
-                job={selected}
-                employees={employees}
-                onStatusChange={updateJobStatus}
-                onReassign={reassignJob}
-                onLogDuration={logDuration}
-                getInitials={getInitials}
-              />
-            ) : (
-              <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
-                <Briefcase className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Select a job to view details</p>
-              </div>
-            )}
-          </div>
+          {/* Detail — desktop inline, mobile/tablet drawer */}
+          {isDesktop ? (
+            <div className="lg:col-span-1">
+              {selected ? (
+                <JobDetailPanel
+                  job={selected}
+                  employees={employees}
+                  onStatusChange={updateJobStatus}
+                  onReassign={reassignJob}
+                  onLogDuration={logDuration}
+                  getInitials={getInitials}
+                />
+              ) : (
+                <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
+                  <Briefcase className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Select a job to view details</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Drawer open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+              <DrawerContent className="max-h-[85vh] overflow-y-auto px-4 pb-6">
+                <DrawerHeader className="text-left">
+                  <DrawerTitle>{selected?.clients?.name || "Job Details"}</DrawerTitle>
+                  <DrawerDescription>
+                    {selected?.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || ""}
+                  </DrawerDescription>
+                </DrawerHeader>
+                {selected && (
+                  <JobDetailPanel
+                    job={selected}
+                    employees={employees}
+                    onStatusChange={updateJobStatus}
+                    onReassign={reassignJob}
+                    onLogDuration={logDuration}
+                    getInitials={getInitials}
+                  />
+                )}
+              </DrawerContent>
+            </Drawer>
+          )}
         </div>
       )}
 

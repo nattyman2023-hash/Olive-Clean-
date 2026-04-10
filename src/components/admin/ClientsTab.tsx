@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useIsDesktop } from "@/hooks/use-mobile";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
@@ -49,6 +57,7 @@ interface Client {
 const NEIGHBORHOODS = ["Belle Meade", "Brentwood", "Franklin", "Green Hills", "West Nashville"];
 
 export default function ClientsTab() {
+  const isDesktop = useIsDesktop();
   const { user, startImpersonation } = useAuth();
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
@@ -321,10 +330,10 @@ export default function ClientsTab() {
           )}
         </div>
 
-        {/* Detail Panel */}
-        <div className="lg:col-span-1">
-          {selected ? (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
+        {/* Detail Panel — desktop inline, mobile/tablet drawer */}
+        {(() => {
+          const detailContent = selected ? (
+            <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5 lg:border lg:shadow-sm max-lg:border-0 max-lg:shadow-none">
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">{selected.name}</h2>
@@ -479,13 +488,29 @@ export default function ClientsTab() {
                 </AlertDialog>
               </div>
             </div>
-          ) : (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
-              <User className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Select a client to view details</p>
+          ) : null;
+
+          return isDesktop ? (
+            <div className="lg:col-span-1">
+              {detailContent || (
+                <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
+                  <User className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Select a client to view details</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          ) : (
+            <Drawer open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+              <DrawerContent className="max-h-[85vh] overflow-y-auto px-4 pb-6">
+                <DrawerHeader className="text-left">
+                  <DrawerTitle>{selected?.name || "Client Details"}</DrawerTitle>
+                  <DrawerDescription>{selected?.neighborhood || "Client information"}</DrawerDescription>
+                </DrawerHeader>
+                {detailContent}
+              </DrawerContent>
+            </Drawer>
+          );
+        })()}
       </div>
       {passwordTarget && (
         <SetPasswordDialog
