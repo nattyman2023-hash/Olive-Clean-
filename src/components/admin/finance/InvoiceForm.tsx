@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, X } from "lucide-react";
+import { Plus, Trash2, Loader2, X, Zap } from "lucide-react";
 
 interface LineItem {
   description: string;
@@ -29,6 +29,7 @@ interface InvoiceFormProps {
 
 export default function InvoiceForm({ type, onClose, onSaved, initial }: InvoiceFormProps) {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [services, setServices] = useState<{ id: string; name: string; description: string | null; default_price: number | null }[]>([]);
   const [clientId, setClientId] = useState(initial?.client_id || "");
   const [items, setItems] = useState<LineItem[]>(initial?.items || [{ description: "", qty: 1, rate: 0 }]);
   const [taxRate, setTaxRate] = useState(initial?.tax_rate?.toString() || "0");
@@ -39,6 +40,7 @@ export default function InvoiceForm({ type, onClose, onSaved, initial }: Invoice
 
   useEffect(() => {
     supabase.from("clients").select("id, name").order("name").then(({ data }) => setClients(data || []));
+    supabase.from("service_templates").select("id, name, description, default_price").eq("is_active", true).order("name").then(({ data }) => setServices(data || []));
   }, []);
 
   const subtotal = items.reduce((s, i) => s + i.qty * i.rate, 0);
@@ -108,7 +110,29 @@ export default function InvoiceForm({ type, onClose, onSaved, initial }: Invoice
 
       {/* Line items */}
       <div>
-        <p className="text-xs text-muted-foreground mb-2">Line Items</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-muted-foreground">Line Items</p>
+          {type === "estimate" && services.length > 0 && (
+            <select
+              onChange={(e) => {
+                const svc = services.find(s => s.id === e.target.value);
+                if (svc) {
+                  setItems([...items, { description: svc.name + (svc.description ? ` — ${svc.description}` : ""), qty: 1, rate: svc.default_price || 0 }]);
+                }
+                e.target.value = "";
+              }}
+              className="px-2 py-1 rounded-lg text-xs bg-background border border-border text-foreground"
+              defaultValue=""
+            >
+              <option value="" disabled>
+                <Zap className="inline h-3 w-3" /> Add from Services
+              </option>
+              {services.map(s => (
+                <option key={s.id} value={s.id}>{s.name} {s.default_price ? `— $${s.default_price}` : ""}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <div className="space-y-2">
           {items.map((item, i) => (
             <div key={i} className="grid grid-cols-[1fr_80px_100px_32px] gap-2 items-center">
