@@ -105,7 +105,15 @@ export default function PayslipsSection({ readOnly }: { readOnly?: boolean }) {
     fetchPayslips();
   };
 
-  const openPreview = (p: Payslip, inEditMode: boolean) => {
+  const sendPayslip = async (id: string) => {
+    setSending(id);
+    const { error } = await supabase.from("payslips").update({ status: "sent" }).eq("id", id);
+    setSending(null);
+    if (error) { toast.error("Failed to send payslip."); return; }
+    toast.success("Payslip marked as sent.");
+    fetchPayslips();
+  };
+
     setPreview(p);
     setEditMode(inEditMode);
     if (inEditMode) {
