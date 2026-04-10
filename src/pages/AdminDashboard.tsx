@@ -78,7 +78,7 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
 }
 
 export default function AdminDashboard() {
-  const { user, isAdmin, isStaff, isAdminAssistant, isCleaner, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isAdmin, isStaff, isAdminAssistant, isCleaner, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedRole } = useAuth();
   const { canAccess, canEdit, allowedSections, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("bookings");
