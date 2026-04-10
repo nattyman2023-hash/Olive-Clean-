@@ -42,6 +42,9 @@ interface Employee {
   hired_at: string;
   notes: string | null;
   photo_url: string | null;
+  pay_type: string;
+  fixed_job_rate: number | null;
+  worker_classification: string;
 }
 
 interface PerformanceRecord {
