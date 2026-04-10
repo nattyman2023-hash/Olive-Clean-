@@ -1,48 +1,70 @@
 
 
-## Read-Only Badge & canEdit Wiring
+## Enhanced RBAC: Read-Only Forms, Remaining Tabs, and Role Assignment UI
 
 ### Overview
-Add a visual "Read-only" banner when users have View but not Edit access, and wire up `canEdit` to Finance, Team, and Jobs tabs to hide/disable mutation buttons.
+Three workstreams: (1) disable form inputs in TeamTab's employee profile when read-only, (2) wire `readOnly` to BookingsTab, ClientsTab, SuppliesTab, HiringTab, and remaining tabs, (3) add a Role Assignment section so admins can assign roles (staff, finance, etc.) to users.
 
-### Changes
+---
 
-#### 1. Read-Only Banner Component
-**File: `src/components/admin/ReadOnlyBanner.tsx`** (new)
-- Simple component: shows a banner with Lock icon + "Read-only — you have view access to this section" when `readOnly` is true
-- Returns `null` when `readOnly` is false
+### 1. Employee Profile Detail — Disabled Inputs in Read-Only Mode
 
-#### 2. Update `renderSection` in AdminDashboard
-**File: `src/pages/AdminDashboard.tsx`**
-- Wrap rendered sections with `<ReadOnlyBanner readOnly={!editable} />` above each tab
-- Pass `readOnly={!editable}` prop to `JobsTab`, `TeamTab`, and `FinanceTab`
-
-#### 3. Wire up JobsTab
-**File: `src/components/admin/JobsTab.tsx`**
-- Accept `readOnly?: boolean` prop
-- When `readOnly`: hide "Add Job" button, hide bulk delete button, disable status change dropdowns, hide delete actions in detail panel
-
-#### 4. Wire up TeamTab
 **File: `src/components/admin/TeamTab.tsx`**
-- Accept `readOnly?: boolean` prop
-- When `readOnly`: hide "Add Employee" button, hide "Invite" button, disable save/update in employee detail form, hide delete actions
 
-#### 5. Wire up FinanceTab
-**File: `src/components/admin/FinanceTab.tsx`**
-- Accept `readOnly?: boolean` prop and pass it down to `InvoicesSection`, `EstimatesSection`, `PayslipsSection`, `ExpensesSection`
-- Each sub-section hides "Create" / "Add" / "Delete" buttons when `readOnly`
+When `readOnly` is true, all form fields in the profile detail view become disabled:
+- All `<Input>` fields get `disabled={readOnly}`
+- All `<Select>` components get `disabled={readOnly}`
+- `<Textarea>` gets `disabled={readOnly}`
+- Onboarding checklist checkboxes get `disabled={readOnly}`
+- Certification add/remove buttons hidden when `readOnly`
+- Photo upload button hidden when `readOnly`
+
+### 2. Wire `readOnly` to Remaining Tabs
+
+Each tab accepts `readOnly?: boolean` and hides mutation buttons when true.
+
+**`src/components/admin/BookingsTab.tsx`**
+- Accept `readOnly` prop
+- Hide status change buttons ("Confirm", "Complete", "Cancel") and "Invite to Portal" button when `readOnly`
+
+**`src/components/admin/ClientsTab.tsx`**
+- Accept `readOnly` prop
+- Hide "Add Client" button, "Delete" action, "Send Invite", "Set Password" when `readOnly`
+- Disable form fields in detail view when `readOnly`
+
+**`src/components/admin/SuppliesTab.tsx`**
+- Accept `readOnly` prop
+- Hide "Add Item", "Log Usage", "Restock" buttons and supply request approval actions when `readOnly`
+
+**`src/components/admin/HiringTab.tsx`**
+- Accept `readOnly` prop
+- Hide "Add Posting" button, status change actions, "Hire" button, notes editing when `readOnly`
+
+**`src/pages/AdminDashboard.tsx`**
+- Update `renderSection` to pass `readOnly` to BookingsTab, ClientsTab, SuppliesTab, HiringTab
+
+### 3. Role Assignment UI for Admins
+
+**File: `src/components/admin/TeamTab.tsx`** (within employee profile detail)
+
+Add a "Roles" section in the employee profile card (admin-only, never shown when `readOnly`):
+- Fetch current roles from `user_roles` for that employee's `user_id`
+- Show checkboxes for assignable roles: `staff`, `finance`
+- Admin can toggle roles on/off — inserts or deletes from `user_roles`
+- This lets admins promote a staff member to also have the `finance` role
+
+No new RLS changes needed — `user_roles` already has admin-only write access via the existing `has_role` check pattern.
+
+---
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/admin/ReadOnlyBanner.tsx` | **Create** — lock icon + "Read-only" text banner |
-| `src/pages/AdminDashboard.tsx` | Show banner + pass `readOnly` prop to tabs |
-| `src/components/admin/JobsTab.tsx` | Accept `readOnly`, hide mutation buttons |
-| `src/components/admin/TeamTab.tsx` | Accept `readOnly`, hide mutation buttons |
-| `src/components/admin/FinanceTab.tsx` | Accept `readOnly`, pass down to sub-sections |
-| `src/components/admin/finance/InvoicesSection.tsx` | Accept `readOnly`, hide create/delete |
-| `src/components/admin/finance/EstimatesSection.tsx` | Accept `readOnly`, hide create/delete |
-| `src/components/admin/finance/PayslipsSection.tsx` | Accept `readOnly`, hide create/delete |
-| `src/components/admin/finance/ExpensesSection.tsx` | Accept `readOnly`, hide create/delete |
+| `src/components/admin/TeamTab.tsx` | Disable all form fields when `readOnly`; add role assignment checkboxes |
+| `src/components/admin/BookingsTab.tsx` | Accept `readOnly`, hide mutation buttons |
+| `src/components/admin/ClientsTab.tsx` | Accept `readOnly`, hide mutation buttons, disable forms |
+| `src/components/admin/SuppliesTab.tsx` | Accept `readOnly`, hide mutation buttons |
+| `src/components/admin/HiringTab.tsx` | Accept `readOnly`, hide mutation buttons |
+| `src/pages/AdminDashboard.tsx` | Pass `readOnly` to all remaining tabs |
 
