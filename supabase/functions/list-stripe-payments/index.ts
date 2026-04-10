@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
       created: pi.created,
       customer_name: pi.customer?.name || null,
       customer_email: pi.customer?.email || null,
+      tip_amount: pi.metadata?.tip_amount ? parseFloat(pi.metadata.tip_amount) : null,
     }));
 
     return new Response(
