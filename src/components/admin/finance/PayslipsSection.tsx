@@ -270,9 +270,18 @@ export default function PayslipsSection({ readOnly }: { readOnly?: boolean }) {
               <div className="flex items-center gap-2">
                 <div className="text-right mr-2">
                   <p className="font-bold text-sm text-foreground">${Number(p.net_pay).toFixed(2)}</p>
-                  <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${p.status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>{p.status}</span>
+                  <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${
+                    p.status === "paid" ? "bg-emerald-100 text-emerald-800" :
+                    p.status === "sent" ? "bg-blue-100 text-blue-800" :
+                    "bg-muted text-muted-foreground"
+                  }`}>{p.status}</span>
                 </div>
                 <Button size="icon" variant="ghost" onClick={() => openPreview(p, false)} title="View"><Eye className="h-3.5 w-3.5" /></Button>
+                {!readOnly && p.status === "draft" && (
+                  <Button size="icon" variant="ghost" onClick={() => sendPayslip(p.id)} title="Send" disabled={sending === p.id}>
+                    {sending === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  </Button>
+                )}
                 {!readOnly && <Button size="icon" variant="ghost" onClick={() => openPreview(p, true)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>}
               </div>
             </div>
