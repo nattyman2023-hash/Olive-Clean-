@@ -1,4 +1,12 @@
 import { useEffect, useState } from "react";
+import { useIsDesktop } from "@/hooks/use-mobile";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
@@ -41,6 +49,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; classNam
 };
 
 export default function BookingsTab() {
+  const isDesktop = useIsDesktop();
   const { isAdmin } = useAuth();
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
