@@ -16,7 +16,7 @@ const ALL_SECTIONS = [
   "emails", "photos", "permissions",
 ] as const;
 
-const CONFIGURABLE_ROLES = ["staff", "finance"] as const;
+const CONFIGURABLE_ROLES = ["staff", "finance", "admin_assistant"] as const;
 type ConfigRole = (typeof CONFIGURABLE_ROLES)[number];
 
 interface CellState { view: boolean; edit: boolean }
@@ -25,6 +25,7 @@ export default function PermissionsManager() {
   const [matrix, setMatrix] = useState<Record<ConfigRole, Record<string, CellState>>>({
     staff: {},
     finance: {},
+    admin_assistant: {},
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,7 +43,7 @@ export default function PermissionsManager() {
         return;
       }
 
-      const m: Record<ConfigRole, Record<string, CellState>> = { staff: {}, finance: {} };
+      const m: Record<ConfigRole, Record<string, CellState>> = { staff: {}, finance: {}, admin_assistant: {} };
       for (const row of data ?? []) {
         if (row.role in m) {
           (m as any)[row.role][row.section] = { view: true, edit: !!(row as any).can_edit };

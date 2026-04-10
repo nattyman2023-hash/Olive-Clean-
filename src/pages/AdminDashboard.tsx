@@ -77,7 +77,7 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
 }
 
 export default function AdminDashboard() {
-  const { user, isAdmin, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isAdmin, isStaff, isAdminAssistant, loading: authLoading, rolesLoading, signOut } = useAuth();
   const { canAccess, canEdit, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("bookings");
@@ -89,11 +89,11 @@ export default function AdminDashboard() {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (!authLoading && !rolesLoading && user && !isAdmin && !isStaff) {
+    if (!authLoading && !rolesLoading && user && !isAdmin && !isStaff && !isAdminAssistant) {
       toast("You don't have access to this dashboard.");
       navigate("/");
     }
-  }, [authLoading, rolesLoading, user, isAdmin, isStaff, navigate]);
+  }, [authLoading, rolesLoading, user, isAdmin, isStaff, isAdminAssistant, navigate]);
 
   if (authLoading || rolesLoading || permsLoading) {
     return (
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!user || (!isAdmin && !isStaff)) return null;
+  if (!user || (!isAdmin && !isStaff && !isAdminAssistant)) return null;
 
   return (
     <div className="min-h-screen bg-muted/30">
