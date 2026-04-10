@@ -113,6 +113,9 @@ export default function TeamTab() {
   const [formNotes, setFormNotes] = useState("");
   const [formCerts, setFormCerts] = useState("");
   const [newCert, setNewCert] = useState("");
+  const [formPayType, setFormPayType] = useState("hourly");
+  const [formFixedRate, setFormFixedRate] = useState("");
+  const [formClassification, setFormClassification] = useState("w2");
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["employees"],
