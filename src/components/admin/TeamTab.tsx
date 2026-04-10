@@ -653,7 +653,6 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                         <X className="h-3 w-3" />
                       </button>
                     )}
-                    </button>
                   </Badge>
                 ))}
               </div>
