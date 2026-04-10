@@ -2,35 +2,41 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+interface PermissionEntry {
+  section: string;
+  can_edit: boolean;
+}
+
 interface PermissionsState {
   allowedSections: string[];
   loading: boolean;
   canAccess: (section: string) => boolean;
+  canEdit: (section: string) => boolean;
   refetch: () => void;
 }
 
 export function usePermissions(): PermissionsState {
   const { user, isAdmin, rolesLoading } = useAuth();
-  const [allowedSections, setAllowedSections] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<PermissionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const resolvedRef = useRef<string | null>(null);
 
   const fetchPermissions = useCallback(async () => {
     if (!user) {
-      setAllowedSections([]);
+      setPermissions([]);
       setLoading(false);
       return;
     }
 
-    // Admin bypasses — they see everything
     if (isAdmin) {
-      setAllowedSections([
+      const allSections = [
         "bookings", "jobs", "calendar", "routes",
         "leads", "clients", "perks",
         "team", "hiring", "time-off",
         "finance", "analytics", "services", "supplies",
         "emails", "photos", "permissions",
-      ]);
+      ];
+      setPermissions(allSections.map(s => ({ section: s, can_edit: true })));
       setLoading(false);
       resolvedRef.current = user.id;
       return;
@@ -45,14 +51,13 @@ export function usePermissions(): PermissionsState {
     try {
       const { data, error } = await supabase
         .from("role_permissions")
-        .select("section");
+        .select("section, can_edit");
 
       if (error) throw error;
-      const sections = (data ?? []).map((r) => r.section);
-      setAllowedSections(sections);
+      setPermissions((data ?? []).map((r: any) => ({ section: r.section, can_edit: !!r.can_edit })));
       resolvedRef.current = user.id;
     } catch {
-      setAllowedSections([]);
+      setPermissions([]);
     } finally {
       setLoading(false);
     }
@@ -63,10 +68,17 @@ export function usePermissions(): PermissionsState {
     fetchPermissions();
   }, [fetchPermissions, rolesLoading]);
 
+  const allowedSections = permissions.map(p => p.section);
+
   const canAccess = useCallback(
-    (section: string) => isAdmin || allowedSections.includes(section),
-    [isAdmin, allowedSections]
+    (section: string) => isAdmin || permissions.some(p => p.section === section),
+    [isAdmin, permissions]
   );
 
-  return { allowedSections, loading, canAccess, refetch: fetchPermissions };
+  const canEdit = useCallback(
+    (section: string) => isAdmin || permissions.some(p => p.section === section && p.can_edit),
+    [isAdmin, permissions]
+  );
+
+  return { allowedSections, loading, canAccess, canEdit, refetch: fetchPermissions };
 }

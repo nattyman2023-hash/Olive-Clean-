@@ -39,8 +39,9 @@ function AdminGate() {
   );
 }
 
-function renderSection(section: string, canAccess: (s: string) => boolean, isAdmin: boolean) {
+function renderSection(section: string, canAccess: (s: string) => boolean, canEdit: (s: string) => boolean, isAdmin: boolean) {
   if (!canAccess(section)) return <AdminGate />;
+  const editable = canEdit(section);
 
   switch (section) {
     case "bookings": return <BookingsTab />;
