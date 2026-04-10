@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import SEOHead from "@/components/SEOHead";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { LogOut, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ import EmailsTab from "@/components/admin/EmailsTab";
 import RecentUploads from "@/components/admin/RecentUploads";
 import ServicesManager from "@/components/admin/ServicesManager";
 import LeadsTab from "@/components/admin/LeadsTab";
+import PermissionsManager from "@/components/admin/PermissionsManager";
 import NotificationBell from "@/components/NotificationBell";
 import LowStockWidget from "@/components/admin/LowStockWidget";
 import oliveLogo from "@/assets/olive-clean-logo.png";
@@ -31,53 +33,40 @@ function AdminGate() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
       <Lock className="h-8 w-8 opacity-40" />
-      <p className="text-sm font-medium">Admin access required</p>
+      <p className="text-sm font-medium">Access restricted</p>
       <p className="text-xs">You don't have permission to view this section.</p>
     </div>
   );
 }
 
-function renderSection(section: string, isAdmin: boolean) {
+function renderSection(section: string, canAccess: (s: string) => boolean, isAdmin: boolean) {
+  if (!canAccess(section)) return <AdminGate />;
+
   switch (section) {
-    case "bookings":
-      return <BookingsTab />;
-    case "clients":
-      return <ClientsTab />;
-    case "jobs":
-      return <JobsTab />;
-    case "leads":
-      return isAdmin ? <LeadsTab /> : <AdminGate />;
-    case "perks":
-      return isAdmin ? <PerksTab /> : <AdminGate />;
-    case "analytics":
-      return isAdmin ? <AnalyticsTab /> : <AdminGate />;
-    case "team":
-      return isAdmin ? <TeamTab /> : <AdminGate />;
-    case "hiring":
-      return isAdmin ? <HiringTab /> : <AdminGate />;
-    case "services":
-      return isAdmin ? <ServicesManager /> : <AdminGate />;
-    case "routes":
-      return isAdmin ? <RoutesTab /> : <AdminGate />;
-    case "supplies":
-      return isAdmin ? <SuppliesTab /> : <AdminGate />;
-    case "finance":
-      return isAdmin ? <FinanceTab /> : <AdminGate />;
-    case "calendar":
-      return isAdmin ? <CalendarTab /> : <AdminGate />;
-    case "time-off":
-      return isAdmin ? <TimeOffManager isAdmin /> : <AdminGate />;
-    case "emails":
-      return isAdmin ? <EmailsTab /> : <AdminGate />;
-    case "photos":
-      return isAdmin ? <RecentUploads /> : <AdminGate />;
-    default:
-      return <BookingsTab />;
+    case "bookings": return <BookingsTab />;
+    case "clients": return <ClientsTab />;
+    case "jobs": return <JobsTab />;
+    case "leads": return <LeadsTab />;
+    case "perks": return <PerksTab />;
+    case "analytics": return <AnalyticsTab />;
+    case "team": return <TeamTab />;
+    case "hiring": return <HiringTab />;
+    case "services": return <ServicesManager />;
+    case "routes": return <RoutesTab />;
+    case "supplies": return <SuppliesTab />;
+    case "finance": return <FinanceTab />;
+    case "calendar": return <CalendarTab />;
+    case "time-off": return <TimeOffManager isAdmin={isAdmin} />;
+    case "emails": return <EmailsTab />;
+    case "photos": return <RecentUploads />;
+    case "permissions": return <PermissionsManager />;
+    default: return <BookingsTab />;
   }
 }
 
 export default function AdminDashboard() {
   const { user, isAdmin, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { canAccess, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("bookings");
 
@@ -94,7 +83,7 @@ export default function AdminDashboard() {
     }
   }, [authLoading, rolesLoading, user, isAdmin, isStaff, navigate]);
 
-  if (authLoading || rolesLoading) {
+  if (authLoading || rolesLoading || permsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -112,6 +101,7 @@ export default function AdminDashboard() {
           <AdminSidebar
             activeSection={activeSection}
             onSectionChange={setActiveSection}
+            canAccess={canAccess}
             isAdmin={isAdmin}
           />
 
@@ -141,7 +131,7 @@ export default function AdminDashboard() {
 
             <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl">
               {isAdmin && <LowStockWidget />}
-              {renderSection(activeSection, isAdmin)}
+              {renderSection(activeSection, canAccess, isAdmin)}
             </main>
           </div>
         </div>
