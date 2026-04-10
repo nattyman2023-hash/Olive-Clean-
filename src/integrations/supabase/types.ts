@@ -988,6 +988,59 @@ export type Database = {
         }
         Relationships: []
       }
+      payout_records: {
+        Row: {
+          approved_expenses: number
+          base_pay: number
+          created_at: string
+          employee_id: string
+          hourly_rate: number
+          hours_worked: number
+          id: string
+          paid_at: string | null
+          paid_by: string
+          total_payout: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          approved_expenses?: number
+          base_pay?: number
+          created_at?: string
+          employee_id: string
+          hourly_rate?: number
+          hours_worked?: number
+          id?: string
+          paid_at?: string | null
+          paid_by: string
+          total_payout?: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          approved_expenses?: number
+          base_pay?: number
+          created_at?: string
+          employee_id?: string
+          hourly_rate?: number
+          hours_worked?: number
+          id?: string
+          paid_at?: string | null
+          paid_by?: string
+          total_payout?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payslips: {
         Row: {
           additions: Json | null
