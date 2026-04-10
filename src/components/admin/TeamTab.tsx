@@ -1175,3 +1175,71 @@ function TeamAnnouncements() {
     </Card>
   );
 }
+
+/* ---------- Role Assignment Card ---------- */
+
+function RoleAssignmentCard({ userId, employeeName }: { userId: string; employeeName: string }) {
+  const queryClient = useQueryClient();
+  const ASSIGNABLE_ROLES: Array<{ value: string; label: string; description: string }> = [
+    { value: "staff", label: "Staff", description: "Access to employee dashboard and job tools" },
+    { value: "finance", label: "Finance", description: "Access to invoices, payslips, and payouts" },
+  ];
+
+  const { data: currentRoles = [], isLoading } = useQuery({
+    queryKey: ["user_roles", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+      if (error) throw error;
+      return data.map((r) => r.role);
+    },
+  });
+
+  const toggleRole = async (role: string) => {
+    const has = currentRoles.includes(role as any);
+    if (has) {
+      const { error } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId)
+        .eq("role", role as any);
+      if (error) { toast.error("Failed to remove role"); return; }
+      toast.success(`Removed ${role} role from ${employeeName}`);
+    } else {
+      const { error } = await supabase
+        .from("user_roles")
+        .insert({ user_id: userId, role: role as any });
+      if (error) { toast.error("Failed to add role"); return; }
+      toast.success(`Added ${role} role to ${employeeName}`);
+    }
+    queryClient.invalidateQueries({ queryKey: ["user_roles", userId] });
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">Roles</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        ) : (
+          ASSIGNABLE_ROLES.map((r) => (
+            <label key={r.value} className="flex items-start gap-3 cursor-pointer group">
+              <Checkbox
+                checked={currentRoles.includes(r.value as any)}
+                onCheckedChange={() => toggleRole(r.value)}
+              />
+              <div>
+                <span className="text-sm font-medium group-hover:text-foreground transition-colors">{r.label}</span>
+                <p className="text-xs text-muted-foreground">{r.description}</p>
+              </div>
+            </label>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
