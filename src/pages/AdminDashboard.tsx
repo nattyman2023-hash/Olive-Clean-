@@ -1,13 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import SEOHead from "@/components/SEOHead";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
 import { LogOut, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import AdminSidebar from "@/components/admin/AdminSidebar";
 import BookingsTab from "@/components/admin/BookingsTab";
 import ClientsTab from "@/components/admin/ClientsTab";
 import JobsTab from "@/components/admin/JobsTab";
@@ -28,25 +27,6 @@ import NotificationBell from "@/components/NotificationBell";
 import LowStockWidget from "@/components/admin/LowStockWidget";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
-const ADMIN_TABS = [
-  { value: "bookings", label: "Bookings" },
-  { value: "clients", label: "Clients" },
-  { value: "jobs", label: "Jobs" },
-  { value: "leads", label: "Leads", adminOnly: true },
-  { value: "perks", label: "Perks", adminOnly: true },
-  { value: "analytics", label: "Analytics", adminOnly: true },
-  { value: "team", label: "Team", adminOnly: true },
-  { value: "hiring", label: "Hiring", adminOnly: true },
-  { value: "services", label: "Services", adminOnly: true },
-  { value: "routes", label: "Routes", adminOnly: true },
-  { value: "supplies", label: "Supplies", adminOnly: true },
-  { value: "finance", label: "Finance", adminOnly: true },
-  { value: "calendar", label: "Calendar", adminOnly: true },
-  { value: "time-off", label: "Time Off", adminOnly: true },
-  { value: "emails", label: "Emails", adminOnly: true },
-  { value: "photos", label: "Photos", adminOnly: true },
-];
-
 function AdminGate() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -57,9 +37,49 @@ function AdminGate() {
   );
 }
 
+function renderSection(section: string, isAdmin: boolean) {
+  switch (section) {
+    case "bookings":
+      return <BookingsTab />;
+    case "clients":
+      return <ClientsTab />;
+    case "jobs":
+      return <JobsTab />;
+    case "leads":
+      return isAdmin ? <LeadsTab /> : <AdminGate />;
+    case "perks":
+      return isAdmin ? <PerksTab /> : <AdminGate />;
+    case "analytics":
+      return isAdmin ? <AnalyticsTab /> : <AdminGate />;
+    case "team":
+      return isAdmin ? <TeamTab /> : <AdminGate />;
+    case "hiring":
+      return isAdmin ? <HiringTab /> : <AdminGate />;
+    case "services":
+      return isAdmin ? <ServicesManager /> : <AdminGate />;
+    case "routes":
+      return isAdmin ? <RoutesTab /> : <AdminGate />;
+    case "supplies":
+      return isAdmin ? <SuppliesTab /> : <AdminGate />;
+    case "finance":
+      return isAdmin ? <FinanceTab /> : <AdminGate />;
+    case "calendar":
+      return isAdmin ? <CalendarTab /> : <AdminGate />;
+    case "time-off":
+      return isAdmin ? <TimeOffManager isAdmin /> : <AdminGate />;
+    case "emails":
+      return isAdmin ? <EmailsTab /> : <AdminGate />;
+    case "photos":
+      return isAdmin ? <RecentUploads /> : <AdminGate />;
+    default:
+      return <BookingsTab />;
+  }
+}
+
 export default function AdminDashboard() {
   const { user, isAdmin, isStaff, loading: authLoading, rolesLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const [activeSection, setActiveSection] = useState("bookings");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -87,64 +107,45 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
       <SEOHead title="Admin Dashboard — Olive Clean" description="Olive Clean admin management dashboard." noindex />
-      <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <img src={oliveLogo} alt="Olive Clean" className="h-8" />
-          <div>
-            <h1 className="text-base font-semibold text-foreground leading-none">Olive Clean</h1>
-            <p className="text-xs text-muted-foreground">Admin Dashboard</p>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <AdminSidebar
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+            isAdmin={isAdmin}
+          />
+
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="bg-card border-b border-border px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger className="shrink-0" />
+                <img src={oliveLogo} alt="Olive Clean" className="h-7 hidden sm:block" />
+                <div className="hidden sm:block">
+                  <h1 className="text-sm font-semibold text-foreground leading-none">Olive Clean</h1>
+                  <p className="text-[0.65rem] text-muted-foreground">Admin Dashboard</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground hidden sm:inline">{user.email}</span>
+                {isAdmin && (
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    Admin
+                  </span>
+                )}
+                <NotificationBell />
+                <Button variant="ghost" size="icon" onClick={signOut} className="active:scale-95 transition-transform">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </header>
+
+            <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl">
+              {isAdmin && <LowStockWidget />}
+              {renderSection(activeSection, isAdmin)}
+            </main>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground hidden sm:inline">{user.email}</span>
-          {isAdmin && (
-            <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-              Admin
-            </span>
-          )}
-          <NotificationBell />
-          <Button variant="ghost" size="icon" onClick={signOut} className="active:scale-95 transition-transform">
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
-
-      <main className="container py-8 max-w-6xl">
-        {isAdmin && <LowStockWidget />}
-        <Tabs defaultValue="bookings" className="space-y-6">
-          <ScrollArea className="w-full">
-            <TabsList className="bg-card border border-border rounded-xl p-1 h-auto inline-flex w-max min-w-full">
-              {ADMIN_TABS.map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="rounded-lg text-xs whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-
-          <TabsContent value="bookings"><BookingsTab /></TabsContent>
-          <TabsContent value="clients"><ClientsTab /></TabsContent>
-          <TabsContent value="jobs"><JobsTab /></TabsContent>
-          <TabsContent value="leads">{isAdmin ? <LeadsTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="perks">{isAdmin ? <PerksTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="analytics">{isAdmin ? <AnalyticsTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="team">{isAdmin ? <TeamTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="hiring">{isAdmin ? <HiringTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="services">{isAdmin ? <ServicesManager /> : <AdminGate />}</TabsContent>
-          <TabsContent value="routes">{isAdmin ? <RoutesTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="supplies">{isAdmin ? <SuppliesTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="finance">{isAdmin ? <FinanceTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="calendar">{isAdmin ? <CalendarTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="time-off">{isAdmin ? <TimeOffManager isAdmin /> : <AdminGate />}</TabsContent>
-          <TabsContent value="emails">{isAdmin ? <EmailsTab /> : <AdminGate />}</TabsContent>
-          <TabsContent value="photos">{isAdmin ? <RecentUploads /> : <AdminGate />}</TabsContent>
-        </Tabs>
-      </main>
+      </SidebarProvider>
     </div>
   );
 }
