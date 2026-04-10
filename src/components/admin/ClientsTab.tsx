@@ -56,6 +56,56 @@ interface Client {
 
 const NEIGHBORHOODS = ["Belle Meade", "Brentwood", "Franklin", "Green Hills", "West Nashville"];
 
+function ClientQuotesSection({ clientId }: { clientId: string }) {
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    supabase
+      .from("estimates")
+      .select("id, estimate_number, status, total, created_at")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        setQuotes(data || []);
+        setLoading(false);
+      });
+  }, [clientId]);
+
+  if (loading) return null;
+  if (quotes.length === 0) return null;
+
+  const statusColors: Record<string, string> = {
+    draft: "bg-muted text-muted-foreground",
+    sent: "bg-blue-100 text-blue-800",
+    viewed: "bg-indigo-100 text-indigo-800",
+    accepted: "bg-emerald-100 text-emerald-800",
+    declined: "bg-red-100 text-red-800",
+    converted: "bg-violet-100 text-violet-800",
+  };
+
+  return (
+    <div className="border-t border-border pt-4">
+      <p className="text-xs text-muted-foreground mb-2">Recent Quotes</p>
+      <div className="space-y-2">
+        {quotes.map((q) => (
+          <div key={q.id} className="flex items-center justify-between text-xs">
+            <span className="text-foreground font-medium">{q.estimate_number}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">${Number(q.total).toFixed(2)}</span>
+              <span className={`text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full capitalize ${statusColors[q.status] || statusColors.draft}`}>
+                {q.status}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
   const isDesktop = useIsDesktop();
   const { user, startImpersonation } = useAuth();
