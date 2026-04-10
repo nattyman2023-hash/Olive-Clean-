@@ -57,6 +57,7 @@ interface Client {
 const NEIGHBORHOODS = ["Belle Meade", "Brentwood", "Franklin", "Green Hills", "West Nashville"];
 
 export default function ClientsTab() {
+  const isDesktop = useIsDesktop();
   const { user, startImpersonation } = useAuth();
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);

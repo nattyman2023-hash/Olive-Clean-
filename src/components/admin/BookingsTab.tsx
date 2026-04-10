@@ -326,3 +326,88 @@ export default function BookingsTab() {
     </div>
   );
 }
+
+/* ---------- Detail Content (extracted for reuse in drawer) ---------- */
+
+function BookingDetailContent({
+  booking,
+  isAdmin,
+  statusConfig,
+  updateStatus,
+}: {
+  booking: BookingRequest;
+  isAdmin: boolean;
+  statusConfig: Record<string, { label: string; icon: typeof Clock; className: string }>;
+  updateStatus: (id: string, status: string) => void;
+}) {
+  return (
+    <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5 lg:border lg:shadow-sm border-0 shadow-none">
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">{booking.name}</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Submitted {new Date(booking.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+        </p>
+      </div>
+      <div className="space-y-3 text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Mail className="h-4 w-4 shrink-0" />
+          <a href={`mailto:${booking.email}`} className="hover:text-foreground transition-colors truncate">{booking.email}</a>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Phone className="h-4 w-4 shrink-0" />
+          <a href={`tel:${booking.phone}`} className="hover:text-foreground transition-colors">{booking.phone}</a>
+        </div>
+        {booking.address && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Home className="h-4 w-4 shrink-0" />
+            <span>{booking.address}</span>
+          </div>
+        )}
+      </div>
+      <div className="border-t border-border pt-4 space-y-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Service</span>
+          <span className="font-medium text-foreground">{booking.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Home Type</span>
+          <span className="font-medium text-foreground">{booking.home_type}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Size</span>
+          <span className="font-medium text-foreground">{booking.bedrooms} bed / {booking.bathrooms} bath</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Frequency</span>
+          <span className="font-medium text-foreground">{booking.frequency}</span>
+        </div>
+      </div>
+      {booking.notes && (
+        <div className="border-t border-border pt-4">
+          <p className="text-xs text-muted-foreground mb-1">Notes</p>
+          <p className="text-sm text-foreground">{booking.notes}</p>
+        </div>
+      )}
+      {isAdmin && (
+        <div className="border-t border-border pt-4">
+          <p className="text-xs text-muted-foreground mb-2">Update Status</p>
+          <div className="grid grid-cols-2 gap-2">
+            {["pending", "confirmed", "completed", "cancelled"].map((s) => {
+              const sc = statusConfig[s];
+              return (
+                <button
+                  key={s}
+                  onClick={() => updateStatus(booking.id, s)}
+                  disabled={booking.status === s}
+                  className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-[0.97] disabled:opacity-40 ${sc.className}`}
+                >
+                  {sc.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
