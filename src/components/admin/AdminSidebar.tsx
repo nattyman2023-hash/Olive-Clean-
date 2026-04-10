@@ -19,8 +19,9 @@ import {
   Camera,
   Target,
   Gift,
-  Lock,
   ChevronDown,
+  Settings,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,7 +40,6 @@ interface NavItem {
   value: string;
   label: string;
   icon: React.ElementType;
-  adminOnly?: boolean;
 }
 
 interface NavGroup {
@@ -55,44 +55,51 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { value: "bookings", label: "Bookings", icon: BookOpen },
       { value: "jobs", label: "Jobs", icon: Briefcase },
-      { value: "calendar", label: "Calendar", icon: CalendarCheck, adminOnly: true },
-      { value: "routes", label: "Routes", icon: MapPin, adminOnly: true },
+      { value: "calendar", label: "Calendar", icon: CalendarCheck },
+      { value: "routes", label: "Routes", icon: MapPin },
     ],
   },
   {
     label: "Customers",
     icon: Users,
     items: [
-      { value: "leads", label: "Leads", icon: Target, adminOnly: true },
+      { value: "leads", label: "Leads", icon: Target },
       { value: "clients", label: "Clients", icon: Users },
-      { value: "perks", label: "Perks", icon: Gift, adminOnly: true },
+      { value: "perks", label: "Perks", icon: Gift },
     ],
   },
   {
     label: "Team",
     icon: UserCog,
     items: [
-      { value: "team", label: "Team", icon: UserCog, adminOnly: true },
-      { value: "hiring", label: "Hiring", icon: UserPlus, adminOnly: true },
-      { value: "time-off", label: "Time Off", icon: Clock, adminOnly: true },
+      { value: "team", label: "Team", icon: UserCog },
+      { value: "hiring", label: "Hiring", icon: UserPlus },
+      { value: "time-off", label: "Time Off", icon: Clock },
     ],
   },
   {
     label: "Management",
     icon: BarChart3,
     items: [
-      { value: "finance", label: "Finance", icon: DollarSign, adminOnly: true },
-      { value: "analytics", label: "Analytics", icon: TrendingUp, adminOnly: true },
-      { value: "services", label: "Services", icon: Wrench, adminOnly: true },
-      { value: "supplies", label: "Supplies", icon: Package, adminOnly: true },
+      { value: "finance", label: "Finance", icon: DollarSign },
+      { value: "analytics", label: "Analytics", icon: TrendingUp },
+      { value: "services", label: "Services", icon: Wrench },
+      { value: "supplies", label: "Supplies", icon: Package },
     ],
   },
   {
     label: "Assets",
     icon: FolderOpen,
     items: [
-      { value: "emails", label: "Emails", icon: Mail, adminOnly: true },
-      { value: "photos", label: "Photos", icon: Camera, adminOnly: true },
+      { value: "emails", label: "Emails", icon: Mail },
+      { value: "photos", label: "Photos", icon: Camera },
+    ],
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    items: [
+      { value: "permissions", label: "Permissions", icon: Shield },
     ],
   },
 ];
@@ -100,10 +107,11 @@ const NAV_GROUPS: NavGroup[] = [
 interface AdminSidebarProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
+  canAccess: (section: string) => boolean;
   isAdmin: boolean;
 }
 
-export default function AdminSidebar({ activeSection, onSectionChange, isAdmin }: AdminSidebarProps) {
+export default function AdminSidebar({ activeSection, onSectionChange, canAccess, isAdmin }: AdminSidebarProps) {
   const activeGroupIndex = NAV_GROUPS.findIndex((g) =>
     g.items.some((i) => i.value === activeSection)
   );
@@ -124,9 +132,7 @@ export default function AdminSidebar({ activeSection, onSectionChange, isAdmin }
     <Sidebar collapsible="offcanvas" className="border-r border-border">
       <SidebarContent className="pt-2">
         {NAV_GROUPS.map((group, gIdx) => {
-          const visibleItems = group.items.filter(
-            (item) => !item.adminOnly || isAdmin
-          );
+          const visibleItems = group.items.filter((item) => canAccess(item.value));
           if (visibleItems.length === 0) return null;
 
           return (
@@ -156,25 +162,19 @@ export default function AdminSidebar({ activeSection, onSectionChange, isAdmin }
                     <SidebarMenu>
                       {visibleItems.map((item) => {
                         const isActive = activeSection === item.value;
-                        const locked = item.adminOnly && !isAdmin;
-
                         return (
                           <SidebarMenuItem key={item.value}>
                             <SidebarMenuButton
-                              onClick={() => {
-                                if (!locked) onSectionChange(item.value);
-                              }}
+                              onClick={() => onSectionChange(item.value)}
                               className={cn(
                                 "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
                                 isActive
                                   ? "bg-primary/10 text-primary font-medium"
-                                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                                locked && "opacity-50 cursor-not-allowed"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
                               )}
                             >
                               <item.icon className="h-4 w-4 shrink-0" />
                               <span className="flex-1">{item.label}</span>
-                              {locked && <Lock className="h-3 w-3 opacity-40" />}
                             </SidebarMenuButton>
                           </SidebarMenuItem>
                         );
