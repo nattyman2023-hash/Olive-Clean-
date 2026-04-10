@@ -705,7 +705,7 @@ export default function JobsTab() {
                 )}
               </DrawerContent>
             </Drawer>
-          )
+          )}
         </div>
       )}
 
