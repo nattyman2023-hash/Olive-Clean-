@@ -1256,18 +1256,21 @@ export type Database = {
       }
       role_permissions: {
         Row: {
+          can_edit: boolean
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
           section: string
         }
         Insert: {
+          can_edit?: boolean
           created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           section: string
         }
         Update: {
+          can_edit?: boolean
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
