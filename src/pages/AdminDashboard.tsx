@@ -28,6 +28,7 @@ import PermissionsManager from "@/components/admin/PermissionsManager";
 import NotificationBell from "@/components/NotificationBell";
 import LowStockWidget from "@/components/admin/LowStockWidget";
 import ReadOnlyBanner from "@/components/admin/ReadOnlyBanner";
+import ImpersonationBar from "@/components/admin/ImpersonationBar";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
 function AdminGate() {
@@ -77,7 +78,7 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
 }
 
 export default function AdminDashboard() {
-  const { user, isAdmin, isStaff, isAdminAssistant, isCleaner, loading: authLoading, rolesLoading, signOut } = useAuth();
+  const { user, isAdmin, isStaff, isAdminAssistant, isCleaner, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedRole } = useAuth();
   const { canAccess, canEdit, allowedSections, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("bookings");
@@ -115,10 +116,11 @@ export default function AdminDashboard() {
             activeSection={activeSection}
             onSectionChange={setActiveSection}
             canAccess={canAccess}
-            isAdmin={isAdmin}
+            isAdmin={isImpersonating ? false : isAdmin}
           />
 
           <div className="flex-1 flex flex-col min-w-0">
+            <ImpersonationBar />
             <header className="bg-card border-b border-border px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30">
               <div className="flex items-center gap-2">
                 <SidebarTrigger className="shrink-0" />
@@ -130,9 +132,14 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground hidden sm:inline">{user.email}</span>
-                {isAdmin && (
+                {isAdmin && !isImpersonating && (
                   <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     Admin
+                  </span>
+                )}
+                {isImpersonating && impersonatedRole && (
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full capitalize">
+                    {impersonatedRole.replace(/_/g, " ")}
                   </span>
                 )}
                 <NotificationBell />
@@ -143,8 +150,8 @@ export default function AdminDashboard() {
             </header>
 
             <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl">
-              {isAdmin && <LowStockWidget />}
-              {renderSection(activeSection, canAccess, canEdit, isAdmin)}
+              {isAdmin && !isImpersonating && <LowStockWidget />}
+              {renderSection(activeSection, canAccess, canEdit, isImpersonating ? false : isAdmin)}
             </main>
           </div>
         </div>

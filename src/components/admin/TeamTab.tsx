@@ -1181,6 +1181,20 @@ function TeamAnnouncements() {
 function RoleAssignmentCard({ userId, employeeName }: { userId: string; employeeName: string }) {
   const queryClient = useQueryClient();
 
+  // Check if this employee has a real auth account (profile exists via trigger)
+  const { data: hasAccount, isLoading: accountLoading } = useQuery({
+    queryKey: ["profile_exists", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) return false;
+      return !!data;
+    },
+  });
+
   // Fetch available roles from custom_roles table
   const { data: availableRoles = [] } = useQuery({
     queryKey: ["custom_roles"],
@@ -1204,6 +1218,7 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
       if (error) throw error;
       return data.map((r) => r.role);
     },
+    enabled: !!hasAccount,
   });
 
   const toggleRole = async (role: string) => {
@@ -1214,13 +1229,13 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
         .delete()
         .eq("user_id", userId)
         .eq("role", role as any);
-      if (error) { toast.error("Failed to remove role"); return; }
+      if (error) { toast.error(error.message || "Failed to remove role"); return; }
       toast.success(`Removed ${role} role from ${employeeName}`);
     } else {
       const { error } = await supabase
         .from("user_roles")
         .insert({ user_id: userId, role: role as any });
-      if (error) { toast.error("Failed to add role"); return; }
+      if (error) { toast.error(error.message || "Failed to add role"); return; }
       toast.success(`Added ${role} role to ${employeeName}`);
     }
     queryClient.invalidateQueries({ queryKey: ["user_roles", userId] });
@@ -1232,8 +1247,12 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
         <CardTitle className="text-sm font-medium">Roles</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading ? (
+        {accountLoading || isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        ) : !hasAccount ? (
+          <p className="text-xs text-muted-foreground italic">
+            This employee has no login account — roles can only be assigned to users with accounts.
+          </p>
         ) : (
           availableRoles.map((r) => (
             <label key={r.name} className="flex items-start gap-3 cursor-pointer group">

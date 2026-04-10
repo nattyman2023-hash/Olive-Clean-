@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Shield, Plus, Trash2 } from "lucide-react";
+import { Loader2, Shield, Plus, Trash2, Eye } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,12 +37,18 @@ interface CellState { view: boolean; edit: boolean }
 
 export default function PermissionsManager() {
   const queryClient = useQueryClient();
+  const { startImpersonation } = useAuth();
   const [matrix, setMatrix] = useState<Record<string, Record<string, CellState>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+
+  const handlePreviewRole = (roleName: string) => {
+    startImpersonation("__role_preview__", roleName, roleName.replace(/_/g, " "));
+    toast.info(`Previewing dashboard as "${roleName.replace(/_/g, " ")}" role`);
+  };
 
   // Fetch custom roles
   const { data: roles = [], isLoading: rolesLoading, refetch: refetchRoles } = useQuery({
@@ -248,6 +255,13 @@ export default function PermissionsManager() {
                 <TableHead key={role.name} colSpan={2} className="text-center min-w-[160px]">
                   <div className="flex items-center justify-center gap-1">
                     <span className="capitalize">{role.name.replace(/_/g, " ")}</span>
+                    <button
+                      onClick={() => handlePreviewRole(role.name)}
+                      className="text-muted-foreground hover:text-primary ml-1"
+                      title={`Preview as ${role.name}`}
+                    >
+                      <Eye className="h-3 w-3" />
+                    </button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button className="text-muted-foreground hover:text-destructive ml-1">
