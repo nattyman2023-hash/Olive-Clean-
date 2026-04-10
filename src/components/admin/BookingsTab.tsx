@@ -332,6 +332,7 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
 function BookingDetailContent({
   booking,
   isAdmin,
+  readOnly,
   statusConfig,
   updateStatus,
 }: {
