@@ -319,5 +319,3 @@ export default function PermissionsManager() {
     </div>
   );
 }
-
-import React from "react";
