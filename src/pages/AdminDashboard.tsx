@@ -28,6 +28,7 @@ import PermissionsManager from "@/components/admin/PermissionsManager";
 import NotificationBell from "@/components/NotificationBell";
 import LowStockWidget from "@/components/admin/LowStockWidget";
 import ReadOnlyBanner from "@/components/admin/ReadOnlyBanner";
+import ImpersonationBar from "@/components/admin/ImpersonationBar";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 
 function AdminGate() {

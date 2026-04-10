@@ -16,7 +16,7 @@ interface PermissionsState {
 }
 
 export function usePermissions(): PermissionsState {
-  const { user, isAdmin, rolesLoading } = useAuth();
+  const { user, isAdmin, rolesLoading, impersonatedRole, isImpersonating } = useAuth();
   const [permissions, setPermissions] = useState<PermissionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const resolvedRef = useRef<string | null>(null);
@@ -25,6 +25,24 @@ export function usePermissions(): PermissionsState {
     if (!user) {
       setPermissions([]);
       setLoading(false);
+      return;
+    }
+
+    // When previewing a role, fetch that role's permissions
+    if (isImpersonating && impersonatedRole) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("role_permissions")
+          .select("section, can_edit")
+          .eq("role", impersonatedRole as any);
+        if (error) throw error;
+        setPermissions((data ?? []).map((r: any) => ({ section: r.section, can_edit: !!r.can_edit })));
+      } catch {
+        setPermissions([]);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -61,23 +79,29 @@ export function usePermissions(): PermissionsState {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, isAdmin]);
+  }, [user?.id, isAdmin, isImpersonating, impersonatedRole]);
 
   useEffect(() => {
-    if (rolesLoading) return;
+    if (rolesLoading && !isImpersonating) return;
     fetchPermissions();
-  }, [fetchPermissions, rolesLoading]);
+  }, [fetchPermissions, rolesLoading, isImpersonating]);
 
   const allowedSections = permissions.map(p => p.section);
 
   const canAccess = useCallback(
-    (section: string) => isAdmin || permissions.some(p => p.section === section),
-    [isAdmin, permissions]
+    (section: string) => {
+      if (isImpersonating) return permissions.some(p => p.section === section);
+      return isAdmin || permissions.some(p => p.section === section);
+    },
+    [isAdmin, permissions, isImpersonating]
   );
 
   const canEdit = useCallback(
-    (section: string) => isAdmin || permissions.some(p => p.section === section && p.can_edit),
-    [isAdmin, permissions]
+    (section: string) => {
+      if (isImpersonating) return permissions.some(p => p.section === section && p.can_edit);
+      return isAdmin || permissions.some(p => p.section === section && p.can_edit);
+    },
+    [isAdmin, permissions, isImpersonating]
   );
 
   return { allowedSections, loading, canAccess, canEdit, refetch: fetchPermissions };
