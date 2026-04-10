@@ -114,6 +114,7 @@ export default function PayslipsSection({ readOnly }: { readOnly?: boolean }) {
     fetchPayslips();
   };
 
+  const openPreview = (p: Payslip, inEditMode: boolean) => {
     setPreview(p);
     setEditMode(inEditMode);
     if (inEditMode) {
