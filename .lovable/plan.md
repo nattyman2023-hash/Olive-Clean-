@@ -1,45 +1,52 @@
 
 
-## Admin Dashboard: Collapsible Sidebar with Grouped Navigation
+## Finance Role Priority, Week Picker & Verification Fixes
 
-### Problem
-16 flat tabs in a horizontal scrollable bar — impossible on mobile, overwhelming on desktop.
+### Findings from Investigation
 
-### Solution
-Replace the tab bar with a **Shadcn Sidebar** using collapsible groups. On desktop it's a persistent left sidebar; on mobile it collapses to a hamburger menu via `SidebarTrigger`.
+1. **Sidebar**: Working correctly on both desktop (persistent) and mobile (offcanvas hamburger). All 5 groups (Operations, Customers, Team, Management, Assets) present with all 16 sections accounted for — no pages lost.
 
-### Navigation Groups (with icons)
+2. **Finance auto-redirect**: SmartRedirect only works in PWA standalone mode (`display-mode: standalone`). Finance users logging in via browser won't auto-redirect. Need to also add redirect logic to the admin login flow so finance-only users go to `/finance`.
 
-| Group | Icon | Items |
-|-------|------|-------|
-| **Operations** | `CalendarDays` | Bookings, Jobs, Calendar, Routes |
-| **Customers** | `Users` | Leads, Clients, Perks |
-| **Team** | `UserCog` | Team, Hiring, Time Off |
-| **Management** | `BarChart3` | Finance, Analytics, Services, Supplies |
-| **Assets** | `FolderOpen` | Emails, Photos |
+3. **Week picker**: PayoutsTab currently hardcodes `now` for week calculation. No date picker exists.
 
-### How It Works
+4. **TeamTab pay fields**: Already implemented — `pay_type`, `fixed_job_rate`, `worker_classification` fields are present and save correctly.
 
-- Each group is a collapsible `SidebarGroup` with an icon and label
-- Clicking a group item sets the active "tab" via React state (same as current tab system, just driven by sidebar clicks instead)
-- The main content area renders the selected component (no change to existing tab content components)
-- `SidebarProvider` wraps the dashboard; `SidebarTrigger` lives in the header for mobile toggle
-- On mobile (`collapsible="offcanvas"`), the sidebar slides in as an overlay
-- Staff users only see Operations items (Bookings, Jobs); admin-only items show a lock icon or are hidden for non-admins
-- The `LowStockWidget` remains at the top of the content area
+5. **FinanceDashboard**: Already has pay method, tips, classification columns, and CSV download.
 
-### Files
+---
+
+### Changes Needed
+
+#### 1. Finance Auto-Navigation (not just PWA)
+
+**File: `src/components/SmartRedirect.tsx`**
+- Remove the `isStandalone` gate so ALL authenticated users get redirected from `/` to their dashboard, not just PWA users.
+
+**File: `src/pages/AdminLogin.tsx`** (check if login redirects finance users)
+- After successful login, if user has finance role but NOT admin/staff, redirect to `/finance` instead of `/admin`.
+
+#### 2. Week Picker on Payouts Tab
+
+**File: `src/pages/FinanceDashboard.tsx`**
+- Add a `selectedWeekStart` state (default: current week Monday)
+- Add left/right arrow buttons and a date picker popover to navigate weeks
+- Replace hardcoded `now` with `selectedWeekStart` for all queries
+- Re-fetch payouts when week changes
+
+#### 3. No Other Changes Needed
+
+- Sidebar verified — all pages present and functioning
+- TeamTab pay fields verified — already working
+- FinanceDashboard columns verified — pay method, tips, classification, CSV all present
+
+---
+
+### Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/admin/AdminSidebar.tsx` | **Create** — new sidebar component with 5 grouped sections |
-| `src/pages/AdminDashboard.tsx` | **Rewrite** — replace Tabs layout with SidebarProvider + content area driven by state |
-
-### Key Implementation Details
-
-- Use existing `Sidebar`, `SidebarContent`, `SidebarGroup`, `SidebarGroupLabel`, `SidebarGroupContent`, `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton` from `@/components/ui/sidebar`
-- Active item highlighted; clicking sets `activeSection` state
-- All existing tab content components (`BookingsTab`, `JobsTab`, etc.) are rendered conditionally based on `activeSection` — zero changes to those components
-- Header stays at the top with logo, user info, notification bell, and logout
-- `SidebarTrigger` added to header for mobile hamburger
+| `src/components/SmartRedirect.tsx` | Remove standalone-only gate for redirects |
+| `src/pages/AdminLogin.tsx` | Add finance role redirect after login |
+| `src/pages/FinanceDashboard.tsx` | Add week picker to PayoutsTab |
 
