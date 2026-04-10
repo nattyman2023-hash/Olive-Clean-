@@ -52,7 +52,7 @@ export default function HeroSection() {
           <TrustBadges variant="muted" className="justify-start pt-2" />
 
           {/* Animated stats */}
-          <div className="flex gap-8 pt-2">
+          <div className="flex flex-wrap gap-6 sm:gap-8 pt-2">
             <AnimatedCounter end={200} suffix="+" label="Nashville families" />
             <AnimatedCounter end={4.9} suffix="★" label="Average rating" decimals={1} />
             <AnimatedCounter end={5} prefix="" suffix=" hrs" label="Saved weekly" />

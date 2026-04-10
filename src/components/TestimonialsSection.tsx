@@ -36,7 +36,7 @@ export default function TestimonialsSection() {
         </div>
 
         <div
-          className={`grid md:grid-cols-3 gap-6 transition-all duration-700 ${
+          className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all duration-700 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
           }`}
           style={{ transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)" }}
