@@ -1,61 +1,44 @@
 
 
-## Plan: Stripe Webhook, Preference-to-Tasks Conversion & Testing Notes
+## Mobile-Optimized Detail Panels: Use Drawers on Small Screens
 
-### Testing Notes (Manual)
+### Problem
+When you tap a job, booking, or client on mobile/tablet, the detail panel renders below the list — forcing you to scroll down to see it. This is poor UX on small screens.
 
-The following items need manual verification from the admin dashboard:
-- Create a service template with a price and confirm the Stripe sync badge appears
-- Mark an invoice as "sent" and verify the email contains a Pay Now button
-- Click a lead, edit its details, and delete it
+### Solution
+Use the existing **Drawer** component (bottom sheet) on mobile/tablet screens, while keeping the current side panel on desktop. The `useIsMobile` hook already exists and detects screens under 768px. We will extend this to also cover tablets (under 1024px, matching the `lg:` breakpoint where the grid switches).
 
-These are existing features — no code changes needed. Test them in the live preview.
+### Affected Tabs
+1. **JobsTab** — Job detail panel becomes a Drawer on mobile/tablet
+2. **BookingsTab** — Booking detail panel becomes a Drawer on mobile/tablet
+3. **ClientsTab** — Client detail panel becomes a Drawer on mobile/tablet
 
----
+### How It Works
+- Add a `useIsDesktop` check (viewport >= 1024px, matching `lg:` breakpoint)
+- On desktop: keep the existing `lg:grid-cols-3` side panel layout (no change)
+- On mobile/tablet: hide the grid column entirely; when an item is selected, open a **Drawer** (bottom sheet) containing the same detail content
+- The Drawer gets a close button and proper `DrawerTitle`/`DrawerDescription` for accessibility
+- Clicking an item on mobile opens the drawer; closing the drawer clears the selection
 
-### 1. Stripe Webhook for Auto-Marking Invoices as Paid
+### Files to Modify
 
-**What it does:** When a customer completes a Stripe Checkout payment, Stripe sends a `checkout.session.completed` event to our webhook. The webhook verifies the signature, reads the `invoice_id` from session metadata, and updates the invoice status to "paid" with a timestamp.
-
-**New file:** `supabase/functions/stripe-webhook/index.ts`
-
-- Listens for POST requests from Stripe
-- Verifies the webhook signature using a `STRIPE_WEBHOOK_SECRET` secret
-- Handles `checkout.session.completed` events
-- Reads `metadata.invoice_id` from the session
-- Updates the `invoices` table: `status = 'paid'`, `paid_at = now()`
-- Returns 200 to Stripe
-
-**Config:** Add `[functions.stripe-webhook]` with `verify_jwt = false` to `supabase/config.toml` (Stripe sends unsigned requests, no JWT).
-
-**Secret needed:** `STRIPE_WEBHOOK_SECRET` — the user will need to configure a webhook endpoint in their Stripe Dashboard pointing to the edge function URL, then provide the signing secret.
-
----
-
-### 2. Convert Customer Preferences to Cleaner Tasks
-
-**What it does:** Currently, client preferences (pets, allergies, special instructions, parking info, etc.) are shown as raw key-value pairs in a "Home Memory" box. This change converts relevant preferences into actionable checklist items that appear alongside the service checklist.
-
-**Modified file:** `src/pages/EmployeeDashboard.tsx`
-
-- Add a `getPreferenceTasks()` function that maps preference keys to concrete task items:
-  - `Pets` → "Be mindful of pets: {value}" 
-  - `Allergies` → "Avoid products containing: {value}"
-  - `Special Instructions` → each instruction as a task
-  - `Preferred Products` → "Use client's preferred products: {value}"
-  - `Rooms Priority` → "Prioritize: {value}"
-  - `Gate Code` / `Alarm Code` / `Parking Info` → shown as info notes (not checkable tasks)
-- Display preference-derived tasks in a separate "Client Tasks" section above the standard service checklist, with a distinct visual style (amber/olive themed)
-- These are checkable items stored in `checklist_state` alongside regular checklist items, prefixed with `pref_` to distinguish them
-- The "Home Memory" raw display remains but is collapsed by default since the actionable items are now surfaced as tasks
-
----
-
-### Files Summary
-
-| File | Action |
+| File | Change |
 |------|--------|
-| `supabase/functions/stripe-webhook/index.ts` | Create — webhook handler |
-| `supabase/config.toml` | Add `stripe-webhook` with `verify_jwt = false` |
-| `src/pages/EmployeeDashboard.tsx` | Modify — preference-to-tasks logic |
+| `src/hooks/use-mobile.tsx` | Add `useIsDesktop()` hook (>= 1024px) |
+| `src/components/admin/JobsTab.tsx` | Wrap `JobDetailPanel` in conditional Drawer vs inline panel |
+| `src/components/admin/BookingsTab.tsx` | Wrap detail panel in conditional Drawer vs inline panel |
+| `src/components/admin/ClientsTab.tsx` | Wrap detail panel in conditional Drawer vs inline panel |
+
+### Pattern (applied to all 3 tabs)
+```text
+if (isDesktop) {
+  render detail panel inline in the grid (existing behavior)
+} else {
+  render a <Drawer> that opens when `selected` is set
+  Drawer contains the same detail content
+  closing the Drawer calls setSelected(null)
+}
+```
+
+No new dependencies needed — Drawer component already exists in the project.
 
