@@ -1,48 +1,48 @@
 
 
-## Enhanced RBAC: View/Edit Granularity
+## Read-Only Badge & canEdit Wiring
 
-### What Already Works
-- `role_permissions` table with RLS exists and gates sidebar visibility
-- `usePermissions` hook fetches permissions and provides `canAccess(section)`
-- Sidebar hides sections users can't access; `AdminGate` blocks unauthorized content
-- Since the admin dashboard is state-driven (not URL-routed), there's no `/admin/finance` URL to guard — the `canAccess` check in `renderSection` already prevents access
-
-### What's Missing
-The current system is binary (access or no access). The user wants **View vs Edit** granularity — e.g., a Finance Officer can *view* Analytics but not *edit* team records.
+### Overview
+Add a visual "Read-only" banner when users have View but not Edit access, and wire up `canEdit` to Finance, Team, and Jobs tabs to hide/disable mutation buttons.
 
 ### Changes
 
-#### 1. Database Migration
-Add `can_edit` boolean to `role_permissions`:
-```sql
-ALTER TABLE role_permissions ADD COLUMN can_edit boolean NOT NULL DEFAULT false;
-```
-Existing rows get `can_edit = false` (view-only by default). Update seeded admin rows to `can_edit = true`.
+#### 1. Read-Only Banner Component
+**File: `src/components/admin/ReadOnlyBanner.tsx`** (new)
+- Simple component: shows a banner with Lock icon + "Read-only — you have view access to this section" when `readOnly` is true
+- Returns `null` when `readOnly` is false
 
-#### 2. Update `usePermissions` Hook
-- Return `canEdit(section): boolean` in addition to `canAccess(section)`
-- Admin always returns `true` for both
-- Non-admin: `canAccess` = row exists, `canEdit` = row exists AND `can_edit = true`
+#### 2. Update `renderSection` in AdminDashboard
+**File: `src/pages/AdminDashboard.tsx`**
+- Wrap rendered sections with `<ReadOnlyBanner readOnly={!editable} />` above each tab
+- Pass `readOnly={!editable}` prop to `JobsTab`, `TeamTab`, and `FinanceTab`
 
-#### 3. Update `PermissionsManager` UI
-- Change from single checkbox per cell to **two checkboxes**: View and Edit
-- View unchecked = section hidden entirely
-- View checked + Edit unchecked = read-only access
-- Edit auto-checks View (can't edit without viewing)
+#### 3. Wire up JobsTab
+**File: `src/components/admin/JobsTab.tsx`**
+- Accept `readOnly?: boolean` prop
+- When `readOnly`: hide "Add Job" button, hide bulk delete button, disable status change dropdowns, hide delete actions in detail panel
 
-#### 4. Pass `canEdit` to Tab Components
-- Export `canEdit` from `usePermissions`
-- Pass it down to components that have create/update/delete actions
-- Components disable mutation buttons when `canEdit` returns false (e.g., hide "Add Client" button, disable form submissions)
-- This is a progressive enhancement — start with Finance, Team, and Jobs tabs as the most critical
+#### 4. Wire up TeamTab
+**File: `src/components/admin/TeamTab.tsx`**
+- Accept `readOnly?: boolean` prop
+- When `readOnly`: hide "Add Employee" button, hide "Invite" button, disable save/update in employee detail form, hide delete actions
 
-### Files
+#### 5. Wire up FinanceTab
+**File: `src/components/admin/FinanceTab.tsx`**
+- Accept `readOnly?: boolean` prop and pass it down to `InvoicesSection`, `EstimatesSection`, `PayslipsSection`, `ExpensesSection`
+- Each sub-section hides "Create" / "Add" / "Delete" buttons when `readOnly`
+
+### Files Summary
 
 | File | Action |
 |------|--------|
-| Migration SQL | Add `can_edit` column to `role_permissions` |
-| `src/hooks/usePermissions.ts` | Add `canEdit` helper |
-| `src/components/admin/PermissionsManager.tsx` | Dual View/Edit checkboxes |
-| `src/pages/AdminDashboard.tsx` | Pass `canEdit` to rendered sections |
+| `src/components/admin/ReadOnlyBanner.tsx` | **Create** — lock icon + "Read-only" text banner |
+| `src/pages/AdminDashboard.tsx` | Show banner + pass `readOnly` prop to tabs |
+| `src/components/admin/JobsTab.tsx` | Accept `readOnly`, hide mutation buttons |
+| `src/components/admin/TeamTab.tsx` | Accept `readOnly`, hide mutation buttons |
+| `src/components/admin/FinanceTab.tsx` | Accept `readOnly`, pass down to sub-sections |
+| `src/components/admin/finance/InvoicesSection.tsx` | Accept `readOnly`, hide create/delete |
+| `src/components/admin/finance/EstimatesSection.tsx` | Accept `readOnly`, hide create/delete |
+| `src/components/admin/finance/PayslipsSection.tsx` | Accept `readOnly`, hide create/delete |
+| `src/components/admin/finance/ExpensesSection.tsx` | Accept `readOnly`, hide create/delete |
 
