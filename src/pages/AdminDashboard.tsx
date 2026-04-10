@@ -132,9 +132,14 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground hidden sm:inline">{user.email}</span>
-                {isAdmin && (
+                {isAdmin && !isImpersonating && (
                   <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     Admin
+                  </span>
+                )}
+                {isImpersonating && impersonatedRole && (
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full capitalize">
+                    {impersonatedRole.replace(/_/g, " ")}
                   </span>
                 )}
                 <NotificationBell />
@@ -145,8 +150,8 @@ export default function AdminDashboard() {
             </header>
 
             <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl">
-              {isAdmin && <LowStockWidget />}
-              {renderSection(activeSection, canAccess, canEdit, isAdmin)}
+              {isAdmin && !isImpersonating && <LowStockWidget />}
+              {renderSection(activeSection, canAccess, canEdit, isImpersonating ? false : isAdmin)}
             </main>
           </div>
         </div>
