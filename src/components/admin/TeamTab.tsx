@@ -224,6 +224,9 @@ export default function TeamTab() {
     setFormStatus("onboarding");
     setFormNotes("");
     setFormCerts("");
+    setFormPayType("hourly");
+    setFormFixedRate("");
+    setFormClassification("w2");
   };
 
   const openAddDialog = () => {
