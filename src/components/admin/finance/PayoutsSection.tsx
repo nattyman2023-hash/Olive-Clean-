@@ -1,20 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, DollarSign, CreditCard, Receipt, Download, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
+import { Loader2, Download, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameWeek } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import ExpensesSection from "@/components/admin/finance/ExpensesSection";
-
-// ── Types ────────────────────────────────────────────────────
 
 interface EmployeePayout {
   employee_id: string;
@@ -33,20 +28,7 @@ interface EmployeePayout {
   paid_at?: string;
 }
 
-interface StripePayment {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  created: number;
-  customer_name: string | null;
-  customer_email: string | null;
-  tip_amount: number | null;
-}
-
-// ── Payouts Tab ──────────────────────────────────────────────
-
-function PayoutsTab() {
+export default function PayoutsSection({ readOnly }: { readOnly?: boolean }) {
   const { user } = useAuth();
   const [payouts, setPayouts] = useState<EmployeePayout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,7 +160,7 @@ function PayoutsTab() {
   useEffect(() => { fetchPayouts(); }, [fetchPayouts]);
 
   const markPaid = async (p: EmployeePayout) => {
-    if (!user) return;
+    if (!user || readOnly) return;
     setMarking(p.employee_id);
     const { error } = await supabase.from("payout_records").insert({
       employee_id: p.employee_id,
@@ -229,7 +211,6 @@ function PayoutsTab() {
 
   return (
     <div>
-      {/* Week picker */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="flex items-center gap-1">
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPreviousWeek}>
@@ -326,6 +307,8 @@ function PayoutsTab() {
                       <Badge variant="default" className="bg-emerald-600 text-white text-[0.65rem]">
                         Paid {p.paid_at ? format(new Date(p.paid_at), "MMM d") : ""}
                       </Badge>
+                    ) : readOnly ? (
+                      <Badge variant="secondary" className="text-[0.65rem]">Unpaid</Badge>
                     ) : (
                       <Button
                         size="sm"
@@ -343,130 +326,6 @@ function PayoutsTab() {
           </Table>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Customer Payments Tab ────────────────────────────────────
-
-function CustomerPaymentsTab() {
-  const [payments, setPayments] = useState<StripePayment[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("list-stripe-payments", {
-          body: null,
-          method: "GET",
-        });
-        if (error) throw error;
-        setPayments(data?.payments || []);
-      } catch {
-        toast.error("Failed to load payments.");
-      }
-      setLoading(false);
-    })();
-  }, []);
-
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
-
-  return payments.length === 0 ? (
-    <div className="bg-card rounded-xl border border-border p-12 text-center">
-      <p className="text-sm text-muted-foreground">No recent payments found.</p>
-    </div>
-  ) : (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Customer</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-            <TableHead className="text-right">Tip</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Transaction ID</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {payments.map((p) => {
-            const failed = ["canceled", "requires_payment_method"].includes(p.status);
-            return (
-              <TableRow key={p.id} className={failed ? "bg-red-50 dark:bg-red-950/20" : ""}>
-                <TableCell>
-                  <div>
-                    <p className="font-medium text-sm">{p.customer_name || "—"}</p>
-                    <p className="text-xs text-muted-foreground">{p.customer_email || ""}</p>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-bold">
-                  ${(p.amount / 100).toFixed(2)} <span className="text-xs text-muted-foreground uppercase">{p.currency}</span>
-                </TableCell>
-                <TableCell className="text-right text-sm">
-                  {p.tip_amount ? `$${p.tip_amount.toFixed(2)}` : "—"}
-                </TableCell>
-                <TableCell className="text-sm">{format(new Date(p.created * 1000), "MMM d, yyyy")}</TableCell>
-                <TableCell className="text-xs font-mono text-muted-foreground">{p.id}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={failed ? "destructive" : p.status === "succeeded" ? "default" : "secondary"}
-                    className={`text-[0.65rem] ${p.status === "succeeded" ? "bg-emerald-600 text-white" : ""}`}
-                  >
-                    {p.status}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-// ── Main Dashboard ───────────────────────────────────────────
-
-export default function FinanceDashboard() {
-  const { user, loading, rolesLoading, isAdmin, isFinance } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && !rolesLoading) {
-      if (!user || (!isAdmin && !isFinance)) {
-        navigate("/", { replace: true });
-      }
-    }
-  }, [user, loading, rolesLoading, isAdmin, isFinance, navigate]);
-
-  if (loading || rolesLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
-  if (!user || (!isAdmin && !isFinance)) return null;
-
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Finance Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Manage payouts, customer payments, and expense approvals</p>
-        </div>
-
-        <Tabs defaultValue="payouts" className="space-y-4">
-          <TabsList className="bg-card border border-border rounded-lg p-1 h-auto">
-            <TabsTrigger value="payouts" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <DollarSign className="h-3.5 w-3.5 mr-1.5" />Payouts
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <CreditCard className="h-3.5 w-3.5 mr-1.5" />Customer Payments
-            </TabsTrigger>
-            <TabsTrigger value="expenses" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Receipt className="h-3.5 w-3.5 mr-1.5" />Expense Approvals
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="payouts"><PayoutsTab /></TabsContent>
-          <TabsContent value="payments"><CustomerPaymentsTab /></TabsContent>
-          <TabsContent value="expenses"><ExpensesSection /></TabsContent>
-        </Tabs>
-      </div>
     </div>
   );
 }
