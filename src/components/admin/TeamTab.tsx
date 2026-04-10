@@ -146,7 +146,7 @@ export default function TeamTab() {
 
   const upsertMutation = useMutation({
     mutationFn: async (emp: Partial<Employee> & { id?: string }) => {
-      const payload = {
+      const payload: Record<string, any> = {
         name: emp.name!,
         phone: emp.phone || null,
         email: emp.email || null,
@@ -154,6 +154,9 @@ export default function TeamTab() {
         status: emp.status || "onboarding",
         notes: emp.notes || null,
         certifications: emp.certifications || [],
+        pay_type: emp.pay_type || "hourly",
+        fixed_job_rate: emp.fixed_job_rate ?? null,
+        worker_classification: emp.worker_classification || "w2",
       };
       if (emp.id) {
         const { error } = await supabase.from("employees").update(payload).eq("id", emp.id);
