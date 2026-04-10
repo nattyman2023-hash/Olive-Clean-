@@ -1,0 +1,1 @@
+ALTER TABLE public.team_messages ADD COLUMN expires_at TIMESTAMPTZ DEFAULT NULL;
