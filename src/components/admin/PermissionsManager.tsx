@@ -249,6 +249,13 @@ export default function PermissionsManager() {
                 <TableHead key={role.name} colSpan={2} className="text-center min-w-[160px]">
                   <div className="flex items-center justify-center gap-1">
                     <span className="capitalize">{role.name.replace(/_/g, " ")}</span>
+                    <button
+                      onClick={() => handlePreviewRole(role.name)}
+                      className="text-muted-foreground hover:text-primary ml-1"
+                      title={`Preview as ${role.name}`}
+                    >
+                      <Eye className="h-3 w-3" />
+                    </button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button className="text-muted-foreground hover:text-destructive ml-1">
