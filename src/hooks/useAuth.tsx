@@ -13,6 +13,7 @@ interface AuthContextType {
   isClient: boolean;
   isFinance: boolean;
   isAdminAssistant: boolean;
+  isCleaner: boolean;
   signOut: () => Promise<void>;
   // Impersonation
   impersonatedUserId: string | null;
@@ -33,6 +34,7 @@ const AuthContext = createContext<AuthContextType>({
   isClient: false,
   isFinance: false,
   isAdminAssistant: false,
+  isCleaner: false,
   signOut: async () => {},
   impersonatedUserId: null,
   impersonatedRole: null,
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isClient, setIsClient] = useState(false);
   const [isFinance, setIsFinance] = useState(false);
   const [isAdminAssistant, setIsAdminAssistant] = useState(false);
+  const [isCleaner, setIsCleaner] = useState(false);
   const resolvedUserIdRef = useRef<string | null>(null);
 
   // Impersonation state
