@@ -17,12 +17,35 @@ export default function AdminLogin() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      setLoading(false);
       toast.error(error.message);
       return;
     }
+
+    // Check if user has finance role but not admin/staff — route to /finance
+    const userId = data.user?.id;
+    if (userId) {
+      const [adminRes, staffRes, financeRes] = await Promise.all([
+        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "finance" as never }),
+      ]);
+      const isAdmin = !!adminRes.data;
+      const isStaff = !!staffRes.data;
+      const isFinance = !!financeRes.data;
+
+      setLoading(false);
+
+      if (isFinance && !isAdmin && !isStaff) {
+        navigate("/finance", { replace: true });
+        return;
+      }
+    } else {
+      setLoading(false);
+    }
+
     navigate("/admin", { replace: true });
   };
 
