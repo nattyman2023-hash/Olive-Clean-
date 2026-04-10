@@ -450,6 +450,59 @@ export default function TeamTab() {
                   </SelectContent>
                 </Select>
               </div>
+              {/* Pay Settings */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Pay Type</Label>
+                  <Select
+                    value={formPayType}
+                    onValueChange={(v) => {
+                      setFormPayType(v);
+                      saveProfileField("pay_type", v);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">Hourly</SelectItem>
+                      <SelectItem value="per_job">Fixed Per Job</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formPayType === "per_job" && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fixed Rate ($)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formFixedRate}
+                      onChange={(e) => setFormFixedRate(e.target.value)}
+                      onBlur={() => {
+                        const val = formFixedRate ? parseFloat(formFixedRate) : null;
+                        if (val !== profileEmployee.fixed_job_rate) saveProfileField("fixed_job_rate", val);
+                      }}
+                      className="rounded-xl mt-1"
+                      placeholder="e.g. 100"
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Worker Classification</Label>
+                <Select
+                  value={formClassification}
+                  onValueChange={(v) => {
+                    setFormClassification(v);
+                    saveProfileField("worker_classification", v);
+                  }}
+                >
+                  <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="w2">W-2 / Staff</SelectItem>
+                    <SelectItem value="contractor">1099 / Contractor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Notes</Label>
                 <Textarea
