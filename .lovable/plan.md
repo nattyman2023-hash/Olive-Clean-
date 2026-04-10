@@ -1,48 +1,28 @@
 
 
-## Fix Role Assignment, Add "Preview as Role", and Populate Demo Data
+## Fix Finance Data Visibility and Add Payouts to Admin Finance Tab
 
 ### Problem Analysis
 
-1. **"Failed to add role" error**: Employees like Daniela Cruz and Maria Santos have fake `user_id` values that don't exist in `auth.users`. The `user_roles` table has a foreign key constraint (`user_roles_user_id_fkey`) referencing `auth.users(id)`, so inserts fail for these employees. The fix: show a better error message for employees without real auth accounts, and only allow role assignment for employees with valid auth accounts.
+1. **No Payouts tab in Admin Finance**: The admin's Finance section (`FinanceTab.tsx`) only shows Invoices, Estimates, Payslips, and Expenses. The Payouts tab (with payroll calculations from time logs) only exists on the standalone `/finance` page (`FinanceDashboard.tsx`). As a super admin on `/admin`, you never see the payroll data.
 
-2. **"Preview as Finance" feature**: The impersonation system already exists but is tied to specific users. Add a simpler "Preview as Role" button in the Permissions tab that lets admin temporarily view the dashboard as if they had a specific role's permissions — without needing to pick a user.
-
-3. **Demo data for Finance**: Populate `job_time_logs` with realistic clock-in/clock-out entries for employees with real auth accounts (Aisha, Siye, Tyler, Yonas) across the current and past weeks, so the Finance Dashboard payroll calculations have data to display.
+2. **Job status mismatch bug**: The Payouts tab queries jobs with `.eq("status", "completed")`, but the actual job records use `"complete"` as the status value. This means tips and job counts always return 0, making payroll data appear empty even when time logs exist.
 
 ### Changes
 
-#### 1. Fix Role Assignment Error (TeamTab.tsx)
-- In `RoleAssignmentCard`, check if the employee's `user_id` exists in `auth.users` (use a query to `profiles` table as proxy — all real auth users have a profile via the trigger)
-- If no auth account exists, show a disabled state with message "This employee has no login account — roles can only be assigned to users with accounts"
-- Improve error toast to show the actual error message
+#### 1. Fix job status filter in `FinanceDashboard.tsx`
+- Line 104: Change `.eq("status", "completed")` to `.eq("status", "complete")`
 
-#### 2. Add "Preview as Role" Feature
-**File: `src/components/admin/PermissionsManager.tsx`**
-- Add an `Eye` icon button next to each role in the permissions matrix header
-- Clicking it triggers impersonation with a synthetic preview that overrides `usePermissions` to use that role's configured permissions
-- Simpler approach: use existing `startImpersonation` from `useAuth` + update `usePermissions` to respect impersonation by fetching permissions for the impersonated role instead of the real user
-
-**File: `src/hooks/usePermissions.ts`**
-- When `impersonatedRole` is set, fetch permissions for that role from `role_permissions` instead of the user's actual roles
-
-**File: `src/pages/AdminDashboard.tsx`**
-- When impersonating, hide the Admin badge and show the impersonation bar
-- Import and render `ImpersonationBar`
-
-#### 3. Populate Demo Data (Database Insert)
-Insert job_time_logs for employees with real auth accounts:
-- ~20-30 clock-in/clock-out pairs across current and past 2 weeks
-- Varying hours (6-9 hour days) for realistic payroll data
-- Also ensure some jobs exist for these employees in the current period
+#### 2. Add Payouts tab to the Admin Finance section
+- Extract the `PayoutsTab` component from `FinanceDashboard.tsx` into a shared file (or import it directly)
+- Add a "Payouts" tab to `FinanceTab.tsx` alongside the existing Invoices/Estimates/Payslips/Expenses tabs
+- Pass `readOnly` prop so non-edit users can view but not mark payouts as paid
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/admin/TeamTab.tsx` | Fix RoleAssignmentCard to handle missing auth accounts gracefully |
-| `src/components/admin/PermissionsManager.tsx` | Add "Preview as Role" button per role |
-| `src/hooks/usePermissions.ts` | Respect impersonated role for permission lookups |
-| `src/pages/AdminDashboard.tsx` | Add ImpersonationBar, handle role preview mode |
-| Database insert | Populate `job_time_logs` with demo clock-in/out data |
+| `src/pages/FinanceDashboard.tsx` | Fix `"completed"` → `"complete"` status filter |
+| `src/components/admin/FinanceTab.tsx` | Add Payouts tab, import PayoutsTab component |
+| `src/components/admin/finance/PayoutsSection.tsx` | New file — extract PayoutsTab logic from FinanceDashboard for reuse |
 
