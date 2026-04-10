@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail } from "lucide-react";
 import oliveLogo from "@/assets/olive-clean-logo.png";
 import TrustBadges from "@/components/TrustBadges";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 export default function Footer() {
   return (
@@ -75,6 +76,7 @@ export default function Footer() {
             <Link to="/client/login" className="py-1 hover:text-background/60 transition-colors">Client Portal</Link>
             <Link to="/employee/login" className="py-1 hover:text-background/60 transition-colors">Employee Portal</Link>
             <Link to="/admin/login" className="py-1 hover:text-background/60 transition-colors">Staff Login</Link>
+            <PWAInstallBanner mode="link" />
           </div>
           <p className="text-xs text-background/40">© {new Date().getFullYear()} Olive Clean. All rights reserved.</p>
         </div>
