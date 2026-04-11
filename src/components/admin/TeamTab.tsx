@@ -254,10 +254,18 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Login invite sent!");
+      // Update profileEmployee with the real auth user_id
+      if (data?.user_id && profileEmployee) {
+        setProfileEmployee({ ...profileEmployee, user_id: data.user_id });
+      }
       queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["profile_exists"] });
+      queryClient.invalidateQueries({ queryKey: ["all_user_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user_roles"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -690,7 +698,15 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
 
           {/* Role Assignment (admin-only, not in read-only) */}
           {isAdmin && !readOnly && (
-            <RoleAssignmentCard userId={profileEmployee.user_id} employeeName={profileEmployee.name} />
+            <RoleAssignmentCard
+              userId={profileEmployee.user_id}
+              employeeName={profileEmployee.name}
+              employeeEmail={profileEmployee.email}
+              employeeId={profileEmployee.id}
+              onAccountLinked={(newUserId) => {
+                setProfileEmployee({ ...profileEmployee, user_id: newUserId });
+              }}
+            />
           )}
 
           {/* Onboarding Checklist */}
@@ -1283,7 +1299,19 @@ function TeamAnnouncements() {
 
 /* ---------- Role Assignment Card ---------- */
 
-function RoleAssignmentCard({ userId, employeeName }: { userId: string; employeeName: string }) {
+function RoleAssignmentCard({
+  userId,
+  employeeName,
+  employeeEmail,
+  employeeId,
+  onAccountLinked,
+}: {
+  userId: string;
+  employeeName: string;
+  employeeEmail?: string | null;
+  employeeId?: string;
+  onAccountLinked?: (newUserId: string) => void;
+}) {
   const queryClient = useQueryClient();
 
   // Check if this employee has a real auth account (profile exists via trigger)
@@ -1326,6 +1354,29 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
     enabled: !!hasAccount,
   });
 
+  const inviteFromCardMutation = useMutation({
+    mutationFn: async () => {
+      if (!employeeEmail || !employeeId) throw new Error("Employee needs a valid email address first");
+      const { data, error } = await supabase.functions.invoke("invite-employee", {
+        body: { email: employeeEmail.trim().toLowerCase(), name: employeeName.trim(), employee_id: employeeId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Account created & invite sent!");
+      if (data?.user_id) {
+        onAccountLinked?.(data.user_id);
+      }
+      queryClient.invalidateQueries({ queryKey: ["profile_exists"] });
+      queryClient.invalidateQueries({ queryKey: ["user_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["all_user_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const toggleRole = async (role: string) => {
     const has = currentRoles.includes(role as any);
     if (has) {
@@ -1344,6 +1395,7 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
       toast.success(`Added ${role} role to ${employeeName}`);
     }
     queryClient.invalidateQueries({ queryKey: ["user_roles", userId] });
+    queryClient.invalidateQueries({ queryKey: ["all_user_roles"] });
   };
 
   return (
@@ -1355,9 +1407,29 @@ function RoleAssignmentCard({ userId, employeeName }: { userId: string; employee
         {accountLoading || isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
         ) : !hasAccount ? (
-          <p className="text-xs text-muted-foreground italic">
-            This employee has no login account — roles can only be assigned to users with accounts.
-          </p>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground italic">
+              This employee has no login account — roles can only be assigned to users with accounts.
+            </p>
+            {employeeEmail && employeeId && (
+              <Button
+                size="sm"
+                onClick={() => inviteFromCardMutation.mutate()}
+                disabled={inviteFromCardMutation.isPending}
+                className="w-full rounded-full active:scale-[0.97] transition-transform"
+              >
+                {inviteFromCardMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <Mail className="h-4 w-4 mr-1" />
+                )}
+                Invite to App
+              </Button>
+            )}
+            {!employeeEmail && (
+              <p className="text-xs text-destructive">Add an email address first to create an account.</p>
+            )}
+          </div>
         ) : (
           availableRoles.map((r) => (
             <label key={r.name} className="flex items-start gap-3 cursor-pointer group">
