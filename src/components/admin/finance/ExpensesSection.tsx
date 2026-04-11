@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Receipt, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 interface Expense {
   id: string;
@@ -15,6 +17,8 @@ interface Expense {
   status: string;
   submitted_at: string;
   notes: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   employees?: { name: string } | null;
 }
 
@@ -28,6 +32,8 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
   const fetch_ = async () => {
     setLoading(true);
@@ -44,6 +50,14 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
     if (error) { toast.error("Failed to update."); return; }
     toast.success(`Expense ${status}.`);
     fetch_();
+    if (selectedExpense?.id === id) {
+      setSelectedExpense((prev) => prev ? { ...prev, status, reviewed_at: new Date().toISOString() } : null);
+    }
+  };
+
+  const openDetail = (exp: Expense) => {
+    setSelectedExpense(exp);
+    setSheetOpen(true);
   };
 
   const filtered = expenses.filter(e => filterStatus === "all" || e.status === filterStatus);
@@ -68,12 +82,16 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
       ) : (
         <div className="space-y-2">
           {filtered.map((exp) => (
-            <div key={exp.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4">
+            <div
+              key={exp.id}
+              className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => openDetail(exp)}
+            >
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm text-foreground truncate">{exp.description}</p>
                 <p className="text-xs text-muted-foreground">{exp.employees?.name || "Unknown"} · {exp.category} · {format(new Date(exp.submitted_at), "MMM d, yyyy")}</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <span className="font-bold text-sm text-foreground">${Number(exp.amount).toFixed(2)}</span>
                 {exp.receipt_url && (
                   <a href={exp.receipt_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80"><ExternalLink className="h-3.5 w-3.5" /></a>
@@ -90,6 +108,101 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
           ))}
         </div>
       )}
+
+      {/* Expense Detail Drawer */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Expense Detail</SheetTitle>
+            <SheetDescription>Full breakdown and receipt</SheetDescription>
+          </SheetHeader>
+
+          {selectedExpense && (
+            <div className="space-y-5 mt-4">
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Amount</p>
+                <p className="text-2xl font-bold text-foreground">${Number(selectedExpense.amount).toFixed(2)}</p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Description</p>
+                  <p className="text-sm font-medium text-foreground">{selectedExpense.description}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Category</p>
+                    <Badge variant="outline" className="mt-1 capitalize">{selectedExpense.category}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <span className={`inline-block mt-1 text-[0.7rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[selectedExpense.status] || STATUS_STYLES.pending}`}>
+                      {selectedExpense.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Submitted by</p>
+                    <p className="text-sm text-foreground">{selectedExpense.employees?.name || "Unknown"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Submitted</p>
+                    <p className="text-sm text-foreground">{format(new Date(selectedExpense.submitted_at), "MMM d, yyyy h:mm a")}</p>
+                  </div>
+                </div>
+                {selectedExpense.reviewed_at && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Reviewed</p>
+                    <p className="text-sm text-foreground">{format(new Date(selectedExpense.reviewed_at), "MMM d, yyyy h:mm a")}</p>
+                  </div>
+                )}
+                {selectedExpense.notes && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Notes</p>
+                    <p className="text-sm text-foreground">{selectedExpense.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Receipt */}
+              {selectedExpense.receipt_url && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Receipt</p>
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <img
+                      src={selectedExpense.receipt_url}
+                      alt="Receipt"
+                      className="w-full max-h-80 object-contain bg-muted/30"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                      }}
+                    />
+                    <div className="hidden p-4 text-center">
+                      <a href={selectedExpense.receipt_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center justify-center gap-1">
+                        <ExternalLink className="h-3.5 w-3.5" /> Open Receipt
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              {!readOnly && selectedExpense.status === "pending" && (
+                <div className="flex gap-2 pt-2">
+                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => updateStatus(selectedExpense.id, "approved")}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                  </Button>
+                  <Button variant="destructive" className="flex-1" onClick={() => updateStatus(selectedExpense.id, "rejected")}>
+                    <XCircle className="h-4 w-4 mr-1" /> Reject
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
