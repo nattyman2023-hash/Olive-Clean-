@@ -57,6 +57,44 @@ serve(async (req) => {
       }
 
       console.log(`Invoice ${invoiceId} marked as paid`);
+
+      // Log payment in comms log
+      await supabaseAdmin.from("email_send_log").insert({
+        recipient_email: session.customer_email || session.customer_details?.email || "unknown",
+        template_name: "payment-received",
+        status: "sent",
+        metadata: {
+          invoice_id: invoiceId,
+          amount: session.amount_total ? (session.amount_total / 100).toFixed(2) : null,
+          stripe_session_id: session.id,
+        },
+      });
+
+      // Fetch invoice number for notification
+      const { data: inv } = await supabaseAdmin
+        .from("invoices")
+        .select("invoice_number, clients(name)")
+        .eq("id", invoiceId)
+        .maybeSingle();
+
+      // Notify finance/admin users
+      const { data: financeUsers } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_id")
+        .in("role", ["admin", "finance"]);
+
+      if (financeUsers && inv) {
+        const clientName = (inv as any).clients?.name || "Client";
+        for (const u of financeUsers) {
+          await supabaseAdmin.from("notifications").insert({
+            user_id: u.user_id,
+            type: "invoice_paid",
+            title: `Invoice ${inv.invoice_number} paid`,
+            body: `${clientName} paid $${session.amount_total ? (session.amount_total / 100).toFixed(2) : "?"}`,
+            metadata: { invoice_id: invoiceId },
+          });
+        }
+      }
     } else {
       console.log("No invoice_id in session metadata — skipping");
     }

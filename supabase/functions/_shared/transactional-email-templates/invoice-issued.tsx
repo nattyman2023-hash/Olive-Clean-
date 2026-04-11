@@ -53,13 +53,13 @@ const InvoiceIssuedEmail = ({ name, invoiceNumber, total, dueDate, paymentUrl }:
               href={paymentUrl}
               style={payButton}
             >
-              Pay Now — {total || 'View Invoice'}
+              Securely Pay via Stripe — {total || 'View Invoice'}
             </Button>
           </Section>
         )}
         <Text style={text}>
           {paymentUrl
-            ? 'Click the button above to pay securely online, or log into your client dashboard to view and pay your invoices.'
+            ? 'Click the button above to pay securely via Stripe. Your payment is processed on a secure, encrypted page.'
             : 'Log into your client dashboard to view and pay your invoices online.'}
         </Text>
         <Text style={text}>
