@@ -280,7 +280,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
     setDialogOpen(true);
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const parsedEmail = getOptionalEmployeeEmail(formEmail);
@@ -289,15 +289,54 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
       return;
     }
 
-    upsertMutation.mutate({
+    const newUserId = crypto.randomUUID();
+    const newId = crypto.randomUUID();
+
+    // Create employee record
+    const payload: Record<string, any> = {
+      id: newId,
       name: formName,
-      phone: formPhone,
+      phone: formPhone || null,
       email: parsedEmail.email,
-      user_id: crypto.randomUUID(),
+      user_id: newUserId,
       status: formStatus,
-      notes: formNotes,
+      notes: formNotes || null,
       certifications: formCerts.split(",").map((s) => s.trim()).filter(Boolean),
-    });
+    };
+
+    const { error: insertError } = await supabase.from("employees").insert(payload as any);
+    if (insertError) {
+      toast.error(insertError.message);
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["employees"] });
+    toast.success("Employee added");
+
+    // Auto-invite if email provided
+    if (parsedEmail.email) {
+      try {
+        const { data, error } = await supabase.functions.invoke("invite-employee", {
+          body: { email: parsedEmail.email, name: formName.trim(), employee_id: newId },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const authUserId = data?.user_id;
+        toast.success("Login invite sent!");
+
+        // Assign selected role if one was chosen
+        if (formRole && authUserId) {
+          await supabase.from("user_roles").insert({ user_id: authUserId, role: formRole as any });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["employees"] });
+        queryClient.invalidateQueries({ queryKey: ["all_user_roles"] });
+      } catch (err: any) {
+        toast.error(`Invite failed: ${err.message}`);
+      }
+    }
+
     setDialogOpen(false);
     resetForm();
   };
