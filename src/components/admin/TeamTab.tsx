@@ -126,6 +126,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
   const [formPayType, setFormPayType] = useState("hourly");
   const [formFixedRate, setFormFixedRate] = useState("");
   const [formClassification, setFormClassification] = useState("w2");
+  const [formRole, setFormRole] = useState("");
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["employees"],
