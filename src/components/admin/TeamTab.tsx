@@ -836,7 +836,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
               <Button size="sm" className="rounded-full active:scale-[0.97] transition-transform" onClick={openAddDialog}>
-                <Plus className="h-4 w-4 mr-1" /> Add Employee
+                <Plus className="h-4 w-4 mr-1" /> Add Team Member
               </Button>
             </DialogTrigger>
           <DialogContent className="sm:max-w-md">
