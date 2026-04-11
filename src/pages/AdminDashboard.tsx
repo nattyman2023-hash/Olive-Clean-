@@ -25,6 +25,7 @@ import RecentUploads from "@/components/admin/RecentUploads";
 import ServicesManager from "@/components/admin/ServicesManager";
 import LeadsTab from "@/components/admin/LeadsTab";
 import PermissionsManager from "@/components/admin/PermissionsManager";
+import EmailsTab from "@/components/admin/EmailsTab";
 import NotificationBell from "@/components/NotificationBell";
 import LowStockWidget from "@/components/admin/LowStockWidget";
 import ReadOnlyBanner from "@/components/admin/ReadOnlyBanner";
@@ -64,6 +65,7 @@ function renderSection(section: string, canAccess: (s: string) => boolean, canEd
       case "time-off": return <TimeOffManager isAdmin={isAdmin} />;
       case "quotes": return <QuotesTab readOnly={readOnly} />;
       case "photos": return <RecentUploads />;
+      case "comms-log": return <EmailsTab />;
       case "permissions": return <PermissionsManager />;
       default: return <BookingsTab readOnly={readOnly} />;
     }

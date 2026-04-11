@@ -86,6 +86,7 @@ const NAV_GROUPS: NavGroup[] = [
       { value: "services", label: "Services", icon: Wrench },
       { value: "supplies", label: "Supplies", icon: Package },
       { value: "quotes", label: "Quotes", icon: BookOpen },
+      { value: "comms-log", label: "Comms Log", icon: Mail },
     ],
   },
   {
