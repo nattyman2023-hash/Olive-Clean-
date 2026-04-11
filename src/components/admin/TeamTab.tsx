@@ -58,6 +58,16 @@ interface PerformanceRecord {
   attendance_score: number;
 }
 
+const ROLE_BADGE_COLORS: Record<string, string> = {
+  admin: "bg-red-100 text-red-800 border-red-200",
+  staff: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  cleaning_technician: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  finance: "bg-blue-100 text-blue-800 border-blue-200",
+  dispatcher: "bg-purple-100 text-purple-800 border-purple-200",
+  admin_assistant: "bg-amber-100 text-amber-800 border-amber-200",
+  client: "bg-sky-100 text-sky-800 border-sky-200",
+};
+
 const STATUS_COLORS: Record<string, string> = {
   onboarding: "bg-amber-100 text-amber-800 border-amber-200",
   active: "bg-emerald-100 text-emerald-800 border-emerald-200",
