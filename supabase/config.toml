@@ -19,3 +19,5 @@ project_id = "tgdhglzegfbmdnzvseaa"
     verify_jwt = true
   [functions.stripe-webhook]
     verify_jwt = false
+  [functions.finalize-invoice]
+    verify_jwt = false

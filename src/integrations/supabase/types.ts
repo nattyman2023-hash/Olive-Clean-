@@ -609,6 +609,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           status: string
+          stripe_checkout_url: string | null
           subtotal: number
           tax_amount: number
           tax_rate: number
@@ -627,6 +628,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           status?: string
+          stripe_checkout_url?: string | null
           subtotal?: number
           tax_amount?: number
           tax_rate?: number
@@ -645,6 +647,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           status?: string
+          stripe_checkout_url?: string | null
           subtotal?: number
           tax_amount?: number
           tax_rate?: number
