@@ -140,6 +140,40 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
     },
   });
 
+  // Fetch custom roles for Add dialog dropdown
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ["custom_roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_roles")
+        .select("name, description")
+        .order("created_at");
+      if (error) throw error;
+      return data as Array<{ name: string; description: string | null }>;
+    },
+  });
+
+  // Fetch all user_roles for displayed employees (for badges)
+  const employeeUserIds = employees.map((e) => e.user_id);
+  const { data: allUserRoles = [] } = useQuery({
+    queryKey: ["all_user_roles", employeeUserIds.join(",")],
+    enabled: employeeUserIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("user_id", employeeUserIds);
+      if (error) throw error;
+      return data as Array<{ user_id: string; role: string }>;
+    },
+  });
+
+  const rolesByUserId = allUserRoles.reduce<Record<string, string[]>>((acc, r) => {
+    if (!acc[r.user_id]) acc[r.user_id] = [];
+    acc[r.user_id].push(r.role);
+    return acc;
+  }, {});
+
   const { data: performance = [] } = useQuery({
     queryKey: ["employee_performance", profileEmployee?.id],
     enabled: !!profileEmployee,
