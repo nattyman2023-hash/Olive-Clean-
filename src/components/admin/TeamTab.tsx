@@ -272,6 +272,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
     setFormPayType("hourly");
     setFormFixedRate("");
     setFormClassification("w2");
+    setFormRole("");
   };
 
   const openAddDialog = () => {
