@@ -1,68 +1,43 @@
 
 
-## End-to-End Audit Results: Team Invitation and Role System
+## Fix "No Login Account", Portal Redirect, and Add Member Flow
 
-### Audit Findings
+### Problems Identified
 
-#### 1. Email Invitation Logic — PASS with issues
-- The `invite-employee` edge function correctly creates auth users via `inviteUserByEmail` with `redirectTo: https://oliveclean.co/reset-password`
-- The invite link validity is controlled by Supabase (default 24h) — working correctly
-- **Issue found**: The `invite-employee` function always assigns the `staff` role (line 108-112), but the TeamTab also assigns the role selected in the dropdown (line 329-331). This means every invited employee gets `staff` PLUS whatever role was selected. A Finance person shouldn't necessarily have `staff` role — it gives them access to sections meant for cleaning technicians.
+1. **"No login account" message**: When adding an employee, `user_id` is set to a random UUID (`crypto.randomUUID()`). The `RoleAssignmentCard` checks if a `profiles` row exists for that UUID — it doesn't, since the real auth user gets a different UUID. After the invite succeeds and `invite-employee` updates `user_id`, the profile view still shows stale data.
 
-#### 2. Onboarding Flow — PASS
-- ResetPassword page correctly listens for `PASSWORD_RECOVERY` event, shows password form, and calls `updateUser({ password })`
-- After password set, user is redirected to `/admin` or `/client` based on role check
+2. **Portal redirect for non-technicians**: `SmartRedirect` correctly routes Finance → `/admin`, but if a Finance user somehow lands on `/employee`, the guard at line 93 kicks them to `/employee/login` because they lack the `staff` role. This is actually correct behavior — Finance users should never see the Employee portal. The real issue is ensuring they always land on `/admin`.
 
-#### 3. Smart Redirection — PARTIAL PASS, issues found
-- **SmartRedirect** only runs on `/` route. After password reset, `ResetPassword.tsx` redirects to `/admin` or `/client` (line 96) — it doesn't check for `finance`, `staff`, or `cleaning_technician` roles
-- **Issue**: A Finance user setting their password gets redirected to `/admin` (because `isClient` is false), but SmartRedirect only triggers on `/`. Since they land on `/admin`, the AdminDashboard access check (line 96) should allow them IF they have `finance` permissions in `role_permissions`. However, the guard on line 110 checks `!isAdmin && !isStaff && !isAdminAssistant` — **Finance role is not in this check**, so a pure Finance user (no staff role) gets kicked to `/`
-- **Issue**: `isCleaningTechnician` is checked in the AdminDashboard gate but `isFinance` is not. A user with only the `finance` role and permissions will be blocked from `/admin`
+3. **Add Member flow**: The invite already fires automatically, but the initial `user_id` is a throwaway UUID. The flow should wait for the invite response and use the returned `user_id` to update the employee record immediately in the UI.
 
-#### 4. Permission Lockdown — PASS
-- The AdminDashboard uses `canAccess(section)` from `usePermissions` to gate each section
-- The sidebar filters items via `canAccess(item.value)`, hiding inaccessible sections
-- URL-based bypass is prevented because the dashboard is a single-page app with section switching (not separate routes) — typing `/admin/hiring` just loads `/admin` and defaults to "bookings"
-
-#### 5. Visual Verification — PASS
-- Role badges with `ROLE_BADGE_COLORS` mapping are implemented in TeamTab
-- "Cleaning Technician" rename is applied across the codebase
-
----
-
-### Issues Requiring Fixes
-
-| # | Issue | Severity | Fix |
-|---|-------|----------|-----|
-| 1 | `invite-employee` always assigns `staff` role to every invited employee | Medium | Only assign `staff` if no other role is selected, OR skip auto-assigning `staff` and let the TeamTab handle role assignment |
-| 2 | `ResetPassword.tsx` only redirects to `/admin` or `/client` — doesn't handle Finance or Staff roles properly | High | Add role checks for finance → `/finance`, staff → `/employee` |
-| 3 | `AdminDashboard` gate (line 96, 110) doesn't include `isFinance`, so pure Finance users are kicked out | High | Add `isFinance` to the access checks in AdminDashboard |
-
-### Plan
-
-#### File: `supabase/functions/invite-employee/index.ts`
-- Make the auto-assigned `staff` role conditional: only add it if no specific role will be assigned by the caller. Add an optional `role` parameter to the function body. If provided and not `staff`, skip the automatic `staff` insertion and instead insert the provided role.
-
-#### File: `src/pages/ResetPassword.tsx`
-- After password update (line 92-96), add role checks for `finance` and `staff`:
-  - Finance → `/finance`
-  - Staff → `/employee`
-  - Client → `/client`
-  - Default → `/admin`
-
-#### File: `src/pages/AdminDashboard.tsx`
-- Line 96: Add `isFinance` to the role check so Finance users aren't kicked out
-- Line 110: Add `isFinance` to the render guard
-- Import and use `isFinance` from `useAuth()`
+### Changes
 
 #### File: `src/components/admin/TeamTab.tsx`
-- Pass the selected `formRole` to the `invite-employee` function call so the edge function knows which role to assign instead of defaulting to `staff`
+
+**Fix 1 — RoleAssignmentCard: Add "Invite to App" button when no account exists**
+- When `hasAccount` is false, instead of just showing the message, also show an "Invite to App" button (if the employee has a valid email)
+- The button calls `invite-employee`, and on success, invalidates the `profile_exists` query so the roles section activates immediately
+- Pass the component the employee's email and ID so it can trigger the invite
+
+**Fix 2 — Add Member flow: Use returned `user_id` from invite**
+- In `handleAddSubmit`, after the invite succeeds, update the local employee record's `user_id` with the returned `data.user_id` (the edge function already does the DB update)
+- Remove the initial `crypto.randomUUID()` for `user_id` — instead, if no email is provided (no invite), use a placeholder; if email is provided, the `user_id` will come from the invite response
+
+**Fix 3 — Invite mutation in profile view: refresh account state after invite**
+- In `inviteMutation.onSuccess`, also invalidate `["profile_exists", profileEmployee.user_id]` and `["all_user_roles"]`
+- After invite, update `profileEmployee.user_id` with the returned auth user ID
+
+#### File: `src/components/admin/TeamTab.tsx` — RoleAssignmentCard props
+- Add `employeeEmail`, `employeeId`, and `employeeName` props so it can trigger the invite itself
+- When no account exists, show: message + "Invite to App" button
+- On successful invite, invalidate queries and activate roles section
+
+#### File: `src/pages/EmployeeDashboard.tsx` — No changes needed
+- The guard correctly restricts to `staff` role users. Finance/Admin users should not access this portal — they use `/admin` or `/finance`. The `SmartRedirect` handles routing correctly.
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| `supabase/functions/invite-employee/index.ts` | Accept optional `role` param, conditionally assign staff |
-| `src/pages/ResetPassword.tsx` | Add finance/staff role-based redirect after password set |
-| `src/pages/AdminDashboard.tsx` | Add `isFinance` to access guards |
-| `src/components/admin/TeamTab.tsx` | Pass `formRole` to invite-employee function |
+| `src/components/admin/TeamTab.tsx` | Add "Invite to App" button in RoleAssignmentCard; fix user_id flow in add/invite mutations; refresh account state after invite |
 
