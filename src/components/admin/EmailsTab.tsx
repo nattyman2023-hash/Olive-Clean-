@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Mail, CheckCircle2, XCircle, AlertTriangle, Send, Eye, SendHorizonal } from "lucide-react";
+import { Loader2, Mail, CheckCircle2, XCircle, AlertTriangle, Send, Eye, SendHorizonal, Search, RotateCw, ExternalLink, TrendingUp, ShieldCheck } from "lucide-react";
 import { format, subDays, subHours } from "date-fns";
 import { toast } from "sonner";
 
@@ -27,6 +27,7 @@ interface EmailLogRow {
   recipient_email: string;
   status: string;
   error_message: string | null;
+  metadata: Record<string, any> | null;
   created_at: string;
 }
 
@@ -71,7 +72,9 @@ function EmailLogsView() {
   const [customEnd, setCustomEnd] = useState("");
   const [templateFilter, setTemplateFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -115,23 +118,49 @@ function EmailLogsView() {
       if (statusFilter === "sent" && l.status !== "sent") return false;
       if (statusFilter === "dlq" && !["dlq", "failed"].includes(l.status)) return false;
       if (statusFilter === "suppressed" && l.status !== "suppressed") return false;
+      if (searchQuery && !l.recipient_email.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
-  }, [dedupedLogs, templateFilter, statusFilter]);
+  }, [dedupedLogs, templateFilter, statusFilter, searchQuery]);
 
   const stats = useMemo(() => {
     const total = dedupedLogs.length;
     const sent = dedupedLogs.filter((l) => l.status === "sent").length;
-    const failed = dedupedLogs.filter((l) => ["dlq", "failed"].includes(l.status)).length;
+    const failed = dedupedLogs.filter((l) => ["dlq", "failed", "bounced"].includes(l.status)).length;
     const suppressed = dedupedLogs.filter((l) => l.status === "suppressed").length;
-    return { total, sent, failed, suppressed };
+    const deliveryRate = total > 0 ? Math.round((sent / total) * 100) : 0;
+    const deliverySuccess = (sent + failed) > 0 ? Math.round((sent / (sent + failed)) * 100) : 0;
+    return { total, sent, failed, suppressed, deliveryRate, deliverySuccess };
   }, [dedupedLogs]);
+
+  const handleResend = async (row: EmailLogRow) => {
+    setResendingId(row.id);
+    try {
+      const meta = row.metadata as Record<string, any> | null;
+      const templateData = meta?.templateData || {};
+      const { error } = await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: row.template_name,
+          recipientEmail: row.recipient_email,
+          templateData,
+          idempotencyKey: `resend-${row.message_id || row.id}-${Date.now()}`,
+        },
+      });
+      if (error) throw error;
+      toast.success(`Resent to ${row.recipient_email}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to resend email.");
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
+      {/* Time range */}
       <div className="flex flex-wrap gap-2 items-center">
         {(["24h", "7d", "30d", "custom"] as TimeRange[]).map((r) => (
           <Button key={r} size="sm" variant={timeRange === r ? "default" : "outline"} className="rounded-lg text-xs" onClick={() => { setTimeRange(r); setPage(0); }}>
@@ -146,7 +175,18 @@ function EmailLogsView() {
           </>
         )}
       </div>
+
+      {/* Filters + Search */}
       <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-[300px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search by email..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            className="pl-9 rounded-lg text-xs"
+          />
+        </div>
         <Select value={templateFilter} onValueChange={(v) => { setTemplateFilter(v); setPage(0); }}>
           <SelectTrigger className="w-[200px] rounded-lg text-xs"><SelectValue placeholder="All templates" /></SelectTrigger>
           <SelectContent>
@@ -162,12 +202,17 @@ function EmailLogsView() {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard icon={<Mail className="h-4 w-4" />} label="Total" value={stats.total} />
-        <StatCard icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />} label="Sent" value={stats.sent} />
-        <StatCard icon={<XCircle className="h-4 w-4 text-red-600" />} label="Failed" value={stats.failed} />
-        <StatCard icon={<AlertTriangle className="h-4 w-4 text-yellow-600" />} label="Suppressed" value={stats.suppressed} />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <StatCard icon={<Mail className="h-4 w-4" />} label="Total Sent" value={String(stats.total)} />
+        <StatCard icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />} label="Delivered" value={String(stats.sent)} />
+        <StatCard icon={<XCircle className="h-4 w-4 text-red-600" />} label="Failed" value={String(stats.failed)} />
+        <StatCard icon={<TrendingUp className="h-4 w-4 text-blue-600" />} label="Delivery Rate" value={`${stats.deliveryRate}%`} />
+        <StatCard icon={<ShieldCheck className="h-4 w-4 text-emerald-600" />} label="Delivery Success" value={`${stats.deliverySuccess}%`} />
       </div>
+
+      {/* Table */}
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
       ) : filtered.length === 0 ? (
@@ -183,11 +228,23 @@ function EmailLogsView() {
                   <TableHead className="text-xs">Status</TableHead>
                   <TableHead className="text-xs">Timestamp</TableHead>
                   <TableHead className="text-xs">Error</TableHead>
+                  <TableHead className="text-xs">Ref</TableHead>
+                  <TableHead className="text-xs w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.map((row) => {
                   const badge = STATUS_BADGE[row.status] || STATUS_BADGE.pending;
+                  const isFailed = ["dlq", "failed", "bounced"].includes(row.status);
+                  const meta = row.metadata as Record<string, any> | null;
+                  const refLink = meta?.job_id
+                    ? { label: "Job", section: "jobs" }
+                    : meta?.quote_id
+                    ? { label: "Quote", section: "quotes" }
+                    : meta?.invoice_id
+                    ? { label: "Invoice", section: "finance" }
+                    : null;
+
                   return (
                     <TableRow key={row.id}>
                       <TableCell className="text-xs font-medium">{row.template_name}</TableCell>
@@ -195,6 +252,28 @@ function EmailLogsView() {
                       <TableCell><Badge variant="secondary" className={`text-[0.6rem] ${badge.className}`}>{badge.label}</Badge></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{format(new Date(row.created_at), "MMM d, h:mm a")}</TableCell>
                       <TableCell className="text-xs text-destructive max-w-[200px] truncate">{row.error_message || "—"}</TableCell>
+                      <TableCell>
+                        {refLink ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-primary cursor-pointer hover:underline">
+                            <ExternalLink className="h-3 w-3" />
+                            {refLink.label}
+                          </span>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {isFailed && row.template_name !== "auth_emails" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs gap-1"
+                            disabled={resendingId === row.id}
+                            onClick={() => handleResend(row)}
+                          >
+                            {resendingId === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
+                            Resend
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -350,7 +429,7 @@ function TemplatesPreviewView() {
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <Card>
       <CardContent className="py-4 flex items-center gap-3">
