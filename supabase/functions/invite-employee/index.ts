@@ -63,8 +63,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const origin = req.headers.get("origin") || req.headers.get("referer")?.replace(/\/$/, "") || "https://olive-sanctuary-stack.lovable.app";
-    const redirectTo = `${origin}/reset-password`;
+    const SITE_URL = "https://oliveclean.co";
+    const redirectTo = `${SITE_URL}/reset-password`;
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 

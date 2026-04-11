@@ -18,7 +18,7 @@ interface EstimateSentProps {
 }
 
 const EstimateSentEmail = ({ clientName, estimateNumber, total, validUntil, approvalToken, quoteUrl }: EstimateSentProps) => {
-  const viewUrl = quoteUrl || (approvalToken ? `https://olive-sanctuary-stack.lovable.app/quote/${approvalToken}` : 'https://oliveclean.co/client/login')
+  const viewUrl = quoteUrl || (approvalToken ? `https://oliveclean.co/quote/${approvalToken}` : 'https://oliveclean.co/client/login')
 
   return (
     <Html lang="en" dir="ltr">

@@ -42,8 +42,8 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/client-dashboard?subscription=success`,
-      cancel_url: `${req.headers.get("origin")}/client-dashboard?subscription=canceled`,
+      success_url: `https://oliveclean.co/client-dashboard?subscription=success`,
+      cancel_url: `https://oliveclean.co/client-dashboard?subscription=canceled`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
