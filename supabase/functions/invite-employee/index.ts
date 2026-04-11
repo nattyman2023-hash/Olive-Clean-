@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, name, employee_id } = await req.json();
+    const { email, name, employee_id, role } = await req.json();
     if (!email || !name || !employee_id) {
       return new Response(JSON.stringify({ error: "email, name, and employee_id are required" }), {
         status: 400,
@@ -97,18 +97,19 @@ Deno.serve(async (req) => {
       authUserId = invited.user.id;
     }
 
-    // Ensure staff role
+    // Assign the role specified by the caller, or default to 'staff'
+    const assignedRole = role || "staff";
     const { data: hasRole } = await adminClient
       .from("user_roles")
       .select("id")
       .eq("user_id", authUserId)
-      .eq("role", "staff")
+      .eq("role", assignedRole)
       .maybeSingle();
 
     if (!hasRole) {
       await adminClient.from("user_roles").insert({
         user_id: authUserId,
-        role: "staff",
+        role: assignedRole,
       });
     }
 

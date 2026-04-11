@@ -89,11 +89,22 @@ export default function ResetPassword() {
     }
 
     // Redirect based on role
-    const { data: isClient } = await supabase.rpc("has_role", {
-      _user_id: (await supabase.auth.getUser()).data.user!.id,
-      _role: "client" as never,
-    });
-    navigate(isClient ? "/client" : "/admin");
+    const uid = (await supabase.auth.getUser()).data.user!.id;
+    const [clientRes, financeRes, staffRes] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: uid, _role: "client" as never }),
+      supabase.rpc("has_role", { _user_id: uid, _role: "finance" as never }),
+      supabase.rpc("has_role", { _user_id: uid, _role: "staff" as never }),
+    ]);
+
+    if (clientRes.data) {
+      navigate("/client");
+    } else if (financeRes.data) {
+      navigate("/finance");
+    } else if (staffRes.data) {
+      navigate("/employee");
+    } else {
+      navigate("/admin");
+    }
   };
 
   if (error) {

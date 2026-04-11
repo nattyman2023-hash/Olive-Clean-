@@ -317,7 +317,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
     if (parsedEmail.email) {
       try {
         const { data, error } = await supabase.functions.invoke("invite-employee", {
-          body: { email: parsedEmail.email, name: formName.trim(), employee_id: newId },
+          body: { email: parsedEmail.email, name: formName.trim(), employee_id: newId, role: formRole || undefined },
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
