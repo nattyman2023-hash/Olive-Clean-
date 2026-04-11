@@ -1042,6 +1042,45 @@ export type Database = {
         }
         Relationships: []
       }
+      payout_adjustments: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          employee_id: string
+          field_name: string
+          id: string
+          new_value: number
+          notes: string | null
+          old_value: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          employee_id: string
+          field_name: string
+          id?: string
+          new_value: number
+          notes?: string | null
+          old_value: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          employee_id?: string
+          field_name?: string
+          id?: string
+          new_value?: number
+          notes?: string | null
+          old_value?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       payout_records: {
         Row: {
           approved_expenses: number
