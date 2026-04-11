@@ -628,7 +628,7 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
       if (newStatus === "complete" && client?.name) {
         supabase.from("clients").select("email, name").eq("id", job.client_id).maybeSingle().then(({ data: cl }) => {
           if (cl?.email) {
-            const siteUrl = window.location.origin;
+            const siteUrl = "https://oliveclean.co";
             supabase.functions.invoke("send-transactional-email", {
               body: {
                 templateName: "job-completed",

@@ -58,6 +58,16 @@ interface PerformanceRecord {
   attendance_score: number;
 }
 
+const ROLE_BADGE_COLORS: Record<string, string> = {
+  admin: "bg-red-100 text-red-800 border-red-200",
+  staff: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  cleaning_technician: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  finance: "bg-blue-100 text-blue-800 border-blue-200",
+  dispatcher: "bg-purple-100 text-purple-800 border-purple-200",
+  admin_assistant: "bg-amber-100 text-amber-800 border-amber-200",
+  client: "bg-sky-100 text-sky-800 border-sky-200",
+};
+
 const STATUS_COLORS: Record<string, string> = {
   onboarding: "bg-amber-100 text-amber-800 border-amber-200",
   active: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -116,6 +126,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
   const [formPayType, setFormPayType] = useState("hourly");
   const [formFixedRate, setFormFixedRate] = useState("");
   const [formClassification, setFormClassification] = useState("w2");
+  const [formRole, setFormRole] = useState("");
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["employees"],
@@ -128,6 +139,40 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
       return data as unknown as Employee[];
     },
   });
+
+  // Fetch custom roles for Add dialog dropdown
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ["custom_roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_roles")
+        .select("name, description")
+        .order("created_at");
+      if (error) throw error;
+      return data as Array<{ name: string; description: string | null }>;
+    },
+  });
+
+  // Fetch all user_roles for displayed employees (for badges)
+  const employeeUserIds = employees.map((e) => e.user_id);
+  const { data: allUserRoles = [] } = useQuery({
+    queryKey: ["all_user_roles", employeeUserIds.join(",")],
+    enabled: employeeUserIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("user_id", employeeUserIds);
+      if (error) throw error;
+      return data as Array<{ user_id: string; role: string }>;
+    },
+  });
+
+  const rolesByUserId = allUserRoles.reduce<Record<string, string[]>>((acc, r) => {
+    if (!acc[r.user_id]) acc[r.user_id] = [];
+    acc[r.user_id].push(r.role);
+    return acc;
+  }, {});
 
   const { data: performance = [] } = useQuery({
     queryKey: ["employee_performance", profileEmployee?.id],
@@ -227,6 +272,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
     setFormPayType("hourly");
     setFormFixedRate("");
     setFormClassification("w2");
+    setFormRole("");
   };
 
   const openAddDialog = () => {
@@ -234,7 +280,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
     setDialogOpen(true);
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const parsedEmail = getOptionalEmployeeEmail(formEmail);
@@ -243,15 +289,54 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
       return;
     }
 
-    upsertMutation.mutate({
+    const newUserId = crypto.randomUUID();
+    const newId = crypto.randomUUID();
+
+    // Create employee record
+    const payload: Record<string, any> = {
+      id: newId,
       name: formName,
-      phone: formPhone,
+      phone: formPhone || null,
       email: parsedEmail.email,
-      user_id: crypto.randomUUID(),
+      user_id: newUserId,
       status: formStatus,
-      notes: formNotes,
+      notes: formNotes || null,
       certifications: formCerts.split(",").map((s) => s.trim()).filter(Boolean),
-    });
+    };
+
+    const { error: insertError } = await supabase.from("employees").insert(payload as any);
+    if (insertError) {
+      toast.error(insertError.message);
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["employees"] });
+    toast.success("Employee added");
+
+    // Auto-invite if email provided
+    if (parsedEmail.email) {
+      try {
+        const { data, error } = await supabase.functions.invoke("invite-employee", {
+          body: { email: parsedEmail.email, name: formName.trim(), employee_id: newId },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const authUserId = data?.user_id;
+        toast.success("Login invite sent!");
+
+        // Assign selected role if one was chosen
+        if (formRole && authUserId) {
+          await supabase.from("user_roles").insert({ user_id: authUserId, role: formRole as any });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["employees"] });
+        queryClient.invalidateQueries({ queryKey: ["all_user_roles"] });
+      } catch (err: any) {
+        toast.error(`Invite failed: ${err.message}`);
+      }
+    }
+
     setDialogOpen(false);
     resetForm();
   };
@@ -751,7 +836,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
               <Button size="sm" className="rounded-full active:scale-[0.97] transition-transform" onClick={openAddDialog}>
-                <Plus className="h-4 w-4 mr-1" /> Add Employee
+                <Plus className="h-4 w-4 mr-1" /> Add Team Member
               </Button>
             </DialogTrigger>
           <DialogContent className="sm:max-w-md">
@@ -787,6 +872,19 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                 </div>
               </div>
               <div>
+                <Label className="text-xs">Role</Label>
+                <Select value={formRole} onValueChange={setFormRole}>
+                  <SelectTrigger className="rounded-xl mt-1"><SelectValue placeholder="Select role..." /></SelectTrigger>
+                  <SelectContent>
+                    {customRoles.map((r) => (
+                      <SelectItem key={r.name} value={r.name}>
+                        {r.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label className="text-xs">Certifications (comma-separated)</Label>
                 <Input value={formCerts} onChange={(e) => setFormCerts(e.target.value)} placeholder="CPR, Green Clean, OSHA" className="rounded-xl mt-1" />
               </div>
@@ -796,7 +894,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
               </div>
               <Button type="submit" className="w-full rounded-full active:scale-[0.97] transition-transform" disabled={upsertMutation.isPending}>
                 {upsertMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Add Employee
+                Add Team Member
               </Button>
             </form>
           </DialogContent>
@@ -836,7 +934,17 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                     >
                       <TableCell>
                         <div>
-                          <p className="font-medium text-sm">{emp.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-sm">{emp.name}</p>
+                            {(rolesByUserId[emp.user_id] || []).map((role) => (
+                              <span
+                                key={role}
+                                className={`text-[0.55rem] font-semibold uppercase tracking-wider px-1.5 py-0 rounded-full border ${ROLE_BADGE_COLORS[role] || "bg-muted text-muted-foreground border-border"}`}
+                              >
+                                {role.replace(/_/g, " ")}
+                              </span>
+                            ))}
+                          </div>
                           {emp.email && <p className="text-xs text-muted-foreground">{emp.email}</p>}
                         </div>
                       </TableCell>

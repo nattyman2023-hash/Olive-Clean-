@@ -140,12 +140,12 @@ export default function WhyUs() {
         <section className="py-16 md:py-24">
           <div className="container max-w-4xl">
             <div className="text-center space-y-3 mb-12">
-              <span className="text-xs font-semibold tracking-widest uppercase text-primary">Meet Your Cleaners</span>
+              <span className="text-xs font-semibold tracking-widest uppercase text-primary">Meet Your Cleaning Technicians</span>
               <h2 className="text-clamp-section font-bold text-foreground">
                 Real People, Real Standards
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto">
-                Every Olive Clean professional is background-checked, trained to The Olive Standard™, and rated by clients like you.
+                Every Olive Clean technician is background-checked, trained to The Olive Standard™, and rated by clients like you.
               </p>
             </div>
             <div
