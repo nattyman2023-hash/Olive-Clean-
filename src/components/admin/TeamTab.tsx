@@ -872,6 +872,19 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                 </div>
               </div>
               <div>
+                <Label className="text-xs">Role</Label>
+                <Select value={formRole} onValueChange={setFormRole}>
+                  <SelectTrigger className="rounded-xl mt-1"><SelectValue placeholder="Select role..." /></SelectTrigger>
+                  <SelectContent>
+                    {customRoles.map((r) => (
+                      <SelectItem key={r.name} value={r.name}>
+                        {r.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label className="text-xs">Certifications (comma-separated)</Label>
                 <Input value={formCerts} onChange={(e) => setFormCerts(e.target.value)} placeholder="CPR, Green Clean, OSHA" className="rounded-xl mt-1" />
               </div>
@@ -881,7 +894,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
               </div>
               <Button type="submit" className="w-full rounded-full active:scale-[0.97] transition-transform" disabled={upsertMutation.isPending}>
                 {upsertMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Add Employee
+                Add Team Member
               </Button>
             </form>
           </DialogContent>
