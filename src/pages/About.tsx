@@ -39,7 +39,7 @@ const values = [
   {
     icon: Users,
     title: "Community First",
-    description: "We hire locally, pay above market, and invest in our team. When our cleaners thrive, your home benefits. It's that simple.",
+    description: "We hire locally, pay above market, and invest in our team. When our cleaning technicians thrive, your home benefits. It's that simple.",
   },
 ];
 

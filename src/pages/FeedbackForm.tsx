@@ -28,8 +28,8 @@ export default function FeedbackForm() {
         .eq("id", jobId)
         .single();
 
-      if (err || !data) { setError("Job not found or link is invalid."); setLoading(false); return; }
-      if (data.status !== "completed") { setError("Feedback is only available for completed jobs."); setLoading(false); return; }
+      if (err || !data) { setError("Oops! This link seems to have expired. Please contact us if you still wish to leave feedback."); setLoading(false); return; }
+      if (data.status !== "completed") { setError("Oops! This link seems to have expired. Please contact us if you still wish to leave feedback."); setLoading(false); return; }
 
       // Check if feedback already submitted
       const { data: existing } = await supabase

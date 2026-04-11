@@ -13,7 +13,7 @@ interface AuthContextType {
   isClient: boolean;
   isFinance: boolean;
   isAdminAssistant: boolean;
-  isCleaner: boolean;
+  isCleaningTechnician: boolean;
   signOut: () => Promise<void>;
   // Impersonation
   impersonatedUserId: string | null;
@@ -34,7 +34,7 @@ const AuthContext = createContext<AuthContextType>({
   isClient: false,
   isFinance: false,
   isAdminAssistant: false,
-  isCleaner: false,
+  isCleaningTechnician: false,
   signOut: async () => {},
   impersonatedUserId: null,
   impersonatedRole: null,
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isClient, setIsClient] = useState(false);
   const [isFinance, setIsFinance] = useState(false);
   const [isAdminAssistant, setIsAdminAssistant] = useState(false);
-  const [isCleaner, setIsCleaner] = useState(false);
+  const [isCleaningTechnician, setIsCleaningTechnician] = useState(false);
   const resolvedUserIdRef = useRef<string | null>(null);
 
   // Impersonation state
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsClient(false);
         setIsFinance(false);
         setIsAdminAssistant(false);
-        setIsCleaner(false);
+        setIsCleaningTechnician(false);
         setRolesLoading(false);
         // Clear impersonation on logout
         setImpersonatedUserId(null);
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabase.rpc("has_role", { _user_id: user.id, _role: "client" as any }),
           supabase.rpc("has_role", { _user_id: user.id, _role: "finance" as any }),
           supabase.rpc("has_role", { _user_id: user.id, _role: "admin_assistant" as any }),
-          supabase.rpc("has_role", { _user_id: user.id, _role: "cleaner" as any }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "cleaning_technician" as any }),
         ]);
         if (cancelled) return;
         setIsAdmin(!!adminRes.data);
@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsClient(!!clientRes.data);
         setIsFinance(!!financeRes.data);
         setIsAdminAssistant(!!assistantRes.data);
-        setIsCleaner(!!cleanerRes.data);
+        setIsCleaningTechnician(!!cleanerRes.data);
         resolvedUserIdRef.current = user.id;
       } catch {
         // roles stay false on failure
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, loading, rolesLoading, isAdmin, isStaff, isClient, isFinance, isAdminAssistant, isCleaner, signOut,
+      user, session, loading, rolesLoading, isAdmin, isStaff, isClient, isFinance, isAdminAssistant, isCleaningTechnician, signOut,
       impersonatedUserId, impersonatedRole, impersonatedName,
       isImpersonating: !!impersonatedUserId,
       startImpersonation, stopImpersonation,

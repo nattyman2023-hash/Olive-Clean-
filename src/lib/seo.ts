@@ -18,7 +18,7 @@ export const seoConfig: Record<string, SEOConfig> = {
   "/about": {
     title: "About Olive Clean — Nashville's Trusted Cleaning Company",
     description: "Meet the team behind Nashville's most trusted cleaning service. Trained in the Debbie Sardone Speed Cleaning method, Olive Clean delivers consistent, premium results.",
-    keywords: "about Olive Clean, Nashville cleaning company, Debbie Sardone method, professional cleaners Nashville",
+    keywords: "about Olive Clean, Nashville cleaning company, Debbie Sardone method, professional cleaning technicians Nashville",
   },
   "/why-us": {
     title: "Why Choose Olive Clean — Background-Checked & Insured Teams",
@@ -32,8 +32,8 @@ export const seoConfig: Record<string, SEOConfig> = {
   },
   "/team": {
     title: "Meet Our Team — Olive Clean's Professional Technicians",
-    description: "Real people, real passion. Meet the professionally trained, background-checked technicians who make your Nashville home sparkle.",
-    keywords: "cleaning team Nashville, professional cleaners, Olive Clean technicians, house cleaners near me",
+    description: "Real people, real passion. Meet the professionally trained, background-checked cleaning technicians who make your Nashville home sparkle.",
+    keywords: "cleaning team Nashville, professional cleaning technicians, Olive Clean technicians, house cleaning technicians near me",
   },
   "/careers": {
     title: "Careers at Olive Clean — Join Nashville's Best Cleaning Team",
