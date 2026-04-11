@@ -18,7 +18,7 @@ interface EstimateSentProps {
 }
 
 const EstimateSentEmail = ({ clientName, estimateNumber, total, validUntil, approvalToken, quoteUrl }: EstimateSentProps) => {
-  const viewUrl = quoteUrl || (approvalToken ? `https://olive-sanctuary-stack.lovable.app/quote/${approvalToken}` : 'https://oliveclean.co/client/login')
+  const viewUrl = quoteUrl || (approvalToken ? `https://oliveclean.co/quote/${approvalToken}` : 'https://oliveclean.co/client/login')
 
   return (
     <Html lang="en" dir="ltr">
@@ -82,7 +82,7 @@ export const template = {
     total: '350.00',
     validUntil: 'August 1, 2025',
     approvalToken: 'preview-token',
-    quoteUrl: 'https://olive-sanctuary-stack.lovable.app/quote/preview-token',
+    quoteUrl: 'https://oliveclean.co/quote/preview-token',
   },
 } satisfies TemplateEntry
 

@@ -77,7 +77,7 @@ serve(async (req) => {
       });
     }
 
-    const origin = req.headers.get("origin") || "https://olive-sanctuary-stack.lovable.app";
+    const SITE_URL = "https://oliveclean.co";
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -87,8 +87,8 @@ serve(async (req) => {
         invoice_id: invoiceId,
         job_id: invoice.job_id || "",
       },
-      success_url: `${origin}/client-dashboard?tab=invoices&paid=true`,
-      cancel_url: `${origin}/client-dashboard?tab=invoices`,
+      success_url: `${SITE_URL}/client-dashboard?tab=invoices&paid=true`,
+      cancel_url: `${SITE_URL}/client-dashboard?tab=invoices`,
       ...(invoice.clients?.email ? { customer_email: invoice.clients.email } : {}),
     });
 

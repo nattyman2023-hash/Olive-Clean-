@@ -101,8 +101,8 @@ serve(async (req) => {
       line_items: stripeLineItems,
       mode: "payment",
       metadata: { invoice_id: invoiceId, invoice_number: invoice.invoice_number },
-      success_url: `${req.headers.get("origin")}/client-dashboard?payment=success&invoice=${invoice.invoice_number}`,
-      cancel_url: `${req.headers.get("origin")}/client-dashboard?payment=canceled`,
+      success_url: `https://oliveclean.co/client-dashboard?payment=success&invoice=${invoice.invoice_number}`,
+      cancel_url: `https://oliveclean.co/client-dashboard?payment=canceled`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
