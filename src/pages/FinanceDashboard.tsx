@@ -1,37 +1,21 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, DollarSign, CreditCard, Receipt, Download, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameWeek } from "date-fns";
+import { Loader2, DollarSign, CreditCard, Receipt, LogOut } from "lucide-react";
+import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import ExpensesSection from "@/components/admin/finance/ExpensesSection";
+import PayoutsSection from "@/components/admin/finance/PayoutsSection";
 
 // ── Types ────────────────────────────────────────────────────
-
-interface EmployeePayout {
-  employee_id: string;
-  employee_name: string;
-  pay_type: string;
-  worker_classification: string;
-  hours_worked: number;
-  hourly_rate: number;
-  fixed_job_rate: number;
-  completed_jobs_count: number;
-  base_pay: number;
-  tips: number;
-  approved_expenses: number;
-  total_payout: number;
-  already_paid: boolean;
-  paid_at?: string;
-}
 
 interface StripePayment {
   id: string;
@@ -44,314 +28,13 @@ interface StripePayment {
   tip_amount: number | null;
 }
 
-// ── Payouts Tab ──────────────────────────────────────────────
-
-function PayoutsTab() {
-  const { user } = useAuth();
-  const [payouts, setPayouts] = useState<EmployeePayout[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [marking, setMarking] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
-  const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 1 });
-
-  const fetchPayouts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: employees } = await supabase
-        .from("employees")
-        .select("id, name, user_id, pay_type, fixed_job_rate, worker_classification")
-        .eq("status", "active");
-
-      if (!employees?.length) { setPayouts([]); setLoading(false); return; }
-
-      const { data: payslips } = await supabase
-        .from("payslips")
-        .select("employee_id, hourly_rate")
-        .order("period_end", { ascending: false });
-
-      const rateMap: Record<string, number> = {};
-      payslips?.forEach((p) => {
-        if (!rateMap[p.employee_id]) rateMap[p.employee_id] = Number(p.hourly_rate);
-      });
-
-      const { data: timeLogs } = await supabase
-        .from("job_time_logs")
-        .select("employee_user_id, action_type, recorded_at")
-        .gte("recorded_at", weekStart.toISOString())
-        .lte("recorded_at", weekEnd.toISOString())
-        .order("recorded_at", { ascending: true });
-
-      const userIdToHours: Record<string, number> = {};
-      const openClocks: Record<string, string> = {};
-      timeLogs?.forEach((log) => {
-        if (log.action_type === "clock_in") {
-          openClocks[log.employee_user_id] = log.recorded_at;
-        } else if (log.action_type === "clock_out" && openClocks[log.employee_user_id]) {
-          const start = new Date(openClocks[log.employee_user_id]).getTime();
-          const end = new Date(log.recorded_at).getTime();
-          const hours = (end - start) / 3600000;
-          userIdToHours[log.employee_user_id] = (userIdToHours[log.employee_user_id] || 0) + hours;
-          delete openClocks[log.employee_user_id];
-        }
-      });
-
-      const { data: completedJobs } = await supabase
-        .from("jobs")
-        .select("id, assigned_to, tip_amount")
-        .eq("status", "complete")
-        .gte("completed_at", weekStart.toISOString())
-        .lte("completed_at", weekEnd.toISOString());
-
-      const jobCountByUser: Record<string, number> = {};
-      const tipsByUser: Record<string, number> = {};
-      completedJobs?.forEach((j) => {
-        if (j.assigned_to) {
-          jobCountByUser[j.assigned_to] = (jobCountByUser[j.assigned_to] || 0) + 1;
-          tipsByUser[j.assigned_to] = (tipsByUser[j.assigned_to] || 0) + Number(j.tip_amount || 0);
-        }
-      });
-
-      const { data: expenses } = await supabase
-        .from("expenses")
-        .select("employee_id, amount")
-        .eq("status", "approved")
-        .gte("submitted_at", weekStart.toISOString())
-        .lte("submitted_at", weekEnd.toISOString());
-
-      const expenseMap: Record<string, number> = {};
-      expenses?.forEach((e) => {
-        expenseMap[e.employee_id] = (expenseMap[e.employee_id] || 0) + Number(e.amount);
-      });
-
-      const { data: existing } = await supabase
-        .from("payout_records")
-        .select("employee_id, paid_at")
-        .eq("week_start", format(weekStart, "yyyy-MM-dd"))
-        .eq("week_end", format(weekEnd, "yyyy-MM-dd"));
-
-      const paidMap: Record<string, string> = {};
-      existing?.forEach((r) => { paidMap[r.employee_id] = r.paid_at || ""; });
-
-      const result: EmployeePayout[] = employees.map((emp: any) => {
-        const payType = emp.pay_type || "hourly";
-        const classification = emp.worker_classification || "w2";
-        const hours = Math.round((userIdToHours[emp.user_id] || 0) * 100) / 100;
-        const rate = rateMap[emp.id] || 0;
-        const fixedRate = Number(emp.fixed_job_rate) || 0;
-        const jobsCount = jobCountByUser[emp.user_id] || 0;
-
-        const basePay = payType === "hourly"
-          ? Math.round(hours * rate * 100) / 100
-          : Math.round(jobsCount * fixedRate * 100) / 100;
-
-        const tips = Math.round((tipsByUser[emp.user_id] || 0) * 100) / 100;
-        const approvedExp = expenseMap[emp.id] || 0;
-
-        return {
-          employee_id: emp.id,
-          employee_name: emp.name,
-          pay_type: payType,
-          worker_classification: classification,
-          hours_worked: hours,
-          hourly_rate: rate,
-          fixed_job_rate: fixedRate,
-          completed_jobs_count: jobsCount,
-          base_pay: basePay,
-          tips,
-          approved_expenses: approvedExp,
-          total_payout: Math.round((basePay + tips + approvedExp) * 100) / 100,
-          already_paid: !!paidMap[emp.id],
-          paid_at: paidMap[emp.id] || undefined,
-        };
-      });
-
-      setPayouts(result);
-    } catch {
-      toast.error("Failed to load payouts.");
-    }
-    setLoading(false);
-  }, [weekStart.toISOString(), weekEnd.toISOString()]);
-
-  useEffect(() => { fetchPayouts(); }, [fetchPayouts]);
-
-  const markPaid = async (p: EmployeePayout) => {
-    if (!user) return;
-    setMarking(p.employee_id);
-    const { error } = await supabase.from("payout_records").insert({
-      employee_id: p.employee_id,
-      week_start: format(weekStart, "yyyy-MM-dd"),
-      week_end: format(weekEnd, "yyyy-MM-dd"),
-      hours_worked: p.hours_worked,
-      hourly_rate: p.hourly_rate,
-      base_pay: p.base_pay,
-      approved_expenses: p.approved_expenses,
-      total_payout: p.total_payout,
-      paid_by: user.id,
-      tips: p.tips,
-      pay_type: p.pay_type,
-    } as any);
-    setMarking(null);
-    if (error) { toast.error("Failed to record payout."); return; }
-    toast.success(`${p.employee_name} marked as paid.`);
-    fetchPayouts();
-  };
-
-  const downloadCSV = () => {
-    const headers = ["Employee Name", "Classification", "Pay Method", "Hours Worked", "Jobs Completed", "Pay Rate", "Base Pay", "Tips", "Expenses", "Total Owed"];
-    const rows = payouts.map((p) => [
-      p.employee_name,
-      p.worker_classification === "w2" ? "W-2" : "1099",
-      p.pay_type === "hourly" ? "Hourly" : "Per Job",
-      p.hours_worked.toFixed(2),
-      p.completed_jobs_count,
-      p.pay_type === "hourly" ? `$${p.hourly_rate.toFixed(2)}` : `$${p.fixed_job_rate.toFixed(2)}`,
-      `$${p.base_pay.toFixed(2)}`,
-      `$${p.tips.toFixed(2)}`,
-      `$${p.approved_expenses.toFixed(2)}`,
-      `$${p.total_payout.toFixed(2)}`,
-    ]);
-    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `payroll_${format(weekStart, "yyyy-MM-dd")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const goToPreviousWeek = () => setSelectedDate(subWeeks(selectedDate, 1));
-  const goToNextWeek = () => { if (!isCurrentWeek) setSelectedDate(addWeeks(selectedDate, 1)); };
-  const goToCurrentWeek = () => setSelectedDate(new Date());
-
-  return (
-    <div>
-      {/* Week picker */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPreviousWeek}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 min-w-[200px] justify-center">
-                <CalendarIcon className="h-3.5 w-3.5" />
-                {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => { if (date) setSelectedDate(date); }}
-                disabled={(date) => date > new Date()}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToNextWeek} disabled={isCurrentWeek}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {!isCurrentWeek && (
-          <Button variant="ghost" size="sm" className="text-xs h-8" onClick={goToCurrentWeek}>
-            Current Week
-          </Button>
-        )}
-
-        <div className="ml-auto">
-          {payouts.length > 0 && (
-            <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5 text-xs h-8">
-              <Download className="h-3.5 w-3.5" /> Download Payroll Report
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-      ) : payouts.length === 0 ? (
-        <div className="bg-card rounded-xl border border-border p-12 text-center">
-          <p className="text-sm text-muted-foreground">No active employees found.</p>
-        </div>
-      ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Pay Method</TableHead>
-                <TableHead className="text-right">Details</TableHead>
-                <TableHead className="text-right">Base Pay</TableHead>
-                <TableHead className="text-right">Tips</TableHead>
-                <TableHead className="text-right">Expenses</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payouts.map((p) => (
-                <TableRow key={p.employee_id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{p.employee_name}</span>
-                      <Badge variant="outline" className="text-[0.6rem] px-1.5 py-0">
-                        {p.worker_classification === "w2" ? "W-2" : "1099"}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-[0.65rem]">
-                      {p.pay_type === "hourly" ? "Hourly" : "Per Job"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-sm">
-                    {p.pay_type === "hourly" ? (
-                      <span>{p.hours_worked.toFixed(2)} hrs × ${p.hourly_rate.toFixed(2)}</span>
-                    ) : (
-                      <span>{p.completed_jobs_count} jobs × ${p.fixed_job_rate.toFixed(2)}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">${p.base_pay.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${p.tips.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${p.approved_expenses.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-bold">${p.total_payout.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    {p.already_paid ? (
-                      <Badge variant="default" className="bg-emerald-600 text-white text-[0.65rem]">
-                        Paid {p.paid_at ? format(new Date(p.paid_at), "MMM d") : ""}
-                      </Badge>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => markPaid(p)}
-                        disabled={marking === p.employee_id || p.total_payout === 0}
-                        className="h-7 text-xs"
-                      >
-                        {marking === p.employee_id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark as Paid"}
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Customer Payments Tab ────────────────────────────────────
 
 function CustomerPaymentsTab() {
   const [payments, setPayments] = useState<StripePayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<StripePayment | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -369,58 +52,131 @@ function CustomerPaymentsTab() {
     })();
   }, []);
 
+  const openDetail = (p: StripePayment) => {
+    setSelectedPayment(p);
+    setSheetOpen(true);
+  };
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
 
-  return payments.length === 0 ? (
-    <div className="bg-card rounded-xl border border-border p-12 text-center">
-      <p className="text-sm text-muted-foreground">No recent payments found.</p>
-    </div>
-  ) : (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Customer</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-            <TableHead className="text-right">Tip</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Transaction ID</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {payments.map((p) => {
-            const failed = ["canceled", "requires_payment_method"].includes(p.status);
-            return (
-              <TableRow key={p.id} className={failed ? "bg-red-50 dark:bg-red-950/20" : ""}>
-                <TableCell>
-                  <div>
-                    <p className="font-medium text-sm">{p.customer_name || "—"}</p>
-                    <p className="text-xs text-muted-foreground">{p.customer_email || ""}</p>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-bold">
-                  ${(p.amount / 100).toFixed(2)} <span className="text-xs text-muted-foreground uppercase">{p.currency}</span>
-                </TableCell>
-                <TableCell className="text-right text-sm">
-                  {p.tip_amount ? `$${p.tip_amount.toFixed(2)}` : "—"}
-                </TableCell>
-                <TableCell className="text-sm">{format(new Date(p.created * 1000), "MMM d, yyyy")}</TableCell>
-                <TableCell className="text-xs font-mono text-muted-foreground">{p.id}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={failed ? "destructive" : p.status === "succeeded" ? "default" : "secondary"}
-                    className={`text-[0.65rem] ${p.status === "succeeded" ? "bg-emerald-600 text-white" : ""}`}
-                  >
-                    {p.status}
-                  </Badge>
-                </TableCell>
+  return (
+    <>
+      {payments.length === 0 ? (
+        <div className="bg-card rounded-xl border border-border p-12 text-center">
+          <p className="text-sm text-muted-foreground">No recent payments found.</p>
+        </div>
+      ) : (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">Tip</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Transaction ID</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+            </TableHeader>
+            <TableBody>
+              {payments.map((p) => {
+                const failed = ["canceled", "requires_payment_method"].includes(p.status);
+                return (
+                  <TableRow
+                    key={p.id}
+                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${failed ? "bg-red-50 dark:bg-red-950/20" : ""}`}
+                    onClick={() => openDetail(p)}
+                  >
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-sm">{p.customer_name || "—"}</p>
+                        <p className="text-xs text-muted-foreground">{p.customer_email || ""}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-bold">
+                      ${(p.amount / 100).toFixed(2)} <span className="text-xs text-muted-foreground uppercase">{p.currency}</span>
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {p.tip_amount ? `$${p.tip_amount.toFixed(2)}` : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">{format(new Date(p.created * 1000), "MMM d, yyyy")}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">{p.id}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={failed ? "destructive" : p.status === "succeeded" ? "default" : "secondary"}
+                        className={`text-[0.65rem] ${p.status === "succeeded" ? "bg-emerald-600 text-white" : ""}`}
+                      >
+                        {p.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Payment Detail Drawer */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Payment Detail</SheetTitle>
+            <SheetDescription>Transaction breakdown</SheetDescription>
+          </SheetHeader>
+
+          {selectedPayment && (
+            <div className="space-y-5 mt-4">
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Amount</p>
+                <p className="text-2xl font-bold text-foreground">
+                  ${(selectedPayment.amount / 100).toFixed(2)}{" "}
+                  <span className="text-sm text-muted-foreground uppercase">{selectedPayment.currency}</span>
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Customer</p>
+                    <p className="text-sm font-medium text-foreground">{selectedPayment.customer_name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="text-sm text-foreground">{selectedPayment.customer_email || "—"}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Date</p>
+                    <p className="text-sm text-foreground">{format(new Date(selectedPayment.created * 1000), "MMM d, yyyy h:mm a")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <Badge
+                      variant={selectedPayment.status === "succeeded" ? "default" : "secondary"}
+                      className={`mt-1 text-[0.65rem] ${selectedPayment.status === "succeeded" ? "bg-emerald-600 text-white" : ""}`}
+                    >
+                      {selectedPayment.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Transaction ID</p>
+                  <p className="text-xs font-mono text-foreground break-all">{selectedPayment.id}</p>
+                </div>
+                {selectedPayment.tip_amount && selectedPayment.tip_amount > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tip</p>
+                    <p className="text-sm font-medium text-emerald-600">${selectedPayment.tip_amount.toFixed(2)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
@@ -438,11 +194,56 @@ export default function FinanceDashboard() {
     }
   }, [user, loading, rolesLoading, isAdmin, isFinance, navigate]);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/", { replace: true });
+  };
+
   if (loading || rolesLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   if (!user || (!isAdmin && !isFinance)) return null;
 
+  const initials = (user.email || "U").slice(0, 2).toUpperCase();
+  const roleBadge = isAdmin ? "ADMIN" : "FINANCE";
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Auth Header */}
+      <header className="sticky top-0 z-40 bg-card border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-bold text-primary">Olive Clean</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">/ Finance Dashboard</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-[0.65rem] font-semibold px-2 py-0.5 border-primary text-primary">
+              {roleBadge}
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="text-xs truncate">{user.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/reset-password")} className="text-xs cursor-pointer">
+                  Account Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-xs text-destructive cursor-pointer">
+                  <LogOut className="h-3.5 w-3.5 mr-1.5" /> Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </header>
+
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">Finance Dashboard</h1>
@@ -462,7 +263,7 @@ export default function FinanceDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="payouts"><PayoutsTab /></TabsContent>
+          <TabsContent value="payouts"><PayoutsSection /></TabsContent>
           <TabsContent value="payments"><CustomerPaymentsTab /></TabsContent>
           <TabsContent value="expenses"><ExpensesSection /></TabsContent>
         </Tabs>

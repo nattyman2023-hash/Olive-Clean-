@@ -86,6 +86,28 @@ export function usePermissions(): PermissionsState {
     fetchPermissions();
   }, [fetchPermissions, rolesLoading, isImpersonating]);
 
+  // Realtime listener: auto-refresh permissions when role_permissions table changes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("permission-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "role_permissions" },
+        () => {
+          // Clear cache so next fetch actually runs
+          resolvedRef.current = null;
+          fetchPermissions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchPermissions]);
+
   const allowedSections = permissions.map(p => p.section);
 
   const canAccess = useCallback(
