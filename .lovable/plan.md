@@ -1,41 +1,52 @@
 
 
-## Add Communication Logs to Management + Enhance Email Tracking
+## Branded Stripe Invoicing + Payment Tracking
 
-### What Already Exists
-The `EmailsTab` component is fully built with email log deduplication, time range filters, status filters, template filters, stat cards, pagination, and template previews. It was disconnected from the sidebar when "Emails" was removed from Assets. We need to re-wire it and add the missing features.
+### What Changes
+
+Currently, when Finance clicks "Send" on a draft invoice, it just updates the status and sends a branded email with a link to the client dashboard. The client then has to log in and click "Pay Now" to create a Stripe Checkout session on-the-fly.
+
+The new flow: Finance clicks **"Finalize & Send"** → system creates a Stripe Checkout session server-side → saves the checkout URL to the invoice → sends the branded email with a direct "Securely Pay via Stripe" button → webhook marks invoice as "paid" and logs the payment in Comms Log.
 
 ### Changes
 
-#### 1. Re-add to Sidebar and Dashboard as "Comms Log"
-- **`AdminSidebar.tsx`**: Add `{ value: "comms-log", label: "Comms Log", icon: Mail }` to the Management group
-- **`AdminDashboard.tsx`**: Add `case "comms-log": return <EmailsTab />;` and import it
+#### 1. Add `stripe_checkout_url` column to `invoices` table
+Database migration to add the field for storing the pre-generated Stripe checkout URL.
 
-#### 2. Add Search Bar to EmailsTab
-- Add a text search input that filters the log table by `recipient_email` (partial match)
-- Place it alongside the existing template and status filters
+#### 2. New Edge Function: `finalize-invoice`
+Called by the admin frontend when Finance clicks "Finalize & Send" on a draft invoice. It:
+- Fetches invoice + client details (service role)
+- Creates a Stripe Checkout session with invoice line items and metadata
+- Updates the invoice: `status → "sent"`, `issued_at → now()`, `stripe_checkout_url → session.url`
+- Sends the branded `invoice-issued` email via `send-transactional-email` with the Stripe checkout URL as the `paymentUrl`
+- Inserts a notification for finance users
 
-#### 3. Add Open Rate and Delivery Rate Stat Cards
-- Current stats: Total, Sent, Failed, Suppressed
-- Add: **Open Rate** (% of emails with status "viewed" — note: email open tracking would require pixel tracking which we don't have, so we'll show "Delivered" rate instead: sent / total)
-- Add: **Delivery Success** (sent / (sent + failed + bounced) as percentage)
-- Rename cards to match the request: "Total Sent", "Open Rate" → "Delivery Rate", "Delivery Success"
+#### 3. Update `InvoicesSection.tsx`
+- Replace the current "Send" button on draft invoices with **"Finalize & Send"** that calls the new `finalize-invoice` edge function instead of doing a simple status update
+- Show a loading state while the checkout session is being created
+- Remove the manual "Paid" button (payment is now tracked automatically via webhook)
 
-#### 4. Add One-Click Resend Button
-- On each failed email row, show a "Resend" button that calls `send-transactional-email` with the same template and recipient
-- Parse the `metadata` field to reconstruct the original `templateData` if available
+#### 4. Update `invoice-issued.tsx` email template
+- Change button text from "Pay Now — $X" to **"Securely Pay via Stripe — $X"**
+- Update copy to reflect the direct payment experience
 
-#### 5. Add Metadata Link Column
-- Show a clickable link in the table when metadata contains a quote ID or job ID, linking to the relevant admin section
+#### 5. Update `stripe-webhook/index.ts`
+After marking an invoice as "paid", also:
+- Log the payment in `email_send_log` (or a dedicated comms log entry) so Finance can see it in Comms Log
+- Insert a notification for finance users: "Invoice INV-XXX paid by [client]"
 
-#### 6. Chatbot Transcript Logging (Deferred)
-The user asked if Olivia (chatbot) transcripts should also appear here. This can be added later by logging chat completions to the same `email_send_log` table or a separate `communication_logs` view. For now, we'll focus on email communications only and note this as a future enhancement.
+#### 6. Update `ClientInvoices.tsx`
+- If `stripe_checkout_url` exists on a sent/overdue invoice, use it directly instead of calling `create-invoice-payment` to generate a new session
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/admin/AdminSidebar.tsx` | Add "Comms Log" to Management group |
-| `src/pages/AdminDashboard.tsx` | Add EmailsTab case for "comms-log" section |
-| `src/components/admin/EmailsTab.tsx` | Add search bar, delivery rate stats, resend button on failed rows, metadata links |
+| Database migration | Add `stripe_checkout_url` text column to `invoices` |
+| `supabase/functions/finalize-invoice/index.ts` | New — creates Stripe session, updates invoice, sends branded email |
+| `src/components/admin/finance/InvoicesSection.tsx` | Replace "Send" with "Finalize & Send" calling new function |
+| `supabase/functions/_shared/transactional-email-templates/invoice-issued.tsx` | Update button text to "Securely Pay via Stripe" |
+| `supabase/functions/stripe-webhook/index.ts` | Add payment logging to comms log + finance notification |
+| `src/components/client/ClientInvoices.tsx` | Use stored checkout URL when available |
+| `supabase/config.toml` | Add `finalize-invoice` function config |
 
