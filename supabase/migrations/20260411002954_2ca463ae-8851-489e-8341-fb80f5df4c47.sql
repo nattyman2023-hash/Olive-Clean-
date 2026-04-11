@@ -1,0 +1,1 @@
+ALTER TABLE public.invoices ADD COLUMN stripe_checkout_url text;
