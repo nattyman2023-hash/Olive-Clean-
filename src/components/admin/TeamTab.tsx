@@ -317,7 +317,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
     if (parsedEmail.email) {
       try {
         const { data, error } = await supabase.functions.invoke("invite-employee", {
-          body: { email: parsedEmail.email, name: formName.trim(), employee_id: newId },
+          body: { email: parsedEmail.email, name: formName.trim(), employee_id: newId, role: formRole || undefined },
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
@@ -325,10 +325,7 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
         const authUserId = data?.user_id;
         toast.success("Login invite sent!");
 
-        // Assign selected role if one was chosen
-        if (formRole && authUserId) {
-          await supabase.from("user_roles").insert({ user_id: authUserId, role: formRole as any });
-        }
+        // Role is now assigned by the edge function via the `role` param
 
         queryClient.invalidateQueries({ queryKey: ["employees"] });
         queryClient.invalidateQueries({ queryKey: ["all_user_roles"] });
