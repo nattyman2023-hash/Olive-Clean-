@@ -1,43 +1,107 @@
 
 
-## Fix "No Login Account", Portal Redirect, and Add Member Flow
+## Finance Dashboard: Interactive Drill-Down, Inline Editing, Auth Header, and Permission Sync
 
-### Problems Identified
+This is a large scope request. To keep it manageable and deliverable, I will focus on the highest-impact items first and defer the "nice-to-have" analytics features (Profitability Heatmap, Cash Flow Forecasting, Dispute Center, Gross Margin) for a follow-up iteration.
 
-1. **"No login account" message**: When adding an employee, `user_id` is set to a random UUID (`crypto.randomUUID()`). The `RoleAssignmentCard` checks if a `profiles` row exists for that UUID — it doesn't, since the real auth user gets a different UUID. After the invite succeeds and `invite-employee` updates `user_id`, the profile view still shows stale data.
+---
 
-2. **Portal redirect for non-technicians**: `SmartRedirect` correctly routes Finance → `/admin`, but if a Finance user somehow lands on `/employee`, the guard at line 93 kicks them to `/employee/login` because they lack the `staff` role. This is actually correct behavior — Finance users should never see the Employee portal. The real issue is ensuring they always land on `/admin`.
+### Phase 1: Core Interactivity (This Implementation)
 
-3. **Add Member flow**: The invite already fires automatically, but the initial `user_id` is a throwaway UUID. The flow should wait for the invite response and use the returned `user_id` to update the employee record immediately in the UI.
+#### 1. Slide-Over Drawers for Payout, Payment, and Expense Details
 
-### Changes
+The PayoutsSection already has an expandable row with detail data. We will upgrade this to use a **Sheet (slide-over panel)** instead, and add the same pattern to Customer Payments and Expenses.
 
-#### File: `src/components/admin/TeamTab.tsx`
+**Payouts Drawer** — clicking a row opens a Sheet showing:
+- Clock sessions with timestamps
+- Completed jobs with service name, client name, and tip
+- Approved expenses with receipt link
+- Linked payout record if already paid
 
-**Fix 1 — RoleAssignmentCard: Add "Invite to App" button when no account exists**
-- When `hasAccount` is false, instead of just showing the message, also show an "Invite to App" button (if the employee has a valid email)
-- The button calls `invite-employee`, and on success, invalidates the `profile_exists` query so the roles section activates immediately
-- Pass the component the employee's email and ID so it can trigger the invite
+**Payments Drawer** — clicking a payment row opens a Sheet showing:
+- Stripe transaction ID, status, date
+- Customer name/email
+- Linked invoice (query `invoices` by matching amount/client)
+- Tip breakdown
 
-**Fix 2 — Add Member flow: Use returned `user_id` from invite**
-- In `handleAddSubmit`, after the invite succeeds, update the local employee record's `user_id` with the returned `data.user_id` (the edge function already does the DB update)
-- Remove the initial `crypto.randomUUID()` for `user_id` — instead, if no email is provided (no invite), use a placeholder; if email is provided, the `user_id` will come from the invite response
+**Expenses Drawer** — clicking an expense row opens a Sheet showing:
+- Full description, category, amount
+- Receipt image (rendered from `receipt_url`)
+- Submitter name, submission date
+- Review status and reviewer notes
 
-**Fix 3 — Invite mutation in profile view: refresh account state after invite**
-- In `inviteMutation.onSuccess`, also invalidate `["profile_exists", profileEmployee.user_id]` and `["all_user_roles"]`
-- After invite, update `profileEmployee.user_id` with the returned auth user ID
+#### 2. Inline Editing on Payouts
 
-#### File: `src/components/admin/TeamTab.tsx` — RoleAssignmentCard props
-- Add `employeeEmail`, `employeeId`, and `employeeName` props so it can trigger the invite itself
-- When no account exists, show: message + "Invite to App" button
-- On successful invite, invalidate queries and activate roles section
+- Add an "Edit Mode" toggle button to the Payouts tab header
+- When active, `hours_worked` and `tips` cells become `<Input>` fields
+- A "Save" and "Cancel" button appear in each edited row
+- On save: update the `job_time_logs` or recalculate and persist an adjustment record
+- **Audit trail**: Create a new `payout_adjustments` table to log every manual change with `changed_by`, `old_value`, `new_value`, `field_name`, `changed_at`
 
-#### File: `src/pages/EmployeeDashboard.tsx` — No changes needed
-- The guard correctly restricts to `staff` role users. Finance/Admin users should not access this portal — they use `/admin` or `/finance`. The `SmartRedirect` handles routing correctly.
+**Database migration**:
+```sql
+CREATE TABLE public.payout_adjustments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  week_start date NOT NULL,
+  week_end date NOT NULL,
+  field_name text NOT NULL,
+  old_value numeric NOT NULL,
+  new_value numeric NOT NULL,
+  changed_by uuid NOT NULL,
+  changed_at timestamptz NOT NULL DEFAULT now(),
+  notes text
+);
+
+ALTER TABLE public.payout_adjustments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admin full access payout_adjustments"
+  ON public.payout_adjustments FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'admin'))
+  WITH CHECK (has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "Finance full access payout_adjustments"
+  ON public.payout_adjustments FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'finance'))
+  WITH CHECK (has_role(auth.uid(), 'finance'));
+```
+
+#### 3. Global Auth Header for Finance Dashboard
+
+The Finance Dashboard currently has no persistent header. Add:
+- Olive Clean logo (left) + "Finance Dashboard" title
+- User profile area (right): avatar with initials, role badge (`[FINANCE]` or `[ADMIN]`), dropdown with:
+  - Account Settings (link to password change)
+  - Logout button (calls `supabase.auth.signOut()`, redirects to `/`)
+
+#### 4. Permission Sync Fix
+
+The `usePermissions` hook caches resolved permissions using `resolvedRef`. When permissions change in the DB, users don't see updates until they log out.
+
+**Fix**: Clear `resolvedRef.current` on tab/section navigation so permissions are re-fetched. Add a Supabase Realtime subscription on `role_permissions` table changes to auto-refresh.
+
+**Database migration**: Enable realtime on `role_permissions`:
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.role_permissions;
+```
+
+---
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/admin/TeamTab.tsx` | Add "Invite to App" button in RoleAssignmentCard; fix user_id flow in add/invite mutations; refresh account state after invite |
+| `src/pages/FinanceDashboard.tsx` | Add auth header with user profile dropdown, role badge, and logout; upgrade PayoutsTab to use Sheet drawers; add inline editing mode |
+| `src/components/admin/finance/PayoutsSection.tsx` | Replace expandable rows with Sheet drawer; add inline edit mode with save/cancel; show audit trail in drawer |
+| `src/components/admin/finance/ExpensesSection.tsx` | Make rows clickable → Sheet drawer with receipt image and full details |
+| `src/hooks/usePermissions.ts` | Add Realtime listener on `role_permissions`; clear cache on changes |
+| Database migration | Create `payout_adjustments` table with RLS; enable realtime on `role_permissions` |
+
+### Deferred to Next Iteration
+- Reconciliation view (Stripe payouts vs app invoices)
+- Tax Management (1099/W-2 year-end reporting)
+- Refund Module
+- Gross Margin / Profitability charts
+- Cash Flow Forecasting
+- Dispute Center
 
