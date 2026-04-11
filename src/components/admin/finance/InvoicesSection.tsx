@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Loader2, FileText, DollarSign, Pencil, Eye } from "lucide-react";
+import { Plus, Loader2, FileText, Pencil, Eye, Send } from "lucide-react";
 import InvoiceForm from "./InvoiceForm";
 import InvoicePreview from "./InvoicePreview";
 
@@ -37,6 +37,7 @@ export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
   const [showForm, setShowForm] = useState(false);
   const [preview, setPreview] = useState<Invoice | null>(null);
   const [previewEditMode, setPreviewEditMode] = useState(false);
+  const [finalizingId, setFinalizingId] = useState<string | null>(null);
 
   const fetch_ = async () => {
     setLoading(true);
@@ -51,39 +52,27 @@ export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
   const updateStatus = async (id: string, status: string) => {
     const update: any = { status };
     if (status === "paid") update.paid_at = new Date().toISOString();
-    if (status === "sent") update.issued_at = new Date().toISOString();
     const { error } = await supabase.from("invoices").update(update).eq("id", id);
     if (error) { toast.error("Failed to update."); return; }
     toast.success(`Invoice marked as ${status}.`);
-
-    // Send invoice-issued email when marking as sent
-    if (status === "sent") {
-      const inv = invoices.find((i) => i.id === id);
-      if (inv?.client_id) {
-        supabase.from("clients").select("email, name").eq("id", inv.client_id).maybeSingle().then(({ data: cl }) => {
-          if (cl?.email) {
-            const origin = window.location.origin;
-            const paymentUrl = `${origin}/client-dashboard?tab=invoices`;
-            supabase.functions.invoke("send-transactional-email", {
-              body: {
-                templateName: "invoice-issued",
-                recipientEmail: cl.email,
-                idempotencyKey: `invoice-issued-${id}`,
-                templateData: {
-                  name: cl.name,
-                  invoiceNumber: inv.invoice_number,
-                  total: `$${Number(inv.total).toFixed(2)}`,
-                  dueDate: inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : undefined,
-                  paymentUrl,
-                },
-              },
-            });
-          }
-        });
-      }
-    }
-
     fetch_();
+  };
+
+  const handleFinalize = async (id: string) => {
+    setFinalizingId(id);
+    try {
+      const { data, error } = await supabase.functions.invoke("finalize-invoice", {
+        body: { invoiceId: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Invoice finalized and sent!");
+      fetch_();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to finalize invoice");
+    } finally {
+      setFinalizingId(null);
+    }
   };
 
   if (preview) {
@@ -135,10 +124,10 @@ export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
                 <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(false); setPreview(inv); }} className="h-7 w-7" title="View"><Eye className="h-3.5 w-3.5" /></Button>
                 {!readOnly && <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(true); setPreview(inv); }} className="h-7 w-7" title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>}
                 {!readOnly && inv.status === "draft" && (
-                  <Button size="sm" variant="outline" onClick={() => updateStatus(inv.id, "sent")} className="text-xs h-7 rounded-lg">Send</Button>
-                )}
-                {!readOnly && inv.status === "sent" && (
-                  <Button size="sm" variant="outline" onClick={() => updateStatus(inv.id, "paid")} className="text-xs h-7 rounded-lg"><DollarSign className="h-3 w-3 mr-1" />Paid</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleFinalize(inv.id)} disabled={finalizingId === inv.id} className="text-xs h-7 rounded-lg">
+                    {finalizingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                    Finalize & Send
+                  </Button>
                 )}
               </div>
             </div>

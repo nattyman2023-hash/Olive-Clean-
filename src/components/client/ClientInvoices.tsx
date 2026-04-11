@@ -20,6 +20,7 @@ interface Invoice {
   issued_at: string | null;
   paid_at: string | null;
   created_at: string;
+  stripe_checkout_url: string | null;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -47,11 +48,17 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
       });
   }, [clientId]);
 
-  const handlePayInvoice = async (invoiceId: string) => {
-    setPayingId(invoiceId);
+  const handlePayInvoice = async (inv: Invoice) => {
+    // Use stored checkout URL if available
+    if (inv.stripe_checkout_url) {
+      window.open(inv.stripe_checkout_url, "_blank");
+      return;
+    }
+    // Fallback: create a new session
+    setPayingId(inv.id);
     try {
       const { data, error } = await supabase.functions.invoke("create-invoice-payment", {
-        body: { invoiceId },
+        body: { invoiceId: inv.id },
       });
       if (error) throw error;
       if (data?.url) {
@@ -139,7 +146,7 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
               {/* Pay Now button for sent/overdue invoices */}
               {(inv.status === "sent" || inv.status === "overdue") && (
                 <Button
-                  onClick={() => handlePayInvoice(inv.id)}
+                  onClick={() => handlePayInvoice(inv)}
                   disabled={payingId === inv.id}
                   className="w-full rounded-lg mt-2"
                   size="sm"
@@ -149,7 +156,7 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
                   ) : (
                     <CreditCard className="h-4 w-4 mr-1" />
                   )}
-                  Pay Now — ${Number(inv.total).toFixed(2)}
+                  Securely Pay via Stripe — ${Number(inv.total).toFixed(2)}
                 </Button>
               )}
               {inv.status === "paid" && inv.paid_at && (
