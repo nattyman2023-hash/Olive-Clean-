@@ -934,7 +934,17 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
                     >
                       <TableCell>
                         <div>
-                          <p className="font-medium text-sm">{emp.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-sm">{emp.name}</p>
+                            {(rolesByUserId[emp.user_id] || []).map((role) => (
+                              <span
+                                key={role}
+                                className={`text-[0.55rem] font-semibold uppercase tracking-wider px-1.5 py-0 rounded-full border ${ROLE_BADGE_COLORS[role] || "bg-muted text-muted-foreground border-border"}`}
+                              >
+                                {role.replace(/_/g, " ")}
+                              </span>
+                            ))}
+                          </div>
                           {emp.email && <p className="text-xs text-muted-foreground">{emp.email}</p>}
                         </div>
                       </TableCell>
