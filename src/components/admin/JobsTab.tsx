@@ -306,6 +306,30 @@ export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
           await supabase.from("perks_members").update(updateData).eq("id", member.id);
         }
       }
+
+      // Auto-create invoice draft
+      const completedJob = jobs.find((j) => j.id === id);
+      if (completedJob) {
+        const invoiceNumber = `INV-${Date.now()}`;
+        const items = [{
+          description: completedJob.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          quantity: 1,
+          rate: Number(completedJob.price || 0),
+          amount: Number(completedJob.price || 0),
+        }];
+        const subtotal = Number(completedJob.price || 0);
+        await supabase.from("invoices").insert({
+          client_id: completedJob.client_id,
+          job_id: id,
+          invoice_number: invoiceNumber,
+          status: "draft",
+          items: items as any,
+          subtotal,
+          tax_rate: 0,
+          tax_amount: 0,
+          total: subtotal,
+        });
+      }
     }
 
     // Send job-update email to client for cancellations/rescheduling
@@ -427,6 +451,33 @@ export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
       return;
     }
     toast.success(`${ids.length} job${ids.length > 1 ? "s" : ""} marked as ${status}.`);
+
+    // Auto-create invoice drafts for completed jobs
+    if (status === "completed") {
+      const completedJobs = jobs.filter((j) => ids.includes(j.id));
+      for (const cj of completedJobs) {
+        const invoiceNumber = `INV-${Date.now()}-${cj.id.slice(0, 4)}`;
+        const items = [{
+          description: cj.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          quantity: 1,
+          rate: Number(cj.price || 0),
+          amount: Number(cj.price || 0),
+        }];
+        const subtotal = Number(cj.price || 0);
+        await supabase.from("invoices").insert({
+          client_id: cj.client_id,
+          job_id: cj.id,
+          invoice_number: invoiceNumber,
+          status: "draft",
+          items: items as any,
+          subtotal,
+          tax_rate: 0,
+          tax_amount: 0,
+          total: subtotal,
+        });
+      }
+    }
+
     setSelectedJobs(new Set());
     fetchJobs();
   };

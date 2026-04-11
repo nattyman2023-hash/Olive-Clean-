@@ -602,6 +602,29 @@ function JobCard({ job, index, queryClient, employeeId }: { job: any; index: num
       queryClient.invalidateQueries({ queryKey: ["my-jobs-week"] });
       toast.success("Status updated");
 
+      // Auto-create invoice draft
+      if (newStatus === "complete") {
+        const invoiceNumber = `INV-${Date.now()}`;
+        const items = [{
+          description: job.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          quantity: 1,
+          rate: Number(job.price || 0),
+          amount: Number(job.price || 0),
+        }];
+        const subtotal = Number(job.price || 0);
+        supabase.from("invoices").insert({
+          client_id: job.client_id,
+          job_id: job.id,
+          invoice_number: invoiceNumber,
+          status: "draft",
+          items: items as any,
+          subtotal,
+          tax_rate: 0,
+          tax_amount: 0,
+          total: subtotal,
+        });
+      }
+
       if (newStatus === "complete" && client?.name) {
         supabase.from("clients").select("email, name").eq("id", job.client_id).maybeSingle().then(({ data: cl }) => {
           if (cl?.email) {
