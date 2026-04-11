@@ -82,7 +82,7 @@ export const template = {
     total: '350.00',
     validUntil: 'August 1, 2025',
     approvalToken: 'preview-token',
-    quoteUrl: 'https://olive-sanctuary-stack.lovable.app/quote/preview-token',
+    quoteUrl: 'https://oliveclean.co/quote/preview-token',
   },
 } satisfies TemplateEntry
 
