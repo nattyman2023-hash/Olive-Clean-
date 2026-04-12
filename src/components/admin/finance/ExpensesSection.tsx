@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Receipt, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, Receipt, CheckCircle2, XCircle, ExternalLink, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface Expense {
   id: string;
@@ -28,12 +31,18 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: "bg-red-100 text-red-800",
 };
 
+const CATEGORIES = ["gas", "supplies", "equipment", "maintenance", "other"];
+
 export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+  const [newExpense, setNewExpense] = useState({ employee_id: "", amount: "", category: "other", description: "", notes: "" });
+  const [addSaving, setAddSaving] = useState(false);
 
   const fetch_ = async () => {
     setLoading(true);
@@ -44,6 +53,11 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
   };
 
   useEffect(() => { fetch_(); }, []);
+
+  const loadEmployees = async () => {
+    const { data } = await supabase.from("employees").select("id, name").order("name");
+    setEmployees(data || []);
+  };
 
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("expenses").update({ status, reviewed_at: new Date().toISOString() }).eq("id", id);
@@ -60,18 +74,47 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
     setSheetOpen(true);
   };
 
+  const handleAddExpense = async () => {
+    if (!newExpense.employee_id || !newExpense.description || !newExpense.amount) {
+      toast.error("Fill in required fields."); return;
+    }
+    setAddSaving(true);
+    const { error } = await supabase.from("expenses").insert({
+      employee_id: newExpense.employee_id,
+      amount: parseFloat(newExpense.amount),
+      category: newExpense.category,
+      description: newExpense.description,
+      notes: newExpense.notes || null,
+      status: "approved",
+      reviewed_at: new Date().toISOString(),
+    });
+    setAddSaving(false);
+    if (error) { toast.error("Failed to add expense."); return; }
+    toast.success("Expense added and approved.");
+    setAddOpen(false);
+    setNewExpense({ employee_id: "", amount: "", category: "other", description: "", notes: "" });
+    fetch_();
+  };
+
   const filtered = expenses.filter(e => filterStatus === "all" || e.status === filterStatus);
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Receipt className="h-4 w-4 text-primary" />Employee Expenses</h3>
-        <div className="flex gap-1">
-          {["all", "pending", "approved", "rejected"].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"}`}>
-              {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          ))}
+        <div className="flex gap-2 items-center">
+          <div className="flex gap-1">
+            {["all", "pending", "approved", "rejected"].map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"}`}>
+                {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+          {!readOnly && (
+            <Button size="sm" onClick={() => { setAddOpen(true); loadEmployees(); }} className="rounded-lg">
+              <Plus className="h-4 w-4 mr-1" />Add Expense
+            </Button>
+          )}
         </div>
       </div>
 
@@ -102,6 +145,9 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
                     <Button size="sm" variant="ghost" onClick={() => updateStatus(exp.id, "approved")} className="h-7 w-7 p-0 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></Button>
                     <Button size="sm" variant="ghost" onClick={() => updateStatus(exp.id, "rejected")} className="h-7 w-7 p-0 text-red-600"><XCircle className="h-4 w-4" /></Button>
                   </>
+                )}
+                {!readOnly && exp.status === "rejected" && (
+                  <Button size="sm" variant="ghost" onClick={() => updateStatus(exp.id, "pending")} className="h-7 text-xs text-amber-600">Re-evaluate</Button>
                 )}
               </div>
             </div>
@@ -199,10 +245,61 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
                   </Button>
                 </div>
               )}
+              {!readOnly && selectedExpense.status === "rejected" && (
+                <Button variant="outline" className="w-full" onClick={() => updateStatus(selectedExpense.id, "pending")}>
+                  Re-evaluate (Set to Pending)
+                </Button>
+              )}
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Add Expense Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Expense</DialogTitle>
+            <DialogDescription>Log an expense on behalf of a team member</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Employee *</label>
+              <select value={newExpense.employee_id} onChange={(e) => setNewExpense({ ...newExpense, employee_id: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+                <option value="">Select Employee</option>
+                {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Amount *</label>
+                <Input type="number" step="0.01" placeholder="0.00" value={newExpense.amount} onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+                <select value={newExpense.category} onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Description *</label>
+              <Input value={newExpense.description} onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })} placeholder="e.g. Gas for route" className="rounded-lg" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+              <Textarea value={newExpense.notes} onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })} placeholder="Optional" className="rounded-lg" rows={2} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddExpense} disabled={addSaving}>
+                {addSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Add & Approve
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

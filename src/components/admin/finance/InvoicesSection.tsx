@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Loader2, FileText, Pencil, Eye, Send } from "lucide-react";
+import { Plus, Loader2, FileText, Pencil, Eye, Send, RotateCcw } from "lucide-react";
 import InvoiceForm from "./InvoiceForm";
 import InvoicePreview from "./InvoicePreview";
 
@@ -21,7 +21,8 @@ interface Invoice {
   issued_at: string;
   paid_at: string | null;
   created_at: string;
-  clients?: { name: string } | null;
+  stripe_checkout_url: string | null;
+  clients?: { name: string; email?: string } | null;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -38,10 +39,11 @@ export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
   const [preview, setPreview] = useState<Invoice | null>(null);
   const [previewEditMode, setPreviewEditMode] = useState(false);
   const [finalizingId, setFinalizingId] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const fetch_ = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("invoices").select("*, clients(name)").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("invoices").select("*, clients(name, email)").order("created_at", { ascending: false });
     setLoading(false);
     if (error) { toast.error("Failed to load invoices."); return; }
     setInvoices((data || []) as any);
@@ -72,6 +74,36 @@ export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
       toast.error(err.message || "Failed to finalize invoice");
     } finally {
       setFinalizingId(null);
+    }
+  };
+
+  const handleResend = async (inv: Invoice) => {
+    const clientEmail = inv.clients?.email;
+    if (!clientEmail) { toast.error("Client has no email address."); return; }
+    if (!inv.stripe_checkout_url) { toast.error("No payment link available. Finalize the invoice first."); return; }
+    setResendingId(inv.id);
+    try {
+      await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "invoice-issued",
+          recipientEmail: clientEmail,
+          idempotencyKey: `invoice-resend-${inv.id}-${Date.now()}`,
+          templateData: {
+            name: inv.clients?.name,
+            invoiceNumber: inv.invoice_number,
+            total: `$${Number(inv.total).toFixed(2)}`,
+            dueDate: inv.due_date
+              ? new Date(inv.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+              : undefined,
+            paymentUrl: inv.stripe_checkout_url,
+          },
+        },
+      });
+      toast.success("Invoice resent!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to resend invoice");
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -127,6 +159,11 @@ export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
                   <Button size="sm" variant="outline" onClick={() => handleFinalize(inv.id)} disabled={finalizingId === inv.id} className="text-xs h-7 rounded-lg">
                     {finalizingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
                     Finalize & Send
+                  </Button>
+                )}
+                {!readOnly && inv.status === "sent" && (
+                  <Button size="sm" variant="ghost" onClick={() => handleResend(inv)} disabled={resendingId === inv.id} className="text-xs h-7 rounded-lg" title="Resend Invoice">
+                    {resendingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
                   </Button>
                 )}
               </div>

@@ -54,16 +54,25 @@ serve(async (req) => {
 
     // Build line items from invoice items
     const items = Array.isArray(invoice.items) ? invoice.items : [];
-    const lineItems = items.map((item: any) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.description || item.name || "Service",
-        },
-        unit_amount: Math.round((Number(item.amount || item.unit_price || 0)) * 100),
-      },
-      quantity: Number(item.quantity) || 1,
-    }));
+    const lineItems = items.length > 0
+      ? items.map((item: any) => ({
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: item.description || item.name || "Service",
+            },
+            unit_amount: Math.round((Number(item.rate || item.amount || item.unit_price || 0)) * 100),
+          },
+          quantity: Number(item.qty || item.quantity || 1),
+        }))
+      : [{
+          price_data: {
+            currency: "usd",
+            product_data: { name: `Invoice ${invoice.invoice_number}` },
+            unit_amount: Math.round(Number(invoice.total) * 100),
+          },
+          quantity: 1,
+        }];
 
     // Add tax as a separate line item if present
     if (invoice.tax_amount && Number(invoice.tax_amount) > 0) {
