@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Loader2, FileText, ArrowRight, Pencil, Eye } from "lucide-react";
+import { Plus, Loader2, FileText, ArrowRight, Pencil, Eye, Briefcase } from "lucide-react";
 import InvoiceForm from "./InvoiceForm";
 import InvoicePreview from "./InvoicePreview";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Estimate {
   id: string;
@@ -38,6 +41,10 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
   const [convertForm, setConvertForm] = useState<Estimate | null>(null);
   const [preview, setPreview] = useState<Estimate | null>(null);
   const [previewEditMode, setPreviewEditMode] = useState(false);
+  const [jobDialog, setJobDialog] = useState<Estimate | null>(null);
+  const [jobDate, setJobDate] = useState("");
+  const [jobNotes, setJobNotes] = useState("");
+  const [jobSaving, setJobSaving] = useState(false);
 
   const fetch_ = async () => {
     setLoading(true);
@@ -54,7 +61,6 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
     if (error) { toast.error("Failed to update."); return; }
     toast.success(`Estimate marked as ${status}.`);
 
-    // Send estimate-sent email when marking as "sent"
     if (status === "sent") {
       const est = estimates.find((e) => e.id === id);
       if (est) {
@@ -77,6 +83,28 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
       }
     }
 
+    fetch_();
+  };
+
+  const handleConvertToJob = async () => {
+    if (!jobDialog || !jobDate) { toast.error("Select a scheduled date."); return; }
+    setJobSaving(true);
+    const serviceName = jobDialog.items?.[0]?.description || "Cleaning Service";
+    const { error } = await supabase.from("jobs").insert({
+      client_id: jobDialog.client_id,
+      service: serviceName,
+      scheduled_at: new Date(jobDate).toISOString(),
+      price: jobDialog.total,
+      notes: jobNotes || `Converted from ${jobDialog.estimate_number}`,
+      status: "scheduled",
+    });
+    if (error) { toast.error("Failed to create job."); setJobSaving(false); return; }
+    await supabase.from("estimates").update({ status: "converted" }).eq("id", jobDialog.id);
+    toast.success("Quote converted to job!");
+    setJobDialog(null);
+    setJobDate("");
+    setJobNotes("");
+    setJobSaving(false);
     fetch_();
   };
 
@@ -153,13 +181,53 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
                   <Button size="sm" variant="outline" onClick={() => updateStatus(est.id, "sent")} className="text-xs h-7 rounded-lg">Send</Button>
                 )}
                 {!readOnly && (est.status === "sent" || est.status === "accepted") && !est.converted_invoice_id && (
-                  <Button size="sm" variant="outline" onClick={() => setConvertForm(est)} className="text-xs h-7 rounded-lg"><ArrowRight className="h-3 w-3 mr-1" />To Invoice</Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setConvertForm(est)} className="text-xs h-7 rounded-lg"><ArrowRight className="h-3 w-3 mr-1" />To Invoice</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setJobDialog(est); setJobNotes(`Converted from ${est.estimate_number}`); }} className="text-xs h-7 rounded-lg"><Briefcase className="h-3 w-3 mr-1" />To Job</Button>
+                  </>
                 )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Convert to Job Dialog */}
+      <Dialog open={!!jobDialog} onOpenChange={(open) => { if (!open) setJobDialog(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Convert Quote to Job</DialogTitle>
+            <DialogDescription>
+              Create a scheduled job from {jobDialog?.estimate_number} for {jobDialog?.clients?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Scheduled Date & Time *</label>
+              <Input type="datetime-local" value={jobDate} onChange={(e) => setJobDate(e.target.value)} className="rounded-lg" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Service</label>
+              <p className="text-sm text-foreground">{jobDialog?.items?.[0]?.description || "Cleaning Service"}</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Price</label>
+              <p className="text-sm font-bold text-foreground">${Number(jobDialog?.total || 0).toFixed(2)}</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+              <Textarea value={jobNotes} onChange={(e) => setJobNotes(e.target.value)} className="rounded-lg" rows={2} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setJobDialog(null)}>Cancel</Button>
+              <Button onClick={handleConvertToJob} disabled={jobSaving || !jobDate}>
+                {jobSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Create Job
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
