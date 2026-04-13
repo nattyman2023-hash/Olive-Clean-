@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Loader2, MapPin, Clock, User, Calendar, Shield, Zap, GripVertical, LayoutGrid, Map } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 const RouteMap = lazy(() => import("./routes/RouteMap"));
@@ -12,6 +13,7 @@ import RouteTechHeader from "./routes/RouteTechHeader";
 import AutoAssignButton from "./dispatch/AutoAssignButton";
 import RecurringScheduleButton from "./dispatch/RecurringScheduleButton";
 import ConstraintWarning from "./dispatch/ConstraintWarning";
+import ActivityTimeline from "./ActivityTimeline";
 
 export interface RouteJob {
   id: string;
@@ -60,6 +62,7 @@ export default function RoutesTab() {
   const [dragSourceGroup, setDragSourceGroup] = useState<string | null>(null);
   const [dragOverGroup, setDragOverGroup] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [selectedRouteJob, setSelectedRouteJob] = useState<RouteJob | null>(null);
   const queryClient = useQueryClient();
 
   // Real-time subscription for job status changes
@@ -349,6 +352,7 @@ export default function RoutesTab() {
                           onDrop={() => handleDrop(groupName, i)}
                           onDragEnd={clearDragState}
                           isDragging={draggedJob === j.id}
+                          onSelect={() => setSelectedRouteJob(j)}
                         />
                         <ConstraintWarning job={j} employee={assignedEmp} />
                       </div>
@@ -374,6 +378,38 @@ export default function RoutesTab() {
           })}
         </div>
       )}
+
+      {/* Route Job Detail Sheet */}
+      <Sheet open={!!selectedRouteJob} onOpenChange={(o) => { if (!o) setSelectedRouteJob(null); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-base">{selectedRouteJob?.clients?.name || "Job Details"}</SheetTitle>
+          </SheetHeader>
+          {selectedRouteJob && (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-3 text-sm bg-muted/30 rounded-lg p-3">
+                <div><p className="text-[0.65rem] text-muted-foreground">Service</p><p className="text-foreground text-xs">{selectedRouteJob.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Time</p><p className="text-foreground text-xs">{new Date(selectedRouteJob.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p></div>
+                {selectedRouteJob.duration_minutes && <div><p className="text-[0.65rem] text-muted-foreground">Duration</p><p className="text-foreground text-xs">{selectedRouteJob.duration_minutes} min</p></div>}
+                {selectedRouteJob.estimated_drive_minutes && <div><p className="text-[0.65rem] text-muted-foreground">Drive</p><p className="text-foreground text-xs">{selectedRouteJob.estimated_drive_minutes} min</p></div>}
+                {selectedRouteJob.clients?.address && <div className="col-span-2"><p className="text-[0.65rem] text-muted-foreground">Address</p><p className="text-foreground text-xs">{selectedRouteJob.clients.address}</p></div>}
+                {selectedRouteJob.clients?.neighborhood && <div><p className="text-[0.65rem] text-muted-foreground">Zone</p><p className="text-foreground text-xs">{selectedRouteJob.clients.neighborhood}</p></div>}
+                {selectedRouteJob.assigned_to && employeeMap[selectedRouteJob.assigned_to] && <div><p className="text-[0.65rem] text-muted-foreground">Technician</p><p className="text-foreground text-xs">{employeeMap[selectedRouteJob.assigned_to].name}</p></div>}
+              </div>
+              {selectedRouteJob.notes && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                  <p className="text-sm text-foreground">{selectedRouteJob.notes}</p>
+                </div>
+              )}
+              <div className="border-t border-border pt-4">
+                <p className="text-xs text-muted-foreground mb-2">Activity & Notes</p>
+                <ActivityTimeline parentType="job" parentId={selectedRouteJob.id} />
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

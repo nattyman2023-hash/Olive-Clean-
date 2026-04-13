@@ -18,7 +18,7 @@ const NOTE_ICONS: Record<string, React.ElementType> = {
 };
 
 interface ActivityTimelineProps {
-  parentType: "lead" | "client";
+  parentType: "lead" | "client" | "job";
   parentId: string;
 }
 
