@@ -963,7 +963,8 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
       {job.status === "completed" && (
         <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground mb-2">Client Feedback</p>
-          <div className="space-y-2">
+          <JobFeedbackDisplay jobId={job.id} />
+          <div className="space-y-2 mt-2">
             <Button
               variant="outline"
               size="sm"
@@ -1040,7 +1041,39 @@ function SendFeedbackButton({ job }: { job: Job }) {
       toast.error(err.message || "Failed to send feedback request.");
     } finally {
       setSending(false);
-    }
+}
+
+/* ---------- Inline Feedback Display ---------- */
+function JobFeedbackDisplay({ jobId }: { jobId: string }) {
+  const [feedback, setFeedback] = useState<{ rating: number; comments: string | null } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("feedback")
+      .select("rating, comments")
+      .eq("job_id", jobId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setFeedback(data as any);
+        setLoading(false);
+      });
+  }, [jobId]);
+
+  if (loading) return null;
+  if (!feedback) return <p className="text-xs text-muted-foreground italic mb-2">No feedback submitted yet.</p>;
+
+  return (
+    <div className="bg-muted/50 rounded-lg p-3 mb-2">
+      <div className="flex gap-0.5 mb-1">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <span key={s} className={`text-sm ${s <= feedback.rating ? "text-primary" : "text-muted-foreground/30"}`}>★</span>
+        ))}
+      </div>
+      {feedback.comments && <p className="text-xs text-muted-foreground">{feedback.comments}</p>}
+    </div>
+  );
+}
   };
 
   return (
