@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   Plus, Loader2, FileText, ArrowRight, Pencil, Eye, Send, Clock,
-  RefreshCw, Search, Filter, CalendarClock, ChevronDown, Check
+  RefreshCw, Search, Filter, CalendarClock, ChevronDown, Check, PhoneCall
 } from "lucide-react";
 import InvoiceForm from "./finance/InvoiceForm";
 import InvoicePreview from "./finance/InvoicePreview";
@@ -48,6 +48,7 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [prefillInitial, setPrefillInitial] = useState<any>(undefined);
   const [convertForm, setConvertForm] = useState<Estimate | null>(null);
   const [preview, setPreview] = useState<Estimate | null>(null);
   const [previewEditMode, setPreviewEditMode] = useState(false);
@@ -56,7 +57,47 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
   const [scheduleTarget, setScheduleTarget] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [prefillLeadId, setPrefillLeadId] = useState<string | null>(null);
 
+  // Check for lead-to-quote prefill on mount
+  useEffect(() => {
+    const raw = sessionStorage.getItem("prefill-quote");
+    if (raw) {
+      sessionStorage.removeItem("prefill-quote");
+      try {
+        const data = JSON.parse(raw);
+        setPrefillLeadId(data.leadId || null);
+        // Find or create client, then open form with prefilled data
+        const setupPrefill = async () => {
+          let clientId = "";
+          if (data.email) {
+            const { data: existing } = await supabase.from("clients").select("id").eq("email", data.email).maybeSingle();
+            if (existing) {
+              clientId = existing.id;
+            } else {
+              const { data: newClient } = await supabase.from("clients").insert({
+                name: data.name || "New Client",
+                email: data.email,
+                phone: data.phone,
+                address: data.address,
+              }).select("id").single();
+              if (newClient) clientId = newClient.id;
+            }
+          }
+          const serviceName = data.service || "Cleaning Service";
+          const sizeNote = [data.bedrooms && `${data.bedrooms} bed`, data.bathrooms && `${data.bathrooms} bath`].filter(Boolean).join(" / ");
+          setPrefillInitial({
+            client_id: clientId,
+            items: [{ description: serviceName + (sizeNote ? ` (${sizeNote})` : ""), qty: 1, rate: 0 }],
+            notes: `Quote from lead: ${data.name || ""}`.trim(),
+            tax_rate: 0,
+          });
+          setShowForm(true);
+        };
+        setupPrefill();
+      } catch {}
+    }
+  }, []);
   const fetchQuotes = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -185,8 +226,33 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
     return matchStatus && matchSearch;
   });
 
+  const staleQuotes = estimates.filter((est) => {
+    if (est.status !== "sent" && est.status !== "viewed") return false;
+    const sentDate = est.sent_at ? new Date(est.sent_at) : new Date(est.created_at);
+    return (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24) >= 7;
+  });
+
   return (
     <div>
+      {/* Priority Call List */}
+      {staleQuotes.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <p className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1"><PhoneCall className="h-3.5 w-3.5" /> Priority Call List ({staleQuotes.length})</p>
+          <div className="space-y-1">
+            {staleQuotes.map((est) => {
+              const sentDate = est.sent_at ? new Date(est.sent_at) : new Date(est.created_at);
+              const daysSent = Math.floor((Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24));
+              return (
+                <div key={est.id} className="flex items-center justify-between text-xs">
+                  <button onClick={() => setPreview(est)} className="text-red-800 font-medium hover:underline">{est.estimate_number} — {est.clients?.name || "Unknown"}</button>
+                  <span className="text-red-600">{daysSent}d no response · ${Number(est.total).toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
@@ -229,8 +295,18 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
       {showForm && (
         <InvoiceForm
           type="estimate"
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); fetchQuotes(); }}
+          onClose={() => { setShowForm(false); setPrefillInitial(undefined); }}
+          onSaved={async () => {
+            setShowForm(false);
+            setPrefillInitial(undefined);
+            // If this was from a lead, mark it as quoted
+            if (prefillLeadId) {
+              await supabase.from("leads").update({ status: "quoted" } as any).eq("id", prefillLeadId);
+              setPrefillLeadId(null);
+            }
+            fetchQuotes();
+          }}
+          initial={prefillInitial}
         />
       )}
 

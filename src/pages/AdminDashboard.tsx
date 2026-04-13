@@ -97,7 +97,7 @@ export default function AdminDashboard() {
         case "bookings": return <BookingsTab readOnly={readOnly} />;
         case "clients": return <ClientsTab readOnly={readOnly} />;
         case "jobs": return <JobsTab readOnly={readOnly} onNavigate={handleNavigate} />;
-        case "leads": return <LeadsTab />;
+        case "leads": return <LeadsTab onNavigate={handleNavigate} />;
         case "perks": return <PerksTab />;
         case "analytics": return <AnalyticsTab />;
         case "team": return <TeamTab readOnly={readOnly} onNavigate={handleNavigate} />;
