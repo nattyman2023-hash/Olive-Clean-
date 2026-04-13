@@ -64,7 +64,6 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Operations",
     icon: CalendarDays,
     items: [
-      { value: "bookings", label: "Bookings", icon: CalendarCheck },
       { value: "jobs", label: "Jobs", icon: Briefcase },
       { value: "calendar", label: "Calendar", icon: CalendarDays },
       { value: "routes", label: "Routes", icon: MapPin },

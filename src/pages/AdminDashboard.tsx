@@ -8,7 +8,7 @@ import { LogOut, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import BookingsTab from "@/components/admin/BookingsTab";
+
 import ClientsTab from "@/components/admin/ClientsTab";
 import JobsTab from "@/components/admin/JobsTab";
 import PerksTab from "@/components/admin/PerksTab";
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   const { user, isAdmin, isStaff, isAdminAssistant, isCleaningTechnician, isFinance, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedRole } = useAuth();
   const { canAccess, canEdit, allowedSections, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("bookings");
+  const [activeSection, setActiveSection] = useState("leads");
   // For cross-tab navigation: store a target ID to pre-select in the destination tab
   const [navTargetId, setNavTargetId] = useState<string | null>(null);
 
@@ -94,7 +94,6 @@ export default function AdminDashboard() {
 
     const content = (() => {
       switch (section) {
-        case "bookings": return <BookingsTab readOnly={readOnly} />;
         case "clients": return <ClientsTab readOnly={readOnly} />;
         case "jobs": return <JobsTab readOnly={readOnly} onNavigate={handleNavigate} />;
         case "leads": return <LeadsTab onNavigate={handleNavigate} />;
@@ -112,7 +111,7 @@ export default function AdminDashboard() {
         case "photos": return <RecentUploads onNavigate={handleNavigate} />;
         case "comms-log": return <EmailsTab />;
         case "permissions": return <PermissionsManager />;
-        default: return <BookingsTab readOnly={readOnly} />;
+        default: return <LeadsTab onNavigate={handleNavigate} />;
       }
     })();
 

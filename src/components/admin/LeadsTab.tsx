@@ -202,8 +202,10 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                         <p className="font-semibold text-foreground">{lead.name || "Unknown"}</p>
                         <Badge variant="secondary" className={scoreColor(lead.score)}>Score: {lead.score}</Badge>
                         <Badge variant="secondary" className={STATUS_COLORS[lead.status] || ""}>{STATUS_LABELS[lead.status] || lead.status}</Badge>
+                        <Badge variant="outline" className="text-[0.6rem] px-1.5 py-0">
+                          {lead.source === "client_portal" ? "Portal" : lead.source === "chatbot" ? "Chat" : lead.source === "website" ? "Website" : lead.source === "booking_migration" ? "Booking" : lead.source === "form" ? "Form" : lead.source}
+                        </Badge>
                         {lead.source === "chatbot" && <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />}
-                        {lead.source === "form" && <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
                         {isStale && <span className="inline-flex items-center gap-1 text-[0.65rem] text-destructive font-medium"><AlertCircle className="h-3 w-3" /> No follow-up</span>}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
