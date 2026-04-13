@@ -23,7 +23,7 @@ function scoreColor(score: number) {
   return "bg-muted text-muted-foreground";
 }
 
-export default function LeadsTab() {
+export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string, targetId?: string) => void }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -230,8 +230,24 @@ export default function LeadsTab() {
                       {lead.status !== "converted" && (
                         <>
                           {lead.status === "new" && (
-                            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => updateStatus.mutate({ id: lead.id, status: "quoted" })}>
-                              Mark Quoted
+                            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
+                              // Navigate to quotes tab and trigger new quote form with lead data pre-filled
+                              if (onNavigate) {
+                                // Store lead data in sessionStorage for the quote form to pick up
+                                sessionStorage.setItem("prefill-quote", JSON.stringify({
+                                  leadId: lead.id,
+                                  name: lead.name,
+                                  email: lead.email,
+                                  phone: lead.phone,
+                                  address: lead.location,
+                                  service: lead.frequency === "one-time" ? "deep-clean" : "general",
+                                  bedrooms: lead.bedrooms,
+                                  bathrooms: lead.bathrooms,
+                                }));
+                                onNavigate("quotes");
+                              }
+                            }}>
+                              <FileText className="h-3 w-3 mr-1" /> Create Quote
                             </Button>
                           )}
                           {lead.status === "quoted" && (
