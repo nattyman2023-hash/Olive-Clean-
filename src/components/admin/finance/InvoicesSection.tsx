@@ -32,6 +32,19 @@ const STATUS_STYLES: Record<string, string> = {
   overdue: "bg-red-100 text-red-800",
 };
 
+function getAgingTier(inv: Invoice): { label: string; className: string } {
+  if (inv.status === "paid") return { label: "Paid", className: "bg-emerald-100 text-emerald-800" };
+  if (inv.status === "draft") return { label: "Draft", className: "bg-muted text-muted-foreground" };
+
+  const sentDate = inv.issued_at ? new Date(inv.issued_at) : new Date(inv.created_at);
+  const daysSinceSent = Math.floor((Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysSinceSent >= 15) return { label: `${daysSinceSent}d — Action Required`, className: "bg-red-100 text-red-800 font-semibold" };
+  if (daysSinceSent >= 8) return { label: `${daysSinceSent}d — Overdue`, className: "bg-orange-100 text-orange-800" };
+  if (daysSinceSent >= 1) return { label: `${daysSinceSent}d`, className: "bg-yellow-100 text-yellow-800" };
+  return { label: "Sent today", className: "bg-blue-100 text-blue-800" };
+}
+
 export default function InvoicesSection({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,8 +143,44 @@ export default function InvoicesSection({ readOnly, onNavigate }: { readOnly?: b
     );
   }
 
+  const totalOutstanding = invoices
+    .filter((inv) => inv.status === "sent" || inv.status === "overdue")
+    .reduce((sum, inv) => sum + Number(inv.total), 0);
+
+  const callList = invoices.filter((inv) => {
+    if (inv.status === "paid" || inv.status === "draft") return false;
+    const sentDate = inv.issued_at ? new Date(inv.issued_at) : new Date(inv.created_at);
+    return (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24) >= 15;
+  });
+
   return (
     <div>
+      {/* Outstanding Summary */}
+      {totalOutstanding > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-amber-800">Total Outstanding</p>
+            <p className="text-xl font-bold text-amber-900">${totalOutstanding.toFixed(2)}</p>
+          </div>
+          <DollarSign className="h-6 w-6 text-amber-500" />
+        </div>
+      )}
+
+      {/* Call List */}
+      {callList.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <p className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1"><PhoneCall className="h-3.5 w-3.5" /> Priority Call List ({callList.length})</p>
+          <div className="space-y-1">
+            {callList.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between text-xs">
+                <button onClick={() => setPreview(inv)} className="text-red-800 font-medium hover:underline">{inv.invoice_number} — {inv.clients?.name || "Unknown"}</button>
+                <span className="text-red-600 font-semibold">${Number(inv.total).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Invoices</h3>
         {!readOnly && <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />New Invoice</Button>}
@@ -145,7 +194,9 @@ export default function InvoicesSection({ readOnly, onNavigate }: { readOnly?: b
         <div className="bg-card rounded-xl border border-border p-12 text-center"><p className="text-sm text-muted-foreground">No invoices yet.</p></div>
       ) : (
         <div className="space-y-2">
-          {invoices.map((inv) => (
+          {invoices.map((inv) => {
+            const aging = getAgingTier(inv);
+            return (
             <div key={inv.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <button onClick={() => setPreview(inv)} className="font-medium text-sm text-foreground hover:text-primary truncate block">{inv.invoice_number}</button>
@@ -155,7 +206,7 @@ export default function InvoicesSection({ readOnly, onNavigate }: { readOnly?: b
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>{inv.status}</span>
+                <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full ${aging.className}`}>{aging.label}</span>
                 <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(false); setPreview(inv); }} className="h-7 w-7" title="View"><Eye className="h-3.5 w-3.5" /></Button>
                 {!readOnly && <Button size="icon" variant="ghost" onClick={() => { setPreviewEditMode(true); setPreview(inv); }} className="h-7 w-7" title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>}
                 {!readOnly && inv.status === "draft" && (
@@ -171,7 +222,8 @@ export default function InvoicesSection({ readOnly, onNavigate }: { readOnly?: b
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
