@@ -165,25 +165,29 @@ export default function CallListTab() {
   const logCall = useMutation({
     mutationFn: async (item: OutreachItem) => {
       const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("crm_notes").insert({
+      const { error: noteErr } = await supabase.from("crm_notes").insert({
         parent_type: item.parentType,
         parent_id: item.id,
         author_id: user?.id || null,
         content: "Phone call logged from Outreach Hub",
         note_type: "phone_call",
       });
+      if (noteErr) throw noteErr;
       // Move lead outreach_status to "attempted"
       if (item.parentType === "lead") {
-        await supabase.from("leads").update({ outreach_status: "attempted" } as any).eq("id", item.id);
+        const { error: leadErr } = await supabase.from("leads").update({ outreach_status: "attempted" } as any).eq("id", item.id);
+        if (leadErr) throw leadErr;
       }
     },
     onSuccess: (_, item) => {
       queryClient.invalidateQueries({ queryKey: ["outreach-hub"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-notes"] });
       if (item.parentType === "client") {
         setClientStatuses((prev) => ({ ...prev, [item.id]: "attempted" }));
       }
       toast.success("Call logged — moved to Attempted");
     },
+    onError: (e) => toast.error("Failed to log call: " + (e as Error).message),
   });
 
   const moveItem = async (item: OutreachItem, newStatus: OutreachStatus) => {
