@@ -1,67 +1,64 @@
 
 
-## Drawer Standard, Boomerang Logic, Outreach Hub, and Admin Chat Fix
+## Fix: Lead Drawer Click, Job Notes, Route Job Links, Outreach Hub Logging
 
-### What's Changing
-
-Four interconnected upgrades to unify the admin UX and add lifecycle intelligence.
+Four targeted fixes based on the reported issues.
 
 ---
 
-### 1. Drawer Standard (Global)
+### 1. Lead Row Click → Drawer Not Working
 
-**LeadsTab** already uses a Sheet (right drawer) -- good. **JobsTab** currently uses an inline detail panel on desktop and a bottom Drawer on mobile. We'll switch both to a **right Sheet** so clicking a job row slides in a scrollable detail panel from the right, and the list stays interactive behind it.
+The lead drawer **does** exist and works — clicking the lead **name** opens it. But the entire card row should be clickable, not just the name text. The name button is small and easy to miss.
 
-| File | Change |
-|------|--------|
-| `src/components/admin/JobsTab.tsx` | Replace the inline `JobDetailPanel` (desktop) and bottom `Drawer` (mobile) with a single `Sheet` from the right. The Sheet content will contain all existing detail sections (assignment, schedule, photos, attendance, feedback, status actions) inside a scrollable container. Remove the `isDesktop` split logic for detail rendering. |
-| `src/components/admin/LeadsTab.tsx` | Remove the standalone Eye icon button from the actions row -- clicking the lead name already opens the Sheet. Keep edit/delete icon buttons. |
+**Fix in `LeadsTab.tsx`**: Make the entire `Card` clickable (add `onClick={() => setSelectedLead(lead)}` on the Card or its CardContent), keeping the action buttons (Edit, Delete, Create Quote, Convert) with `e.stopPropagation()` so they don't also trigger the drawer.
 
 ---
 
-### 2. Boomerang Lead Lifecycle
+### 2. Add ActivityTimeline + Notes to Job Detail Drawer
 
-When a lead becomes a scheduled job, hide it from Leads. If that job is cancelled, the lead reappears.
+The `JobDetailPanel` in `JobsTab.tsx` currently shows job info, photos, attendance, and status actions — but has **no notes/activity section**. The `ActivityTimeline` component (already built and used in LeadsTab) needs to be added here.
 
-| File | Change |
-|------|--------|
-| `src/components/admin/LeadsTab.tsx` | Add `"archived"` to status options. Filter out leads with `status = "scheduled"` from the default list view (they live in Jobs now). Add an "Archive" button to the Sheet drawer. |
-| `src/components/admin/JobsTab.tsx` | When a job status is changed to `cancelled`: look up `leads` where `converted_job_id = job.id`, and update that lead's status back to `"new"`. Add a system `crm_notes` entry: "Job cancelled -- lead returned to pipeline." |
-| `src/components/admin/LeadsTab.tsx` | Add `"archived"` to the status filter dropdown so admins can view archived leads. Add status colors for archived. |
-
----
-
-### 3. Rename Call List to "Outreach Hub"
-
-| File | Change |
-|------|--------|
-| `src/components/admin/AdminSidebar.tsx` | Rename "Call List" label to "Outreach Hub" (keep value `"call-list"`). |
-| `src/components/admin/CallListTab.tsx` | Rename header. Add a simple column-based layout with 4 status columns: "Needs Nudge", "Attempted", "Speaking", "Won Back". Each card shows name, phone, reason tag. Clicking a card opens a Sheet with the client/lead history and ActivityTimeline + notes. Add a "Log Call" button that creates a `crm_notes` entry and moves the card to "Attempted". |
-
-This requires a new `outreach_status` field. Rather than a migration, we'll track this in `crm_notes` with a system note approach -- or simpler: add a lightweight `outreach_status` column to `leads` and use `crm_notes.is_task` status for clients.
-
-**Database migration**: Add `outreach_status` column to `leads` table (text, nullable, default null). Values: `needs_nudge`, `attempted`, `speaking`, `won_back`. For lost clients, we'll use a local state mapping since they don't have a leads record.
+**Fix in `JobsTab.tsx`**:
+- Import `ActivityTimeline` from `./ActivityTimeline`
+- Add it to `JobDetailPanel` after the notes section, using `parentType="job"` and `parentId={job.id}`
+- This gives every job a note/task entry form and a timeline of logged calls, notes, and system events
+- Update `crm_notes` parent_type to also accept `"job"` (it's just a text field, no migration needed)
 
 ---
 
-### 4. Hide Chat Widget for Admins
+### 3. Route Job Cards Not Clickable
 
-| File | Change |
-|------|--------|
-| `src/App.tsx` | Wrap `<ChatWidget />` so it only renders when the current route is NOT `/admin`. Use `useLocation` to check. |
+`RouteJobCard` in `RoutesTab.tsx` is purely drag-and-drop — it has no `onClick` handler. Clicking a job card on the Routes page does nothing.
 
-No separate "Messages" page needed yet -- the Comms Log already serves as the admin inbox for email communications, and lead chat transcripts are visible in the Lead Sheet.
+**Fix**: Two options — either (a) open the Jobs tab with that job selected, or (b) add a Sheet drawer directly in RoutesTab. Option (b) is cleaner — add a `onSelect` callback to `RouteJobCard`, and in `RoutesTab`, open a Sheet with the job details + ActivityTimeline when clicked.
+
+**Files changed**:
+- `RouteJobCard.tsx` — Add `onSelect` prop, fire it on click (not on drag)
+- `RoutesTab.tsx` — Add state for `selectedRouteJob`, render a Sheet with job info and ActivityTimeline
+
+---
+
+### 4. Outreach Hub — Log Call Not Persisting
+
+The `logCall` mutation in `CallListTab.tsx` inserts into `crm_notes` and updates `outreach_status` on leads. The issue is likely that:
+- The mutation doesn't handle errors (no `onError` callback)
+- For client-type items, status is only tracked in local React state (lost on refresh)
+- The query refetch may not be picking up the status change because `outreach_status` from the DB is overridden by the default `"needs_nudge"` in the query function
+
+**Fix in `CallListTab.tsx`**:
+- Add `onError` handler to `logCall` mutation to surface failures
+- When building the items list, use the lead's `outreach_status` from the DB (it's already queried but the code hardcodes `outreachStatus: "needs_nudge"` for stale leads instead of reading the saved value)
+- Same fix for "Send Nudge Email" — add a mutation that logs the email attempt and updates status
 
 ---
 
 ### Files Summary
 
-| File | Action |
+| File | Change |
 |------|--------|
-| `src/components/admin/JobsTab.tsx` | Replace inline detail + bottom Drawer with right Sheet; add boomerang logic on cancel |
-| `src/components/admin/LeadsTab.tsx` | Remove Eye icon; add "archived" status; filter out "scheduled" leads; add Archive button |
-| `src/components/admin/AdminSidebar.tsx` | Rename "Call List" to "Outreach Hub" |
-| `src/components/admin/CallListTab.tsx` | Rebuild as column-based Outreach Hub with Sheet detail and status tracking |
-| `src/App.tsx` | Hide ChatWidget on `/admin` routes |
-| Database migration | Add `outreach_status` column to `leads` |
+| `src/components/admin/LeadsTab.tsx` | Make entire lead card clickable; stopPropagation on action buttons |
+| `src/components/admin/JobsTab.tsx` | Add `ActivityTimeline` component to `JobDetailPanel` |
+| `src/components/admin/routes/RouteJobCard.tsx` | Add `onSelect` click prop |
+| `src/components/admin/RoutesTab.tsx` | Add Sheet drawer for selected route job with ActivityTimeline |
+| `src/components/admin/CallListTab.tsx` | Fix outreach status reading from DB; add error handling to mutations |
 
