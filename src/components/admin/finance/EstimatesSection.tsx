@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Loader2, FileText, ArrowRight, Pencil, Eye, Briefcase } from "lucide-react";
+import { Plus, Loader2, FileText, ArrowRight, Pencil, Eye, Briefcase, PhoneCall } from "lucide-react";
 import InvoiceForm from "./InvoiceForm";
 import InvoicePreview from "./InvoicePreview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -170,8 +170,33 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
     );
   }
 
+  const staleQuotes = estimates.filter((est) => {
+    if (est.status !== "sent") return false;
+    const sentDate = est.created_at ? new Date(est.created_at) : null;
+    if (!sentDate) return false;
+    return (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24) >= 7;
+  });
+
   return (
     <div>
+      {/* Stale Quotes Call List */}
+      {staleQuotes.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <p className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1"><PhoneCall className="h-3.5 w-3.5" /> Priority Call List ({staleQuotes.length})</p>
+          <div className="space-y-1">
+            {staleQuotes.map((est) => {
+              const daysSent = Math.floor((Date.now() - new Date(est.created_at).getTime()) / (1000 * 60 * 60 * 24));
+              return (
+                <div key={est.id} className="flex items-center justify-between text-xs">
+                  <button onClick={() => setPreview(est)} className="text-red-800 font-medium hover:underline">{est.estimate_number} — {est.clients?.name || "Unknown"}</button>
+                  <span className="text-red-600">{daysSent}d no response · ${Number(est.total).toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Estimates</h3>
         {!readOnly && <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />New Estimate</Button>}
