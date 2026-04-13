@@ -53,24 +53,51 @@ export default function BookPage() {
     setLoading(true);
     const id = crypto.randomUUID();
     const serviceName = serviceTiers.find((t) => t.id === form.service)?.name || form.service;
-    const { error } = await supabase.from("leads").insert({
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      location: form.address || null,
-      frequency: form.frequency,
-      bedrooms: parseInt(form.bedrooms),
-      bathrooms: parseInt(form.bathrooms),
-      notes: `Service: ${serviceName}. Home: ${form.homeType}. ${form.notes || ""}`.trim(),
-      source: "website" as const,
-      score: 60,
-      status: "new" as const,
-    });
-    setLoading(false);
-    if (error) {
-      toast.error("Something went wrong. Please try again.");
-      return;
+
+    // Dedup: check if a lead with the same email already exists
+    let existingLeadId: string | null = null;
+    if (form.email) {
+      const { data: existing } = await supabase.from("leads").select("id").eq("email", form.email).eq("status", "new").maybeSingle();
+      if (existing) {
+        existingLeadId = existing.id;
+        await supabase.from("leads").update({
+          status: "new",
+          notes: `Service: ${serviceName}. Home: ${form.homeType}. ${form.notes || ""}`.trim(),
+          frequency: form.frequency,
+          bedrooms: parseInt(form.bedrooms),
+          bathrooms: parseInt(form.bathrooms),
+          location: form.address || null,
+        } as any).eq("id", existing.id);
+        await supabase.from("crm_notes").insert({
+          parent_type: "lead",
+          parent_id: existing.id,
+          content: `New inquiry received from website: ${serviceName}`,
+          note_type: "system",
+        });
+      }
     }
+
+    if (!existingLeadId) {
+      const { error } = await supabase.from("leads").insert({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        location: form.address || null,
+        frequency: form.frequency,
+        bedrooms: parseInt(form.bedrooms),
+        bathrooms: parseInt(form.bathrooms),
+        notes: `Service: ${serviceName}. Home: ${form.homeType}. ${form.notes || ""}`.trim(),
+        source: "website" as const,
+        score: 60,
+        status: "new" as const,
+      });
+      if (error) {
+        setLoading(false);
+        toast.error("Something went wrong. Please try again.");
+        return;
+      }
+    }
+
     // Send confirmation email
     supabase.functions.invoke("send-transactional-email", {
       body: {
@@ -79,10 +106,11 @@ export default function BookPage() {
         idempotencyKey: `booking-req-${id}`,
         templateData: {
           name: form.name,
-          service: serviceTiers.find((t) => t.id === form.service)?.name || form.service,
+          service: serviceName,
         },
       },
     });
+    setLoading(false);
     setSubmitted(true);
   };
 
