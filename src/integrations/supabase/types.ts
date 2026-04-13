@@ -900,6 +900,7 @@ export type Database = {
           location: string | null
           name: string | null
           notes: string | null
+          outreach_status: string | null
           phone: string | null
           score: number
           source: string
@@ -918,6 +919,7 @@ export type Database = {
           location?: string | null
           name?: string | null
           notes?: string | null
+          outreach_status?: string | null
           phone?: string | null
           score?: number
           source?: string
@@ -936,6 +938,7 @@ export type Database = {
           location?: string | null
           name?: string | null
           notes?: string | null
+          outreach_status?: string | null
           phone?: string | null
           score?: number
           source?: string

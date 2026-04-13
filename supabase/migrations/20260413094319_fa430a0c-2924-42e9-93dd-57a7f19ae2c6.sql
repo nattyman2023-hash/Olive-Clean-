@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN outreach_status text;
