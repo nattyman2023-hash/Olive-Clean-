@@ -111,7 +111,7 @@ export default function AdminDashboard() {
         case "photos": return <RecentUploads onNavigate={handleNavigate} />;
         case "comms-log": return <EmailsTab />;
         case "permissions": return <PermissionsManager />;
-        default: return <BookingsTab readOnly={readOnly} />;
+        default: return <LeadsTab onNavigate={handleNavigate} />;
       }
     })();
 
