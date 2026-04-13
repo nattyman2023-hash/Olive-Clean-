@@ -48,6 +48,7 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [prefillInitial, setPrefillInitial] = useState<any>(undefined);
   const [convertForm, setConvertForm] = useState<Estimate | null>(null);
   const [preview, setPreview] = useState<Estimate | null>(null);
   const [previewEditMode, setPreviewEditMode] = useState(false);
@@ -56,7 +57,47 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
   const [scheduleTarget, setScheduleTarget] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [prefillLeadId, setPrefillLeadId] = useState<string | null>(null);
 
+  // Check for lead-to-quote prefill on mount
+  useEffect(() => {
+    const raw = sessionStorage.getItem("prefill-quote");
+    if (raw) {
+      sessionStorage.removeItem("prefill-quote");
+      try {
+        const data = JSON.parse(raw);
+        setPrefillLeadId(data.leadId || null);
+        // Find or create client, then open form with prefilled data
+        const setupPrefill = async () => {
+          let clientId = "";
+          if (data.email) {
+            const { data: existing } = await supabase.from("clients").select("id").eq("email", data.email).maybeSingle();
+            if (existing) {
+              clientId = existing.id;
+            } else {
+              const { data: newClient } = await supabase.from("clients").insert({
+                name: data.name || "New Client",
+                email: data.email,
+                phone: data.phone,
+                address: data.address,
+              }).select("id").single();
+              if (newClient) clientId = newClient.id;
+            }
+          }
+          const serviceName = data.service || "Cleaning Service";
+          const sizeNote = [data.bedrooms && `${data.bedrooms} bed`, data.bathrooms && `${data.bathrooms} bath`].filter(Boolean).join(" / ");
+          setPrefillInitial({
+            client_id: clientId,
+            items: [{ description: serviceName + (sizeNote ? ` (${sizeNote})` : ""), qty: 1, rate: 0 }],
+            notes: `Quote from lead: ${data.name || ""}`.trim(),
+            tax_rate: 0,
+          });
+          setShowForm(true);
+        };
+        setupPrefill();
+      } catch {}
+    }
+  }, []);
   const fetchQuotes = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -229,8 +270,18 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
       {showForm && (
         <InvoiceForm
           type="estimate"
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); fetchQuotes(); }}
+          onClose={() => { setShowForm(false); setPrefillInitial(undefined); }}
+          onSaved={async () => {
+            setShowForm(false);
+            setPrefillInitial(undefined);
+            // If this was from a lead, mark it as quoted
+            if (prefillLeadId) {
+              await supabase.from("leads").update({ status: "quoted" } as any).eq("id", prefillLeadId);
+              setPrefillLeadId(null);
+            }
+            fetchQuotes();
+          }}
+          initial={prefillInitial}
         />
       )}
 
