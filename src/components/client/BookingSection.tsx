@@ -70,21 +70,51 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
     if (items.length === 0) return;
     setSubmitting(true);
     try {
-      const rows = items.map((item) => ({
-        name: client.name,
-        email: client.email || "",
-        phone: client.phone || "",
-        location: client.address || null,
-        frequency,
-        bedrooms,
-        bathrooms,
-        notes: `Service: ${item.service}. Home: ${homeType}. ${item.notes || ""}`.trim(),
-        source: "client_portal" as const,
-        score: 80,
-        status: "new" as const,
-      }));
-      const { error } = await supabase.from("leads").insert(rows);
-      if (error) throw error;
+      const email = client.email || "";
+      const phone = client.phone || "";
+
+      // Dedup: check if lead with same email already exists
+      let existingLeadId: string | null = null;
+      if (email) {
+        const { data: existing } = await supabase.from("leads").select("id").eq("email", email).eq("status", "new").maybeSingle();
+        if (existing) {
+          existingLeadId = existing.id;
+          // Update existing lead instead of creating duplicate
+          await supabase.from("leads").update({
+            status: "new",
+            notes: `Service: ${items[0].service}. Home: ${homeType}. ${items[0].notes || ""}`.trim(),
+            frequency,
+            bedrooms,
+            bathrooms,
+          } as any).eq("id", existing.id);
+          // Add system note
+          await supabase.from("crm_notes").insert({
+            parent_type: "lead",
+            parent_id: existing.id,
+            content: `New inquiry received from client portal: ${items.map(i => i.service).join(", ")}`,
+            note_type: "system",
+          });
+        }
+      }
+
+      if (!existingLeadId) {
+        const rows = items.map((item) => ({
+          name: client.name,
+          email: email,
+          phone: phone,
+          location: client.address || null,
+          frequency,
+          bedrooms,
+          bathrooms,
+          notes: `Service: ${item.service}. Home: ${homeType}. ${item.notes || ""}`.trim(),
+          source: "client_portal" as const,
+          score: 80,
+          status: "new" as const,
+        }));
+        const { error } = await supabase.from("leads").insert(rows);
+        if (error) throw error;
+      }
+
       toast.success("Booking request submitted! We'll confirm shortly.");
 
       // Send confirmation email for the first service

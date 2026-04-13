@@ -26,7 +26,9 @@ import ServicesManager from "@/components/admin/ServicesManager";
 import LeadsTab from "@/components/admin/LeadsTab";
 import PermissionsManager from "@/components/admin/PermissionsManager";
 import EmailsTab from "@/components/admin/EmailsTab";
+import CallListTab from "@/components/admin/CallListTab";
 import NotificationBell from "@/components/NotificationBell";
+import QuickNoteButton from "@/components/admin/QuickNoteButton";
 import LowStockWidget from "@/components/admin/LowStockWidget";
 import ReadOnlyBanner from "@/components/admin/ReadOnlyBanner";
 import ImpersonationBar from "@/components/admin/ImpersonationBar";
@@ -110,6 +112,7 @@ export default function AdminDashboard() {
         case "quotes": return <QuotesTab readOnly={readOnly} />;
         case "photos": return <RecentUploads onNavigate={handleNavigate} />;
         case "comms-log": return <EmailsTab />;
+        case "call-list": return <CallListTab />;
         case "permissions": return <PermissionsManager />;
         default: return <LeadsTab onNavigate={handleNavigate} />;
       }
@@ -158,6 +161,7 @@ export default function AdminDashboard() {
                     {impersonatedRole.replace(/_/g, " ")}
                   </span>
                 )}
+                <QuickNoteButton />
                 <NotificationBell />
                 <Button variant="ghost" size="icon" onClick={signOut} className="active:scale-95 transition-transform">
                   <LogOut className="h-4 w-4" />

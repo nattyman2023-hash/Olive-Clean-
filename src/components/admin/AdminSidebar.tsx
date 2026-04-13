@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Phone,
   Target,
   BookOpen,
   TrendingUp,
@@ -75,6 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
     icon: HeartHandshake,
     items: [
       { value: "clients", label: "Clients", icon: Users },
+      { value: "call-list", label: "Call List", icon: Phone },
       { value: "perks", label: "Perks", icon: Gift },
       { value: "comms-log", label: "Comms Log", icon: Mail },
     ],
