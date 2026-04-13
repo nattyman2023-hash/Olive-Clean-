@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   const { user, isAdmin, isStaff, isAdminAssistant, isCleaningTechnician, isFinance, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedRole } = useAuth();
   const { canAccess, canEdit, allowedSections, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("bookings");
+  const [activeSection, setActiveSection] = useState("leads");
   // For cross-tab navigation: store a target ID to pre-select in the destination tab
   const [navTargetId, setNavTargetId] = useState<string | null>(null);
 
