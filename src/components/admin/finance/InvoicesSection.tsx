@@ -32,7 +32,7 @@ const STATUS_STYLES: Record<string, string> = {
   overdue: "bg-red-100 text-red-800",
 };
 
-export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
+export default function InvoicesSection({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -149,7 +149,10 @@ export default function InvoicesSection({ readOnly }: { readOnly?: boolean }) {
             <div key={inv.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <button onClick={() => setPreview(inv)} className="font-medium text-sm text-foreground hover:text-primary truncate block">{inv.invoice_number}</button>
-                <p className="text-xs text-muted-foreground">{inv.clients?.name || "Unknown"} · ${Number(inv.total).toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">
+                  <button onClick={(e) => { e.stopPropagation(); onNavigate?.("clients", inv.client_id); }} className="hover:text-primary hover:underline underline-offset-2">{inv.clients?.name || "Unknown"}</button>
+                  {" · "}${Number(inv.total).toFixed(2)}
+                </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[inv.status] || STATUS_STYLES.draft}`}>{inv.status}</span>

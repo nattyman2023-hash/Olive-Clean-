@@ -84,7 +84,7 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
 
 const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
-export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
+export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const isDesktop = useIsDesktop();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -723,13 +723,14 @@ export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
           {isDesktop ? (
             <div className="lg:col-span-1">
               {selected ? (
-                <JobDetailPanel
+              <JobDetailPanel
                   job={selected}
                   employees={employees}
                   onStatusChange={updateJobStatus}
                   onReassign={reassignJob}
                   onLogDuration={logDuration}
                   getInitials={getInitials}
+                  onNavigate={onNavigate}
                 />
               ) : (
                 <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
@@ -755,6 +756,7 @@ export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
                     onReassign={reassignJob}
                     onLogDuration={logDuration}
                     getInitials={getInitials}
+                    onNavigate={onNavigate}
                   />
                 )}
               </DrawerContent>
@@ -831,13 +833,19 @@ interface DetailProps {
   onReassign: (jobId: string, employeeId: string | null) => void;
   onLogDuration: (id: string, minutes: string) => void;
   getInitials: (name: string) => string;
+  onNavigate?: (section: string, targetId?: string) => void;
 }
 
-function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, getInitials }: DetailProps) {
+function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, getInitials, onNavigate }: DetailProps) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">{job.clients?.name || "Unknown"}</h2>
+        <button
+          onClick={() => onNavigate?.("clients", job.client_id)}
+          className="text-lg font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors text-left"
+        >
+          {job.clients?.name || "Unknown"}
+        </button>
         <p className="text-xs text-muted-foreground mt-0.5">
           {job.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
         </p>
@@ -852,7 +860,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
               {job.employees.photo_url && <AvatarImage src={job.employees.photo_url} alt={job.employees.name} />}
               <AvatarFallback className="text-[0.5rem] bg-primary/10 text-primary">{getInitials(job.employees.name)}</AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium text-foreground">{job.employees.name}</span>
+            <button
+              onClick={() => onNavigate?.("team", job.assigned_to || undefined)}
+              className="text-sm font-medium text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors"
+            >
+              {job.employees.name}
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-2 mb-2 text-muted-foreground">

@@ -46,7 +46,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; classNam
 
 const STATUSES = ["all", "applied", "screening", "interview", "hired", "rejected"];
 
-export default function HiringTab({ readOnly }: { readOnly?: boolean }) {
+export default function HiringTab({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

@@ -105,7 +105,7 @@ const getOptionalEmployeeEmail = (value: string | null | undefined) => {
   return { success: true as const, email: parsed.data };
 };
 
-export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
+export default function TeamTab({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const { startImpersonation, isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
