@@ -991,3 +991,55 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
     </div>
   );
 }
+
+/* ---------- Send Feedback Button ---------- */
+function SendFeedbackButton({ job }: { job: Job }) {
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const { data: client } = await supabase
+        .from("clients")
+        .select("email, name")
+        .eq("id", job.client_id)
+        .maybeSingle();
+      if (!client?.email) {
+        toast.error("No email found for this client.");
+        return;
+      }
+      const feedbackUrl = `${window.location.origin}/feedback/${job.id}`;
+      const { error } = await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "feedback-request",
+          recipientEmail: client.email,
+          idempotencyKey: `feedback-request-${job.id}`,
+          templateData: {
+            clientName: client.name,
+            service: job.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            feedbackUrl,
+          },
+        },
+      });
+      if (error) throw error;
+      toast.success(`Feedback request sent to ${client.email}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send feedback request.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="w-full rounded-lg active:scale-[0.97] gap-2"
+      disabled={sending}
+      onClick={handleSend}
+    >
+      {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+      Send Feedback Request
+    </Button>
+  );
+}
