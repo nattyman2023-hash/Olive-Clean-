@@ -1041,39 +1041,7 @@ function SendFeedbackButton({ job }: { job: Job }) {
       toast.error(err.message || "Failed to send feedback request.");
     } finally {
       setSending(false);
-}
-
-/* ---------- Inline Feedback Display ---------- */
-function JobFeedbackDisplay({ jobId }: { jobId: string }) {
-  const [feedback, setFeedback] = useState<{ rating: number; comments: string | null } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase
-      .from("feedback")
-      .select("rating, comments")
-      .eq("job_id", jobId)
-      .maybeSingle()
-      .then(({ data }) => {
-        setFeedback(data as any);
-        setLoading(false);
-      });
-  }, [jobId]);
-
-  if (loading) return null;
-  if (!feedback) return <p className="text-xs text-muted-foreground italic mb-2">No feedback submitted yet.</p>;
-
-  return (
-    <div className="bg-muted/50 rounded-lg p-3 mb-2">
-      <div className="flex gap-0.5 mb-1">
-        {[1, 2, 3, 4, 5].map((s) => (
-          <span key={s} className={`text-sm ${s <= feedback.rating ? "text-primary" : "text-muted-foreground/30"}`}>★</span>
-        ))}
-      </div>
-      {feedback.comments && <p className="text-xs text-muted-foreground">{feedback.comments}</p>}
-    </div>
-  );
-}
+    }
   };
 
   return (
@@ -1087,5 +1055,37 @@ function JobFeedbackDisplay({ jobId }: { jobId: string }) {
       {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
       Send Feedback Request
     </Button>
+  );
+}
+
+/* ---------- Inline Feedback Display ---------- */
+function JobFeedbackDisplay({ jobId }: { jobId: string }) {
+  const [feedback, setFeedback] = useState<{ rating: number; comments: string | null } | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("feedback")
+      .select("rating, comments")
+      .eq("job_id", jobId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setFeedback(data as any);
+        setLoaded(true);
+      });
+  }, [jobId]);
+
+  if (!loaded) return null;
+  if (!feedback) return <p className="text-xs text-muted-foreground italic mb-2">No feedback submitted yet.</p>;
+
+  return (
+    <div className="bg-muted/50 rounded-lg p-3 mb-2">
+      <div className="flex gap-0.5 mb-1">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <span key={s} className={`text-sm ${s <= feedback.rating ? "text-primary" : "text-muted-foreground/30"}`}>★</span>
+        ))}
+      </div>
+      {feedback.comments && <p className="text-xs text-muted-foreground">{feedback.comments}</p>}
+    </div>
   );
 }
