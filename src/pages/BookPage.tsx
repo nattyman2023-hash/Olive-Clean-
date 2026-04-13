@@ -52,18 +52,19 @@ export default function BookPage() {
   const handleSubmit = async () => {
     setLoading(true);
     const id = crypto.randomUUID();
-    const { error } = await supabase.from("booking_requests").insert({
-      id,
-      service: form.service,
-      home_type: form.homeType,
-      bedrooms: parseInt(form.bedrooms),
-      bathrooms: parseInt(form.bathrooms),
-      frequency: form.frequency,
+    const serviceName = serviceTiers.find((t) => t.id === form.service)?.name || form.service;
+    const { error } = await supabase.from("leads").insert({
       name: form.name,
       email: form.email,
       phone: form.phone,
-      address: form.address || null,
-      notes: form.notes || null,
+      location: form.address || null,
+      frequency: form.frequency,
+      bedrooms: parseInt(form.bedrooms),
+      bathrooms: parseInt(form.bathrooms),
+      notes: `Service: ${serviceName}. Home: ${form.homeType}. ${form.notes || ""}`.trim(),
+      source: "website" as const,
+      score: 60,
+      status: "new" as const,
     });
     setLoading(false);
     if (error) {

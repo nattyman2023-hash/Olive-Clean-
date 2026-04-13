@@ -8,7 +8,7 @@ import { LogOut, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import BookingsTab from "@/components/admin/BookingsTab";
+
 import ClientsTab from "@/components/admin/ClientsTab";
 import JobsTab from "@/components/admin/JobsTab";
 import PerksTab from "@/components/admin/PerksTab";
@@ -94,7 +94,6 @@ export default function AdminDashboard() {
 
     const content = (() => {
       switch (section) {
-        case "bookings": return <BookingsTab readOnly={readOnly} />;
         case "clients": return <ClientsTab readOnly={readOnly} />;
         case "jobs": return <JobsTab readOnly={readOnly} onNavigate={handleNavigate} />;
         case "leads": return <LeadsTab onNavigate={handleNavigate} />;

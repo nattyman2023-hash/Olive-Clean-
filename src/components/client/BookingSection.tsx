@@ -74,16 +74,16 @@ export default function BookingSection({ client }: { client: ClientInfo }) {
         name: client.name,
         email: client.email || "",
         phone: client.phone || "",
-        address: client.address || null,
-        service: item.service,
+        location: client.address || null,
         frequency,
-        home_type: homeType,
         bedrooms,
         bathrooms,
-        notes: item.notes || null,
-        referral_code: referralCode.trim() || null,
+        notes: `Service: ${item.service}. Home: ${homeType}. ${item.notes || ""}`.trim(),
+        source: "client_portal" as const,
+        score: 80,
+        status: "new" as const,
       }));
-      const { error } = await supabase.from("booking_requests").insert(rows);
+      const { error } = await supabase.from("leads").insert(rows);
       if (error) throw error;
       toast.success("Booking request submitted! We'll confirm shortly.");
 
