@@ -301,6 +301,67 @@ function EmailLogsView() {
           )}
         </>
       )}
+
+      {/* Email Preview Drawer */}
+      <Sheet open={!!previewRow} onOpenChange={(open) => { if (!open) setPreviewRow(null); }}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-sm">Email Details</SheetTitle>
+            <SheetDescription className="text-xs">
+              {previewRow?.template_name} → {previewRow?.recipient_email}
+            </SheetDescription>
+          </SheetHeader>
+          {previewRow && (
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Template</span>
+                  <span className="font-medium text-foreground">{previewRow.template_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Recipient</span>
+                  <span className="font-medium text-foreground">{previewRow.recipient_email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant="secondary" className={`text-[0.6rem] ${(STATUS_BADGE[previewRow.status] || STATUS_BADGE.pending).className}`}>
+                    {(STATUS_BADGE[previewRow.status] || STATUS_BADGE.pending).label}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sent</span>
+                  <span className="font-medium text-foreground">{format(new Date(previewRow.created_at), "MMM d, yyyy h:mm a")}</span>
+                </div>
+                {previewRow.error_message && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Error</span>
+                    <span className="text-destructive text-xs">{previewRow.error_message}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Rendered HTML preview */}
+              {previewRow.email_body ? (
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs text-muted-foreground mb-2">Email Content</p>
+                  <div className="bg-card rounded-xl border border-border overflow-hidden">
+                    <iframe
+                      srcDoc={previewRow.email_body}
+                      sandbox=""
+                      className="w-full min-h-[400px] border-0"
+                      title="Email preview"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="border-t border-border pt-4 text-center py-8">
+                  <p className="text-xs text-muted-foreground">No email content preview available for this entry.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
