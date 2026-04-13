@@ -1,0 +1,1 @@
+ALTER TABLE public.email_send_log ADD COLUMN IF NOT EXISTS email_body text;

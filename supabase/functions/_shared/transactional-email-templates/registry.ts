@@ -28,6 +28,7 @@ import { template as feedbackThankYou } from './feedback-thank-you.tsx'
 import { template as questionnaireCompleted } from './questionnaire-completed.tsx'
 import { template as passwordChanged } from './password-changed.tsx'
 import { template as jobUpdate } from './job-update.tsx'
+import { template as feedbackRequest } from './feedback-request.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'booking-confirmation': bookingConfirmation,
@@ -49,4 +50,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'questionnaire-completed': questionnaireCompleted,
   'password-changed': passwordChanged,
   'job-update': jobUpdate,
+  'feedback-request': feedbackRequest,
 }

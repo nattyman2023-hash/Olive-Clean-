@@ -186,6 +186,25 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
                     <Button size="sm" variant="outline" onClick={() => { setJobDialog(est); setJobNotes(`Converted from ${est.estimate_number}`); }} className="text-xs h-7 rounded-lg"><Briefcase className="h-3 w-3 mr-1" />To Job</Button>
                   </>
                 )}
+                {!readOnly && est.status === "accepted" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 rounded-lg"
+                    onClick={async () => {
+                      const { data: client } = await supabase.from("clients").select("email, name, client_user_id").eq("id", est.client_id).maybeSingle();
+                      if (!client?.email) { toast.error("No email found for this client."); return; }
+                      if (client.client_user_id) { toast.info("Client already has a portal account."); return; }
+                      const { error } = await supabase.functions.invoke("invite-client", {
+                        body: { clientId: est.client_id, email: client.email, name: client.name },
+                      });
+                      if (error) { toast.error("Failed to send portal invite."); return; }
+                      toast.success(`Portal invitation sent to ${client.email}`);
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />Invite to Portal
+                  </Button>
+                )}
               </div>
             </div>
           ))}

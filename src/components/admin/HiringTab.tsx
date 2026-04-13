@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
@@ -427,6 +428,11 @@ function JobPostingsSection({ readOnly }: { readOnly?: boolean }) {
   const [type, setType] = useState("full-time");
   const [requirements, setRequirements] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [editPosting, setEditPosting] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editType, setEditType] = useState("full-time");
+  const [editRequirements, setEditRequirements] = useState("");
 
   const { data: postings = [] } = useQuery({
     queryKey: ["job-postings"],
@@ -465,6 +471,53 @@ function JobPostingsSection({ readOnly }: { readOnly?: boolean }) {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editPosting) return;
+      const { error } = await supabase.from("job_postings").update({
+        title: editTitle, description: editDescription, type: editType, requirements: editRequirements || null,
+      }).eq("id", editPosting.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job-postings"] });
+      setEditPosting(null);
+      toast.success("Posting updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("job_postings").update({ status: "archived" }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job-postings"] });
+      toast.success("Posting archived");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("job_postings").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job-postings"] });
+      toast.success("Posting removed");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const openEdit = (p: any) => {
+    setEditPosting(p);
+    setEditTitle(p.title);
+    setEditDescription(p.description || "");
+    setEditType(p.type || "full-time");
+    setEditRequirements(p.requirements || "");
+  };
+
   return (
     <div className="mb-10">
       <div className="flex items-center justify-between mb-4">
@@ -497,19 +550,59 @@ function JobPostingsSection({ readOnly }: { readOnly?: boolean }) {
         <div className="grid gap-3">
           {postings.map((p: any) => (
             <div key={p.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">{p.title}</p>
+              <div className="min-w-0 flex-1">
+                <button
+                  onClick={() => !readOnly && openEdit(p)}
+                  className={`text-sm font-medium text-foreground ${!readOnly ? "hover:text-primary hover:underline cursor-pointer" : ""} truncate block`}
+                >
+                  {p.title}
+                </button>
                 <p className="text-xs text-muted-foreground">{p.type} · {p.location}</p>
               </div>
-              {!readOnly && (
-                <Button size="sm" variant={p.status === "open" ? "outline" : "default"} className="rounded-lg text-xs" onClick={() => toggleMutation.mutate({ id: p.id, status: p.status })}>
-                  {p.status === "open" ? "Close" : "Reopen"}
-                </Button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge variant="secondary" className={`text-[0.6rem] ${p.status === "open" ? "bg-emerald-100 text-emerald-800" : p.status === "archived" ? "bg-muted text-muted-foreground" : "bg-red-100 text-red-800"}`}>
+                  {p.status}
+                </Badge>
+                {!readOnly && (
+                  <>
+                    <Button size="sm" variant={p.status === "open" ? "outline" : "default"} className="rounded-lg text-xs" onClick={() => toggleMutation.mutate({ id: p.id, status: p.status })}>
+                      {p.status === "open" ? "Close" : "Reopen"}
+                    </Button>
+                    {p.status !== "archived" && (
+                      <Button size="sm" variant="ghost" className="rounded-lg text-xs text-muted-foreground" onClick={() => archiveMutation.mutate(p.id)}>
+                        Archive
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="rounded-lg text-xs text-destructive" onClick={() => deleteMutation.mutate(p.id)}>
+                      Remove
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editPosting} onOpenChange={(open) => { if (!open) setEditPosting(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Job Posting</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Title *</Label><Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} /></div>
+            <div><Label>Type</Label>
+              <select value={editType} onChange={(e) => setEditType(e.target.value)} className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background">
+                <option value="full-time">Full-time</option><option value="part-time">Part-time</option>
+              </select>
+            </div>
+            <div><Label>Description</Label><Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="min-h-[80px]" /></div>
+            <div><Label>Requirements</Label><Input value={editRequirements} onChange={(e) => setEditRequirements(e.target.value)} /></div>
+            <Button onClick={() => updateMutation.mutate()} disabled={!editTitle || updateMutation.isPending} className="w-full rounded-xl">
+              {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

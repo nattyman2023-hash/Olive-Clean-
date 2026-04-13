@@ -37,6 +37,7 @@ import {
   UserCircle,
   List,
   Map as MapIcon,
+  Send,
   Filter,
   Trash2,
 } from "lucide-react";
@@ -949,19 +950,22 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
       {job.status === "completed" && (
         <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground mb-2">Client Feedback</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full rounded-lg active:scale-[0.97] gap-2"
-            onClick={() => {
-              const url = `${window.location.origin}/feedback/${job.id}`;
-              navigator.clipboard.writeText(url);
-              toast.success("Feedback link copied to clipboard!");
-            }}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copy Feedback Link
-          </Button>
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-lg active:scale-[0.97] gap-2"
+              onClick={() => {
+                const url = `${window.location.origin}/feedback/${job.id}`;
+                navigator.clipboard.writeText(url);
+                toast.success("Feedback link copied to clipboard!");
+              }}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy Feedback Link
+            </Button>
+            <SendFeedbackButton job={job} />
+          </div>
         </div>
       )}
 
@@ -985,5 +989,57 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Send Feedback Button ---------- */
+function SendFeedbackButton({ job }: { job: Job }) {
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const { data: client } = await supabase
+        .from("clients")
+        .select("email, name")
+        .eq("id", job.client_id)
+        .maybeSingle();
+      if (!client?.email) {
+        toast.error("No email found for this client.");
+        return;
+      }
+      const feedbackUrl = `${window.location.origin}/feedback/${job.id}`;
+      const { error } = await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "feedback-request",
+          recipientEmail: client.email,
+          idempotencyKey: `feedback-request-${job.id}`,
+          templateData: {
+            clientName: client.name,
+            service: job.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            feedbackUrl,
+          },
+        },
+      });
+      if (error) throw error;
+      toast.success(`Feedback request sent to ${client.email}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send feedback request.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="w-full rounded-lg active:scale-[0.97] gap-2"
+      disabled={sending}
+      onClick={handleSend}
+    >
+      {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+      Send Feedback Request
+    </Button>
   );
 }
