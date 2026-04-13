@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Image as ImageIcon } from "lucide-react";
+import { Loader2, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -37,6 +37,29 @@ export default function RecentUploads() {
     },
   });
 
+  // Fetch job info for linking
+  const jobIds = [...new Set(attachments.map((a) => a.job_id))];
+  const { data: jobsData = [] } = useQuery({
+    queryKey: ["upload-jobs", jobIds],
+    enabled: jobIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("id, service, clients(name)")
+        .in("id", jobIds);
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  const jobMap = new Map(jobsData.map((j: any) => [j.id, j]));
+
+  const handleJobClick = (jobId: string) => {
+    // Navigate to the jobs tab by clicking on it
+    const tab = document.querySelector('[data-state][value="jobs"]') as HTMLElement;
+    if (tab) tab.click();
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -59,27 +82,40 @@ export default function RecentUploads() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {attachments.map((a) => {
           const url = getPublicUrl(a.bucket, a.file_path);
+          const job = jobMap.get(a.job_id);
+          const clientName = job?.clients?.name;
           return (
-            <button
-              key={a.id}
-              onClick={() => setLightbox(url)}
-              className="relative aspect-square rounded-xl overflow-hidden border border-border hover:ring-2 hover:ring-primary/50 transition-all group bg-muted"
-            >
-              <img src={url} alt="" className="w-full h-full object-cover" />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 space-y-0.5">
-                <div className="flex items-center gap-1">
-                  <Badge variant="secondary" className="text-[0.5rem] px-1 py-0">
-                    {a.category}
-                  </Badge>
-                  <Badge variant="outline" className="text-[0.5rem] px-1 py-0 bg-background/50">
-                    {a.uploader_role}
-                  </Badge>
+            <div key={a.id} className="relative">
+              <button
+                onClick={() => setLightbox(url)}
+                className="relative aspect-square w-full rounded-xl overflow-hidden border border-border hover:ring-2 hover:ring-primary/50 transition-all group bg-muted"
+              >
+                <img src={url} alt="" className="w-full h-full object-cover" />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 space-y-0.5">
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="text-[0.5rem] px-1 py-0">
+                      {a.category}
+                    </Badge>
+                    <Badge variant="outline" className="text-[0.5rem] px-1 py-0 bg-background/50">
+                      {a.uploader_role}
+                    </Badge>
+                  </div>
+                  <p className="text-[0.55rem] text-white/80">
+                    {format(new Date(a.created_at), "MMM d, h:mm a")}
+                  </p>
                 </div>
-                <p className="text-[0.55rem] text-white/80">
-                  {format(new Date(a.created_at), "MMM d, h:mm a")}
-                </p>
-              </div>
-            </button>
+              </button>
+              {/* Job reference link */}
+              {clientName && (
+                <button
+                  onClick={() => handleJobClick(a.job_id)}
+                  className="mt-1 flex items-center gap-1 text-[0.6rem] text-primary hover:underline truncate w-full text-left"
+                >
+                  <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                  {clientName}
+                </button>
+              )}
+            </div>
           );
         })}
       </div>

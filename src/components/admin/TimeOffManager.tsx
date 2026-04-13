@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { Loader2, Plus, Check, X, Calendar } from "lucide-react";
 import { format } from "date-fns";
@@ -20,6 +21,8 @@ interface TimeOffRequest {
   reason: string | null;
   status: string;
   created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   employees?: { name: string } | null;
 }
 
@@ -35,6 +38,7 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
+  const [drawerReq, setDrawerReq] = useState<TimeOffRequest | null>(null);
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["time_off_requests", isAdmin, employeeId],
@@ -79,7 +83,6 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
         .eq("id", id);
       if (error) throw error;
 
-      // Send time-off decision email to the employee
       const req = requests.find((r) => r.id === id);
       if (req) {
         const { data: emp } = await supabase.from("employees").select("email, name").eq("id", req.employee_id).maybeSingle();
@@ -101,9 +104,12 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["time_off_requests"] });
       toast.success("Request updated");
+      if (drawerReq?.id === vars.id) {
+        setDrawerReq({ ...drawerReq, status: vars.status, reviewed_at: new Date().toISOString() });
+      }
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -135,7 +141,7 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
       ) : (
         <div className="space-y-2">
           {requests.map((req) => (
-            <Card key={req.id}>
+            <Card key={req.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDrawerReq(req)}>
               <CardContent className="py-3 flex items-center justify-between gap-3">
                 <div>
                   {isAdmin && req.employees?.name && (
@@ -144,7 +150,7 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
                   <p className="text-xs text-muted-foreground">
                     {format(new Date(req.start_date), "MMM d")} — {format(new Date(req.end_date), "MMM d, yyyy")}
                   </p>
-                  {req.reason && <p className="text-xs text-muted-foreground italic mt-0.5">{req.reason}</p>}
+                  {req.reason && <p className="text-xs text-muted-foreground italic mt-0.5 truncate max-w-[200px]">{req.reason}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge variant="secondary" className={`text-[0.6rem] ${STATUS_BADGE[req.status] || ""}`}>
@@ -156,7 +162,7 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        onClick={() => reviewMutation.mutate({ id: req.id, status: "approved" })}
+                        onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: req.id, status: "approved" }); }}
                         disabled={reviewMutation.isPending}
                       >
                         <Check className="h-3.5 w-3.5 text-emerald-600" />
@@ -165,7 +171,7 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        onClick={() => reviewMutation.mutate({ id: req.id, status: "denied" })}
+                        onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: req.id, status: "denied" }); }}
                         disabled={reviewMutation.isPending}
                       >
                         <X className="h-3.5 w-3.5 text-destructive" />
@@ -179,6 +185,89 @@ export default function TimeOffManager({ isAdmin = false, employeeId }: { isAdmi
         </div>
       )}
 
+      {/* Detail Drawer */}
+      <Sheet open={!!drawerReq} onOpenChange={(open) => { if (!open) setDrawerReq(null); }}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Time Off Request</SheetTitle>
+            <SheetDescription>
+              {drawerReq?.employees?.name || "Employee"} — {drawerReq?.status}
+            </SheetDescription>
+          </SheetHeader>
+          {drawerReq && (
+            <div className="space-y-5 mt-6">
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Employee</span>
+                  <span className="font-medium text-foreground">{drawerReq.employees?.name || "—"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Start Date</span>
+                  <span className="font-medium text-foreground">{format(new Date(drawerReq.start_date), "MMMM d, yyyy")}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">End Date</span>
+                  <span className="font-medium text-foreground">{format(new Date(drawerReq.end_date), "MMMM d, yyyy")}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant="secondary" className={`text-[0.6rem] ${STATUS_BADGE[drawerReq.status] || ""}`}>
+                    {drawerReq.status}
+                  </Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Submitted</span>
+                  <span className="font-medium text-foreground">{format(new Date(drawerReq.created_at), "MMM d, yyyy h:mm a")}</span>
+                </div>
+                {drawerReq.reviewed_at && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Reviewed</span>
+                    <span className="font-medium text-foreground">{format(new Date(drawerReq.reviewed_at), "MMM d, yyyy h:mm a")}</span>
+                  </div>
+                )}
+              </div>
+
+              {drawerReq.reason && (
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs text-muted-foreground mb-1">Reason</p>
+                  <p className="text-sm text-foreground">{drawerReq.reason}</p>
+                </div>
+              )}
+
+              {/* Alter Decision */}
+              {isAdmin && (
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {drawerReq.status === "pending" ? "Review Request" : "Alter Decision"}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      variant={drawerReq.status === "approved" ? "default" : "outline"}
+                      className="rounded-lg text-xs"
+                      disabled={drawerReq.status === "approved" || reviewMutation.isPending}
+                      onClick={() => reviewMutation.mutate({ id: drawerReq.id, status: "approved" })}
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={drawerReq.status === "denied" ? "destructive" : "outline"}
+                      className="rounded-lg text-xs"
+                      disabled={drawerReq.status === "denied" || reviewMutation.isPending}
+                      onClick={() => reviewMutation.mutate({ id: drawerReq.id, status: "denied" })}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" /> Deny
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* New Request Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
