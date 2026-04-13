@@ -226,8 +226,33 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
     return matchStatus && matchSearch;
   });
 
-  return (
+      const staleQuotes = estimates.filter((est) => {
+        if (est.status !== "sent" && est.status !== "viewed") return false;
+        const sentDate = est.sent_at ? new Date(est.sent_at) : new Date(est.created_at);
+        return (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24) >= 7;
+      });
+
+      return (
     <div>
+      {/* Priority Call List */}
+      {staleQuotes.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <p className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1"><PhoneCall className="h-3.5 w-3.5" /> Priority Call List ({staleQuotes.length})</p>
+          <div className="space-y-1">
+            {staleQuotes.map((est) => {
+              const sentDate = est.sent_at ? new Date(est.sent_at) : new Date(est.created_at);
+              const daysSent = Math.floor((Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24));
+              return (
+                <div key={est.id} className="flex items-center justify-between text-xs">
+                  <button onClick={() => setPreview(est)} className="text-red-800 font-medium hover:underline">{est.estimate_number} — {est.clients?.name || "Unknown"}</button>
+                  <span className="text-red-600">{daysSent}d no response · ${Number(est.total).toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
