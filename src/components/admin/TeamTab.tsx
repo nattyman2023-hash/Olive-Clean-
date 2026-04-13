@@ -1455,6 +1455,81 @@ function RoleAssignmentCard({
   );
 }
 
+/* ---------- Employee Job History ---------- */
+function EmployeeJobHistory({ employeeUserId, onNavigate }: { employeeUserId: string; onNavigate?: (section: string, targetId?: string) => void }) {
+  const [showAll, setShowAll] = useState(false);
+
+  const { data: recentJobs = [], isLoading } = useQuery({
+    queryKey: ["employee_jobs", employeeUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("id, service, status, scheduled_at, completed_at, price, clients(name)")
+        .eq("assigned_to", employeeUserId)
+        .order("scheduled_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const completedJobs = recentJobs.filter((j: any) => j.status === "completed");
+  const displayJobs = showAll ? completedJobs : recentJobs.slice(0, 5);
+  const title = showAll ? `Completed Jobs (${completedJobs.length})` : "Recent Jobs";
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <Button variant="ghost" size="sm" className="text-xs h-6" onClick={() => setShowAll(!showAll)}>
+            {showAll ? "Show Recent" : `All Completed (${completedJobs.length})`}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-primary mx-auto" />
+        ) : displayJobs.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No jobs found.</p>
+        ) : (
+          <div className="space-y-2">
+            {displayJobs.map((j: any) => (
+              <button
+                key={j.id}
+                onClick={() => onNavigate?.("jobs", j.id)}
+                className="w-full text-left p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-foreground truncate">
+                      {j.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                    </p>
+                    <p className="text-[0.6rem] text-muted-foreground">
+                      {(j.clients as any)?.name || "Unknown"} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {j.price && <span className="text-[0.6rem] font-medium text-foreground">${Number(j.price).toFixed(0)}</span>}
+                    <Badge variant="secondary" className={`text-[0.55rem] px-1.5 py-0 ${
+                      j.status === "completed" ? "bg-emerald-100 text-emerald-800" :
+                      j.status === "scheduled" ? "bg-amber-100 text-amber-800" :
+                      j.status === "in_progress" ? "bg-blue-100 text-blue-800" :
+                      "bg-muted text-muted-foreground"
+                    }`}>
+                      {j.status.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ---------- Employee Reviews ---------- */
 function EmployeeReviews({ employeeId }: { employeeId: string }) {
   const { data: reviews = [], isLoading } = useQuery({
