@@ -175,6 +175,42 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_notes: {
+        Row: {
+          author_id: string | null
+          content: string
+          created_at: string
+          id: string
+          is_completed: boolean
+          is_task: boolean
+          note_type: string
+          parent_id: string
+          parent_type: string
+        }
+        Insert: {
+          author_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          is_task?: boolean
+          note_type?: string
+          parent_id: string
+          parent_type: string
+        }
+        Update: {
+          author_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          is_task?: boolean
+          note_type?: string
+          parent_id?: string
+          parent_type?: string
+        }
+        Relationships: []
+      }
       custom_roles: {
         Row: {
           created_at: string
