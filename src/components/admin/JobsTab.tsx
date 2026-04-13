@@ -37,6 +37,7 @@ import {
   UserCircle,
   List,
   Map as MapIcon,
+  Send,
   Filter,
   Trash2,
 } from "lucide-react";
@@ -949,19 +950,22 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
       {job.status === "completed" && (
         <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground mb-2">Client Feedback</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full rounded-lg active:scale-[0.97] gap-2"
-            onClick={() => {
-              const url = `${window.location.origin}/feedback/${job.id}`;
-              navigator.clipboard.writeText(url);
-              toast.success("Feedback link copied to clipboard!");
-            }}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copy Feedback Link
-          </Button>
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-lg active:scale-[0.97] gap-2"
+              onClick={() => {
+                const url = `${window.location.origin}/feedback/${job.id}`;
+                navigator.clipboard.writeText(url);
+                toast.success("Feedback link copied to clipboard!");
+              }}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy Feedback Link
+            </Button>
+            <SendFeedbackButton job={job} />
+          </div>
         </div>
       )}
 
