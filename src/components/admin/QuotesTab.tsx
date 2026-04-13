@@ -226,13 +226,13 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
     return matchStatus && matchSearch;
   });
 
-      const staleQuotes = estimates.filter((est) => {
-        if (est.status !== "sent" && est.status !== "viewed") return false;
-        const sentDate = est.sent_at ? new Date(est.sent_at) : new Date(est.created_at);
-        return (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24) >= 7;
-      });
+  const staleQuotes = estimates.filter((est) => {
+    if (est.status !== "sent" && est.status !== "viewed") return false;
+    const sentDate = est.sent_at ? new Date(est.sent_at) : new Date(est.created_at);
+    return (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24) >= 7;
+  });
 
-      return (
+  return (
     <div>
       {/* Priority Call List */}
       {staleQuotes.length > 0 && (
