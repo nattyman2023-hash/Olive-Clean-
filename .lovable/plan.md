@@ -1,73 +1,46 @@
 
 
-## Feedback Loop, Time Off Details, Associative Navigation, and Automated Feedback Reminders
+## Remove Bookings as a Separate Section — Merge into Leads
 
-### What's Already Done
-- Send Feedback Request button (email) on Job detail ✓
-- Quote → Job conversion ✓
-- Admin expense addition + re-evaluate ✓
-- Resend Invoice ✓
-- Time Off drawer with alter decision ✓
-- Dismissible low stock banner ✓
-- Job posting CRUD (edit/archive) ✓
+### The Problem
+"Bookings" is a redundant parallel path. The app already has a clean pipeline: **Leads → Quotes → Jobs**. The Bookings tab does the same thing (intake → confirm → create job) but through a separate table and UI, creating confusion about where to look for incoming requests.
 
-### What's New in This Request
+### The Fix
 
-#### 1. Feedback → Technician Association
-The `feedback` table has no `employee_id` column. When feedback is submitted via `/feedback/:jobId`, the technician who did the job isn't linked.
+**Merge client booking requests into the Leads pipeline** and remove "Bookings" as a standalone section.
 
-**Database**: Add `employee_id` column to `feedback` table.
+### Changes
 
-**FeedbackForm.tsx**: When submitting, look up `jobs.assigned_to` and store it as `employee_id` in the feedback record.
+#### 1. Reroute Client Booking Form to Leads
+**`src/components/client/BookingSection.tsx`** — When a client submits a booking request, insert into the `leads` table instead of `booking_requests`:
+- Map service/frequency/home details into the lead record
+- Set `source = "client_portal"` and `status = "new"`
+- Set score higher (e.g. 80) since these are warm — they're existing clients requesting service
 
-**JobDetailPanel (JobsTab.tsx)**: In the "Client Feedback" section, query and display the feedback rating/comments for the current job inline.
+#### 2. Also handle the public Book page
+**`src/pages/BookPage.tsx`** — Same logic: submissions go to `leads` instead of `booking_requests`
 
-**TeamTab.tsx**: On the employee profile/detail view, add a "Reviews" section that aggregates all feedback where `employee_id` matches.
+#### 3. Enhance Leads to handle booking-style data
+**`src/components/admin/LeadsTab.tsx`** — Add visual distinction for leads from client portal vs. other sources (badge: "Portal Request" vs "Website" vs "Manual"). The existing "Create Quote" fast-track already works perfectly for converting these.
 
-#### 2. Time Off Request Notes/Description
-The `time_off_requests` table has a `reason` column (text) but it may not be surfaced well.
+#### 4. Remove Bookings from sidebar & dashboard
+- **`src/components/admin/AdminSidebar.tsx`** — Remove "Bookings" from the Operations group
+- **`src/pages/AdminDashboard.tsx`** — Remove BookingsTab import and case
 
-**TimeOffManager.tsx**: Ensure the request form has a multi-line textarea for the reason field, and that the admin drawer displays the full reason text prominently.
-
-#### 3. Associative Navigation (Hyperlinking)
-Make names and IDs clickable across the app:
-
-**JobsTab.tsx**: Technician name in job list/detail → clickable, switches to Team tab and selects that employee.
-**JobsTab.tsx**: Client name → clickable, switches to Clients tab.
-**Finance sections**: Invoice/expense rows show linked job reference → clickable.
-**RecentUploads.tsx**: Photo thumbnails show linked job ID → clickable.
-**HiringTab.tsx**: Applicant row shows which job posting they applied to → clickable.
-
-Implementation: Use a callback prop pattern (e.g., `onNavigate(tab, id)`) from AdminDashboard to switch tabs and pre-select items.
-
-#### 4. Automated Feedback Reminder (Edge Function + Cron)
-No `feedback_email_sent` column exists. Need a daily cron that nudges clients who haven't left feedback.
-
-**Database**: Add `feedback_email_sent` boolean column (default false) to `jobs` table.
-
-**Edge Function**: Create `send-feedback-reminders/index.ts`:
-- Query jobs where `status = 'completed'`, `completed_at < now() - interval '24 hours'`, no matching `feedback` record, and `feedback_email_sent = false`.
-- For each, send `feedback-request` transactional email with the feedback URL.
-- Set `feedback_email_sent = true`.
-
-**Cron**: Schedule via pg_cron to run daily at 9 AM CT.
-
----
+#### 5. Migrate existing booking_requests data
+- **Database migration** — Insert the 6 existing `booking_requests` records into `leads` with `source = "booking_migration"`, then optionally mark the old table as deprecated (don't drop it yet)
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| Database migration | Add `employee_id` to `feedback`; add `feedback_email_sent` to `jobs` |
-| `src/pages/FeedbackForm.tsx` | Store `employee_id` (from `jobs.assigned_to`) when submitting |
-| `src/components/admin/JobsTab.tsx` | Display feedback on job detail; make technician/client names clickable |
-| `src/components/admin/TeamTab.tsx` | Add "Reviews" aggregation section on employee profile |
-| `src/components/admin/TimeOffManager.tsx` | Ensure reason textarea in form and full display in drawer |
-| `src/components/admin/finance/InvoicesSection.tsx` | Make job/client references clickable |
-| `src/components/admin/finance/ExpensesSection.tsx` | Make employee reference clickable |
-| `src/components/admin/RecentUploads.tsx` | Make job reference clickable |
-| `src/components/admin/HiringTab.tsx` | Show linked job posting on applicant rows |
-| `src/pages/AdminDashboard.tsx` | Add cross-tab navigation callback support |
-| `supabase/functions/send-feedback-reminders/index.ts` | New edge function for automated 24h feedback nudge |
-| Cron job (SQL insert) | Schedule daily 9 AM CT execution |
+| `src/components/client/BookingSection.tsx` | Insert into `leads` instead of `booking_requests` |
+| `src/pages/BookPage.tsx` | Same reroute to `leads` |
+| `src/components/admin/LeadsTab.tsx` | Add source badges; handle booking-specific fields |
+| `src/components/admin/AdminSidebar.tsx` | Remove "Bookings" nav item |
+| `src/pages/AdminDashboard.tsx` | Remove BookingsTab import/case |
+| Database migration | Migrate existing records; add booking fields to leads if missing |
+
+### Result
+One clean pipeline: **All inquiries → Leads → Quotes → Jobs**. No more wondering "is this in Bookings or Leads?"
 
