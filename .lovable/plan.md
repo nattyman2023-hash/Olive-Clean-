@@ -1,60 +1,73 @@
 
 
-## What's Been Implemented vs. What's Still Missing
+## Feedback Loop, Time Off Details, Associative Navigation, and Automated Feedback Reminders
 
-### Completed (4 items)
-1. **Stripe $0 Bug Fix** — Fixed in `finalize-invoice` edge function
-2. **Quote → Job Conversion** — "To Job" button added in EstimatesSection
-3. **Admin Expense Addition** — "+ Add Expense" button added in ExpensesSection
-4. **Resend Invoice** — Resend button added to InvoicesSection
-5. **Re-evaluate Rejected Expenses** — Re-evaluate action added
+### What's Already Done
+- Send Feedback Request button (email) on Job detail ✓
+- Quote → Job conversion ✓
+- Admin expense addition + re-evaluate ✓
+- Resend Invoice ✓
+- Time Off drawer with alter decision ✓
+- Dismissible low stock banner ✓
+- Job posting CRUD (edit/archive) ✓
 
-### Still Missing (11 items)
+### What's New in This Request
 
-#### High Priority
-| # | Feature | Description |
-|---|---------|-------------|
-| 1 | **Client Portal Activation from Quote** | When a quote is approved, offer an "Approve Client for Portal" action that sends an invitation email to set up their portal account |
-| 2 | **Communication Log Email Preview** | Clicking an email entry in the Comms Log should open a side drawer rendering the full HTML body of the sent email |
-| 3 | **Send Feedback Request** | On Job details, add a "Send Feedback Request" button that emails the feedback link to the client (instead of just copy-to-clipboard) |
-| 4 | **Job Posting Full CRUD** | Make posting titles clickable to open edit forms; add Archive/Remove functionality separate from closing applications |
+#### 1. Feedback → Technician Association
+The `feedback` table has no `employee_id` column. When feedback is submitted via `/feedback/:jobId`, the technician who did the job isn't linked.
 
-#### Medium Priority
-| # | Feature | Description |
-|---|---------|-------------|
-| 5 | **Time Off Request Drill-Down** | Make time-off entries clickable → side drawer with full reason, reviewer info, and an "Alter Decision" button to change approved↔denied |
-| 6 | **Dismissible Low Stock Banner** | Add an X button to the global red "Low Stock Alerts" banner so it can be hidden for the session |
-| 7 | **Photo-to-Job Linking** | In the Assets/Photos list, show the linked Job reference (e.g. "Job #123") and make it clickable to navigate to that job |
+**Database**: Add `employee_id` column to `feedback` table.
 
-#### AI & Chatbot (Lower Priority)
-| # | Feature | Description |
-|---|---------|-------------|
-| 8 | **AI Assist for Quote Creation** | Add an "AI Assist" button on quote description/notes fields to auto-generate professional service descriptions |
-| 9 | **Chatbot Exit Intent Trigger** | Olivia pops up when user's mouse moves toward browser top (exit intent) |
-| 10 | **Chatbot Page Click Triggers** | Olivia appears with context-aware messages when leaving high-value pages (Services, Pricing) |
-| 11 | **Chatbot Decision Making** | Enhance Olivia to collect booking/quote data within the chat and submit inquiries directly |
+**FeedbackForm.tsx**: When submitting, look up `jobs.assigned_to` and store it as `employee_id` in the feedback record.
+
+**JobDetailPanel (JobsTab.tsx)**: In the "Client Feedback" section, query and display the feedback rating/comments for the current job inline.
+
+**TeamTab.tsx**: On the employee profile/detail view, add a "Reviews" section that aggregates all feedback where `employee_id` matches.
+
+#### 2. Time Off Request Notes/Description
+The `time_off_requests` table has a `reason` column (text) but it may not be surfaced well.
+
+**TimeOffManager.tsx**: Ensure the request form has a multi-line textarea for the reason field, and that the admin drawer displays the full reason text prominently.
+
+#### 3. Associative Navigation (Hyperlinking)
+Make names and IDs clickable across the app:
+
+**JobsTab.tsx**: Technician name in job list/detail → clickable, switches to Team tab and selects that employee.
+**JobsTab.tsx**: Client name → clickable, switches to Clients tab.
+**Finance sections**: Invoice/expense rows show linked job reference → clickable.
+**RecentUploads.tsx**: Photo thumbnails show linked job ID → clickable.
+**HiringTab.tsx**: Applicant row shows which job posting they applied to → clickable.
+
+Implementation: Use a callback prop pattern (e.g., `onNavigate(tab, id)`) from AdminDashboard to switch tabs and pre-select items.
+
+#### 4. Automated Feedback Reminder (Edge Function + Cron)
+No `feedback_email_sent` column exists. Need a daily cron that nudges clients who haven't left feedback.
+
+**Database**: Add `feedback_email_sent` boolean column (default false) to `jobs` table.
+
+**Edge Function**: Create `send-feedback-reminders/index.ts`:
+- Query jobs where `status = 'completed'`, `completed_at < now() - interval '24 hours'`, no matching `feedback` record, and `feedback_email_sent = false`.
+- For each, send `feedback-request` transactional email with the feedback URL.
+- Set `feedback_email_sent = true`.
+
+**Cron**: Schedule via pg_cron to run daily at 9 AM CT.
 
 ---
 
-### Recommended Next Batch
+### Files Summary
 
-I recommend tackling items **1–7** in the next implementation round — they are concrete UI/UX improvements. Items 8–11 (AI/chatbot) are more complex integrations that benefit from a separate focused iteration.
-
-### Implementation Plan for Items 1–7
-
-**File changes:**
-
-| File | Work |
-|------|------|
-| `src/components/admin/finance/EstimatesSection.tsx` | Add "Approve Client for Portal" action on approved quotes that triggers client invite |
-| `src/components/admin/EmailsTab.tsx` | Make email rows clickable → Sheet drawer that renders stored `email_body` HTML |
-| `src/components/admin/JobsTab.tsx` | Add "Send Feedback Request" button that emails the feedback link via `send-transactional-email` |
-| `src/components/admin/HiringTab.tsx` | Make posting titles clickable → edit modal; add Archive/Remove actions |
-| `src/components/admin/TimeOffManager.tsx` | Make entries clickable → Sheet drawer with full details + "Alter Decision" button |
-| `src/components/admin/LowStockWidget.tsx` | Add dismiss X button using session state (`useState`) |
-| `src/components/admin/RecentUploads.tsx` | Display linked job reference next to each photo; make it a clickable link to the job |
-| New email template | `feedback-request.tsx` — branded email with feedback link button |
-
-**Database migration:**
-- Add `email_body` column to `email_send_log` table (if not already present) to store rendered HTML for the Comms Log preview
+| File | Action |
+|------|--------|
+| Database migration | Add `employee_id` to `feedback`; add `feedback_email_sent` to `jobs` |
+| `src/pages/FeedbackForm.tsx` | Store `employee_id` (from `jobs.assigned_to`) when submitting |
+| `src/components/admin/JobsTab.tsx` | Display feedback on job detail; make technician/client names clickable |
+| `src/components/admin/TeamTab.tsx` | Add "Reviews" aggregation section on employee profile |
+| `src/components/admin/TimeOffManager.tsx` | Ensure reason textarea in form and full display in drawer |
+| `src/components/admin/finance/InvoicesSection.tsx` | Make job/client references clickable |
+| `src/components/admin/finance/ExpensesSection.tsx` | Make employee reference clickable |
+| `src/components/admin/RecentUploads.tsx` | Make job reference clickable |
+| `src/components/admin/HiringTab.tsx` | Show linked job posting on applicant rows |
+| `src/pages/AdminDashboard.tsx` | Add cross-tab navigation callback support |
+| `supabase/functions/send-feedback-reminders/index.ts` | New edge function for automated 24h feedback nudge |
+| Cron job (SQL insert) | Schedule daily 9 AM CT execution |
 
