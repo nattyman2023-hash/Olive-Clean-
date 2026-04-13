@@ -83,6 +83,54 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
     setBookings(data || []);
   };
 
+  const handleAddBooking = async () => {
+    if (!addForm.name || !addForm.email || !addForm.phone) { toast.error("Name, email, and phone are required."); return; }
+    setAddSaving(true);
+
+    // Smart routing: check if email belongs to existing client
+    const { data: existingClient } = await supabase.from("clients").select("id, name").eq("email", addForm.email).maybeSingle();
+
+    // Insert booking request
+    const { error } = await supabase.from("booking_requests").insert({
+      name: addForm.name,
+      email: addForm.email,
+      phone: addForm.phone,
+      service: addForm.service,
+      home_type: addForm.home_type,
+      bedrooms: parseInt(addForm.bedrooms),
+      bathrooms: parseInt(addForm.bathrooms),
+      frequency: addForm.frequency,
+      address: addForm.address || null,
+      notes: addForm.notes || null,
+      status: "pending",
+    });
+    setAddSaving(false);
+    if (error) { toast.error("Failed to create booking."); return; }
+
+    if (existingClient) {
+      toast.success(`Booking created for existing client "${existingClient.name}" — tagged as Potential Booking.`);
+    } else {
+      toast.success("Booking created from new contact — tagged as Potential Lead.");
+      // Also create a lead entry for new contacts
+      await supabase.from("leads").insert({
+        name: addForm.name,
+        email: addForm.email,
+        phone: addForm.phone,
+        location: addForm.address || null,
+        source: "admin_manual",
+        score: 50,
+        status: "new",
+        bedrooms: parseInt(addForm.bedrooms) || null,
+        bathrooms: parseInt(addForm.bathrooms) || null,
+        frequency: addForm.frequency,
+        notes: `Manual booking entry. ${addForm.notes || ""}`.trim(),
+      });
+    }
+
+    setShowAddBooking(false);
+    setAddForm({ name: "", email: "", phone: "", service: "general", home_type: "house", bedrooms: "3", bathrooms: "2", frequency: "weekly", address: "", notes: "" });
+    fetchBookings();
+
   const inviteClient = async (booking: BookingRequest) => {
     try {
       const { data, error } = await supabase.functions.invoke("invite-client", {
@@ -252,8 +300,94 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
               {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
+          {!readOnly && (
+            <Button size="sm" onClick={() => setShowAddBooking(true)} className="rounded-lg">
+              <Plus className="h-4 w-4 mr-1" /> Add Booking
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Add Booking Dialog */}
+      <Dialog open={showAddBooking} onOpenChange={setShowAddBooking}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Booking</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Name *</label>
+                <Input value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Email *</label>
+                <Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} className="rounded-lg" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Phone *</label>
+                <Input value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Service</label>
+                <select value={addForm.service} onChange={(e) => setAddForm({ ...addForm, service: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+                  <option value="essential">Essential</option>
+                  <option value="general">General</option>
+                  <option value="signature-deep">Signature Deep</option>
+                  <option value="makeover-deep">Makeover Deep</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Home Type</label>
+                <select value={addForm.home_type} onChange={(e) => setAddForm({ ...addForm, home_type: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+                  <option value="house">House</option>
+                  <option value="apartment">Apartment</option>
+                  <option value="condo">Condo</option>
+                  <option value="townhouse">Townhouse</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Bedrooms</label>
+                <Input type="number" min="1" value={addForm.bedrooms} onChange={(e) => setAddForm({ ...addForm, bedrooms: e.target.value })} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Bathrooms</label>
+                <Input type="number" min="1" value={addForm.bathrooms} onChange={(e) => setAddForm({ ...addForm, bathrooms: e.target.value })} className="rounded-lg" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Frequency</label>
+                <select value={addForm.frequency} onChange={(e) => setAddForm({ ...addForm, frequency: e.target.value })} className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground">
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="one-time">One-time</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Address</label>
+                <Input value={addForm.address} onChange={(e) => setAddForm({ ...addForm, address: e.target.value })} className="rounded-lg" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Notes</label>
+              <Textarea value={addForm.notes} onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })} className="rounded-lg" rows={2} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowAddBooking(false)}>Cancel</Button>
+              <Button onClick={handleAddBooking} disabled={addSaving}>
+                {addSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Create Booking
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Booking List */}
