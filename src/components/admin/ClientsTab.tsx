@@ -114,6 +114,8 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [neighborhoodFilter, setNeighborhoodFilter] = useState("all");
+  const [retentionFilter, setRetentionFilter] = useState(false);
+  const [lostClients, setLostClients] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Client | null>(null);
   const [inviting, setInviting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -137,6 +139,34 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // Calculate lost clients (no completed job in 45+ days)
+  useEffect(() => {
+    if (clients.length === 0) return;
+    const checkLost = async () => {
+      const cutoff = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
+      const clientIds = clients.map((c) => c.id);
+      // Get clients who have at least one completed job
+      const { data: recentJobs } = await supabase
+        .from("jobs")
+        .select("client_id, completed_at")
+        .in("client_id", clientIds)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false });
+
+      const lastJobMap = new Map<string, string>();
+      (recentJobs || []).forEach((j: any) => {
+        if (!lastJobMap.has(j.client_id)) lastJobMap.set(j.client_id, j.completed_at);
+      });
+
+      const lost = new Set<string>();
+      lastJobMap.forEach((completedAt, clientId) => {
+        if (completedAt && completedAt < cutoff) lost.add(clientId);
+      });
+      setLostClients(lost);
+    };
+    checkLost();
+  }, [clients]);
 
   const fetchClients = async () => {
     setLoading(true);
