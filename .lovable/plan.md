@@ -1,107 +1,60 @@
 
 
-## Finance Dashboard: Interactive Drill-Down, Inline Editing, Auth Header, and Permission Sync
+## What's Been Implemented vs. What's Still Missing
 
-This is a large scope request. To keep it manageable and deliverable, I will focus on the highest-impact items first and defer the "nice-to-have" analytics features (Profitability Heatmap, Cash Flow Forecasting, Dispute Center, Gross Margin) for a follow-up iteration.
+### Completed (4 items)
+1. **Stripe $0 Bug Fix** — Fixed in `finalize-invoice` edge function
+2. **Quote → Job Conversion** — "To Job" button added in EstimatesSection
+3. **Admin Expense Addition** — "+ Add Expense" button added in ExpensesSection
+4. **Resend Invoice** — Resend button added to InvoicesSection
+5. **Re-evaluate Rejected Expenses** — Re-evaluate action added
 
----
+### Still Missing (11 items)
 
-### Phase 1: Core Interactivity (This Implementation)
+#### High Priority
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | **Client Portal Activation from Quote** | When a quote is approved, offer an "Approve Client for Portal" action that sends an invitation email to set up their portal account |
+| 2 | **Communication Log Email Preview** | Clicking an email entry in the Comms Log should open a side drawer rendering the full HTML body of the sent email |
+| 3 | **Send Feedback Request** | On Job details, add a "Send Feedback Request" button that emails the feedback link to the client (instead of just copy-to-clipboard) |
+| 4 | **Job Posting Full CRUD** | Make posting titles clickable to open edit forms; add Archive/Remove functionality separate from closing applications |
 
-#### 1. Slide-Over Drawers for Payout, Payment, and Expense Details
+#### Medium Priority
+| # | Feature | Description |
+|---|---------|-------------|
+| 5 | **Time Off Request Drill-Down** | Make time-off entries clickable → side drawer with full reason, reviewer info, and an "Alter Decision" button to change approved↔denied |
+| 6 | **Dismissible Low Stock Banner** | Add an X button to the global red "Low Stock Alerts" banner so it can be hidden for the session |
+| 7 | **Photo-to-Job Linking** | In the Assets/Photos list, show the linked Job reference (e.g. "Job #123") and make it clickable to navigate to that job |
 
-The PayoutsSection already has an expandable row with detail data. We will upgrade this to use a **Sheet (slide-over panel)** instead, and add the same pattern to Customer Payments and Expenses.
-
-**Payouts Drawer** — clicking a row opens a Sheet showing:
-- Clock sessions with timestamps
-- Completed jobs with service name, client name, and tip
-- Approved expenses with receipt link
-- Linked payout record if already paid
-
-**Payments Drawer** — clicking a payment row opens a Sheet showing:
-- Stripe transaction ID, status, date
-- Customer name/email
-- Linked invoice (query `invoices` by matching amount/client)
-- Tip breakdown
-
-**Expenses Drawer** — clicking an expense row opens a Sheet showing:
-- Full description, category, amount
-- Receipt image (rendered from `receipt_url`)
-- Submitter name, submission date
-- Review status and reviewer notes
-
-#### 2. Inline Editing on Payouts
-
-- Add an "Edit Mode" toggle button to the Payouts tab header
-- When active, `hours_worked` and `tips` cells become `<Input>` fields
-- A "Save" and "Cancel" button appear in each edited row
-- On save: update the `job_time_logs` or recalculate and persist an adjustment record
-- **Audit trail**: Create a new `payout_adjustments` table to log every manual change with `changed_by`, `old_value`, `new_value`, `field_name`, `changed_at`
-
-**Database migration**:
-```sql
-CREATE TABLE public.payout_adjustments (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id uuid NOT NULL,
-  week_start date NOT NULL,
-  week_end date NOT NULL,
-  field_name text NOT NULL,
-  old_value numeric NOT NULL,
-  new_value numeric NOT NULL,
-  changed_by uuid NOT NULL,
-  changed_at timestamptz NOT NULL DEFAULT now(),
-  notes text
-);
-
-ALTER TABLE public.payout_adjustments ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Admin full access payout_adjustments"
-  ON public.payout_adjustments FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin'))
-  WITH CHECK (has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Finance full access payout_adjustments"
-  ON public.payout_adjustments FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'finance'))
-  WITH CHECK (has_role(auth.uid(), 'finance'));
-```
-
-#### 3. Global Auth Header for Finance Dashboard
-
-The Finance Dashboard currently has no persistent header. Add:
-- Olive Clean logo (left) + "Finance Dashboard" title
-- User profile area (right): avatar with initials, role badge (`[FINANCE]` or `[ADMIN]`), dropdown with:
-  - Account Settings (link to password change)
-  - Logout button (calls `supabase.auth.signOut()`, redirects to `/`)
-
-#### 4. Permission Sync Fix
-
-The `usePermissions` hook caches resolved permissions using `resolvedRef`. When permissions change in the DB, users don't see updates until they log out.
-
-**Fix**: Clear `resolvedRef.current` on tab/section navigation so permissions are re-fetched. Add a Supabase Realtime subscription on `role_permissions` table changes to auto-refresh.
-
-**Database migration**: Enable realtime on `role_permissions`:
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.role_permissions;
-```
+#### AI & Chatbot (Lower Priority)
+| # | Feature | Description |
+|---|---------|-------------|
+| 8 | **AI Assist for Quote Creation** | Add an "AI Assist" button on quote description/notes fields to auto-generate professional service descriptions |
+| 9 | **Chatbot Exit Intent Trigger** | Olivia pops up when user's mouse moves toward browser top (exit intent) |
+| 10 | **Chatbot Page Click Triggers** | Olivia appears with context-aware messages when leaving high-value pages (Services, Pricing) |
+| 11 | **Chatbot Decision Making** | Enhance Olivia to collect booking/quote data within the chat and submit inquiries directly |
 
 ---
 
-### Files Summary
+### Recommended Next Batch
 
-| File | Action |
-|------|--------|
-| `src/pages/FinanceDashboard.tsx` | Add auth header with user profile dropdown, role badge, and logout; upgrade PayoutsTab to use Sheet drawers; add inline editing mode |
-| `src/components/admin/finance/PayoutsSection.tsx` | Replace expandable rows with Sheet drawer; add inline edit mode with save/cancel; show audit trail in drawer |
-| `src/components/admin/finance/ExpensesSection.tsx` | Make rows clickable → Sheet drawer with receipt image and full details |
-| `src/hooks/usePermissions.ts` | Add Realtime listener on `role_permissions`; clear cache on changes |
-| Database migration | Create `payout_adjustments` table with RLS; enable realtime on `role_permissions` |
+I recommend tackling items **1–7** in the next implementation round — they are concrete UI/UX improvements. Items 8–11 (AI/chatbot) are more complex integrations that benefit from a separate focused iteration.
 
-### Deferred to Next Iteration
-- Reconciliation view (Stripe payouts vs app invoices)
-- Tax Management (1099/W-2 year-end reporting)
-- Refund Module
-- Gross Margin / Profitability charts
-- Cash Flow Forecasting
-- Dispute Center
+### Implementation Plan for Items 1–7
+
+**File changes:**
+
+| File | Work |
+|------|------|
+| `src/components/admin/finance/EstimatesSection.tsx` | Add "Approve Client for Portal" action on approved quotes that triggers client invite |
+| `src/components/admin/EmailsTab.tsx` | Make email rows clickable → Sheet drawer that renders stored `email_body` HTML |
+| `src/components/admin/JobsTab.tsx` | Add "Send Feedback Request" button that emails the feedback link via `send-transactional-email` |
+| `src/components/admin/HiringTab.tsx` | Make posting titles clickable → edit modal; add Archive/Remove actions |
+| `src/components/admin/TimeOffManager.tsx` | Make entries clickable → Sheet drawer with full details + "Alter Decision" button |
+| `src/components/admin/LowStockWidget.tsx` | Add dismiss X button using session state (`useState`) |
+| `src/components/admin/RecentUploads.tsx` | Display linked job reference next to each photo; make it a clickable link to the job |
+| New email template | `feedback-request.tsx` — branded email with feedback link button |
+
+**Database migration:**
+- Add `email_body` column to `email_send_log` table (if not already present) to store rendered HTML for the Comms Log preview
 
