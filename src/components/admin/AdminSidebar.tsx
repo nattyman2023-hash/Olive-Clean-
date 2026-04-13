@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Phone,
   Target,
   BookOpen,
   TrendingUp,
