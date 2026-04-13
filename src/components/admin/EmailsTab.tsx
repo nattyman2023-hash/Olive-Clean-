@@ -249,7 +249,7 @@ function EmailLogsView() {
                     : null;
 
                   return (
-                    <TableRow key={row.id}>
+                    <TableRow key={row.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPreviewRow(row)}>
                       <TableCell className="text-xs font-medium">{row.template_name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{row.recipient_email}</TableCell>
                       <TableCell><Badge variant="secondary" className={`text-[0.6rem] ${badge.className}`}>{badge.label}</Badge></TableCell>
@@ -264,18 +264,25 @@ function EmailLogsView() {
                         ) : "—"}
                       </TableCell>
                       <TableCell>
-                        {isFailed && row.template_name !== "auth_emails" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs gap-1"
-                            disabled={resendingId === row.id}
-                            onClick={() => handleResend(row)}
-                          >
-                            {resendingId === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
-                            Resend
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {isFailed && row.template_name !== "auth_emails" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs gap-1"
+                              disabled={resendingId === row.id}
+                              onClick={(e) => { e.stopPropagation(); handleResend(row); }}
+                            >
+                              {resendingId === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
+                              Resend
+                            </Button>
+                          )}
+                          {row.email_body && (
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={(e) => { e.stopPropagation(); setPreviewRow(row); }}>
+                              <Eye className="h-3 w-3" /> View
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
