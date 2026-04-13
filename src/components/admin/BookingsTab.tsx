@@ -10,6 +10,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import {
@@ -22,6 +25,8 @@ import {
   Home,
   Calendar,
   Loader2,
+  Plus,
+  X,
 } from "lucide-react";
 
 interface BookingRequest {
@@ -56,6 +61,9 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<BookingRequest | null>(null);
+  const [showAddBooking, setShowAddBooking] = useState(false);
+  const [addForm, setAddForm] = useState({ name: "", email: "", phone: "", service: "general", home_type: "house", bedrooms: "3", bathrooms: "2", frequency: "weekly", address: "", notes: "" });
+  const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => {
     fetchBookings();
