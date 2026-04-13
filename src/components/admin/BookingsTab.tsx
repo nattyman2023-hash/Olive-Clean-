@@ -130,6 +130,7 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
     setShowAddBooking(false);
     setAddForm({ name: "", email: "", phone: "", service: "general", home_type: "house", bedrooms: "3", bathrooms: "2", frequency: "weekly", address: "", notes: "" });
     fetchBookings();
+  };
 
   const inviteClient = async (booking: BookingRequest) => {
     try {
