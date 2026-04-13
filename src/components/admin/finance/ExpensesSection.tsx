@@ -33,7 +33,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const CATEGORIES = ["gas", "supplies", "equipment", "maintenance", "other"];
 
-export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
+export default function ExpensesSection({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -132,7 +132,10 @@ export default function ExpensesSection({ readOnly }: { readOnly?: boolean }) {
             >
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm text-foreground truncate">{exp.description}</p>
-                <p className="text-xs text-muted-foreground">{exp.employees?.name || "Unknown"} · {exp.category} · {format(new Date(exp.submitted_at), "MMM d, yyyy")}</p>
+                <p className="text-xs text-muted-foreground">
+                  <button onClick={(e) => { e.stopPropagation(); onNavigate?.("team", exp.employee_id); }} className="hover:text-primary hover:underline underline-offset-2">{exp.employees?.name || "Unknown"}</button>
+                  {" · "}{exp.category} · {format(new Date(exp.submitted_at), "MMM d, yyyy")}
+                </p>
               </div>
               <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <span className="font-bold text-sm text-foreground">${Number(exp.amount).toFixed(2)}</span>

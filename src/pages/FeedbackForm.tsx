@@ -14,7 +14,7 @@ export default function FeedbackForm() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [jobInfo, setJobInfo] = useState<{ service: string; clientName: string; date: string } | null>(null);
+  const [jobInfo, setJobInfo] = useState<{ service: string; clientName: string; date: string; assignedTo: string | null } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -24,14 +24,13 @@ export default function FeedbackForm() {
 
       const { data, error: err } = await supabase
         .from("jobs")
-        .select("service, scheduled_at, status, client_id, clients(name)")
+        .select("service, scheduled_at, status, client_id, assigned_to, clients(name)")
         .eq("id", jobId)
         .single();
 
       if (err || !data) { setError("Oops! This link seems to have expired. Please contact us if you still wish to leave feedback."); setLoading(false); return; }
       if (data.status !== "completed") { setError("Oops! This link seems to have expired. Please contact us if you still wish to leave feedback."); setLoading(false); return; }
 
-      // Check if feedback already submitted
       const { data: existing } = await supabase
         .from("feedback")
         .select("id")
@@ -44,6 +43,7 @@ export default function FeedbackForm() {
         service: data.service.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
         clientName: (data.clients as any)?.name || "Your Home",
         date: new Date(data.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+        assignedTo: data.assigned_to || null,
       });
       setLoading(false);
     }
@@ -56,9 +56,19 @@ export default function FeedbackForm() {
 
     setSubmitting(true);
 
-    // Get client_id from job
-    const { data: job } = await supabase.from("jobs").select("client_id").eq("id", jobId).single();
+    const { data: job } = await supabase.from("jobs").select("client_id, assigned_to").eq("id", jobId).single();
     if (!job) { toast.error("Job not found."); setSubmitting(false); return; }
+
+    // Look up employee_id from employees table using assigned_to (user_id)
+    let employeeId: string | null = null;
+    if (job.assigned_to) {
+      const { data: emp } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("user_id", job.assigned_to)
+        .maybeSingle();
+      employeeId = emp?.id || null;
+    }
 
     const fbId = crypto.randomUUID();
     const { error: fbErr } = await supabase.from("feedback").insert({
@@ -67,7 +77,8 @@ export default function FeedbackForm() {
       client_id: job.client_id,
       rating,
       comments: comments.trim() || null,
-    });
+      employee_id: employeeId,
+    } as any);
 
     if (fbErr) { toast.error("Failed to submit feedback."); setSubmitting(false); return; }
 
@@ -79,7 +90,7 @@ export default function FeedbackForm() {
       if (!uploadErr) {
         await supabase.from("job_attachments" as any).insert({
           job_id: jobId,
-          uploader_id: job.client_id, // use client_id as uploader reference
+          uploader_id: job.client_id,
           uploader_role: "client",
           file_path: path,
           bucket: "after_photos",
@@ -88,7 +99,7 @@ export default function FeedbackForm() {
       }
     }
 
-    // Send thank-you email to client
+    // Send thank-you email
     const { data: clientData } = await supabase
       .from("clients")
       .select("email")
@@ -156,7 +167,6 @@ export default function FeedbackForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
       <div className="bg-card rounded-2xl border border-border shadow-sm p-8 max-w-lg w-full space-y-6">
-        {/* Header */}
         <div className="text-center space-y-2">
           <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center mx-auto">
             <span className="text-primary-foreground text-sm font-bold">O</span>
@@ -169,7 +179,6 @@ export default function FeedbackForm() {
           )}
         </div>
 
-        {/* Stars */}
         <div className="flex justify-center gap-2">
           {[1, 2, 3, 4, 5].map((s) => (
             <button
@@ -191,7 +200,6 @@ export default function FeedbackForm() {
           {rating === 0 ? "Tap a star to rate" : ["", "Poor", "Fair", "Good", "Great", "Exceptional"][rating]}
         </p>
 
-        {/* Comments */}
         <Textarea
           placeholder="Tell us more about your experience (optional)..."
           value={comments}
@@ -201,7 +209,6 @@ export default function FeedbackForm() {
           className="rounded-xl resize-none"
         />
 
-        {/* Photo upload */}
         <div className="space-y-2">
           <label className="text-xs text-muted-foreground">After-service photos (up to 5)</label>
           <div className="flex flex-wrap gap-2">

@@ -84,7 +84,7 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
 
 const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
-export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
+export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const isDesktop = useIsDesktop();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -723,13 +723,14 @@ export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
           {isDesktop ? (
             <div className="lg:col-span-1">
               {selected ? (
-                <JobDetailPanel
+              <JobDetailPanel
                   job={selected}
                   employees={employees}
                   onStatusChange={updateJobStatus}
                   onReassign={reassignJob}
                   onLogDuration={logDuration}
                   getInitials={getInitials}
+                  onNavigate={onNavigate}
                 />
               ) : (
                 <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
@@ -755,6 +756,7 @@ export default function JobsTab({ readOnly }: { readOnly?: boolean }) {
                     onReassign={reassignJob}
                     onLogDuration={logDuration}
                     getInitials={getInitials}
+                    onNavigate={onNavigate}
                   />
                 )}
               </DrawerContent>
@@ -831,13 +833,19 @@ interface DetailProps {
   onReassign: (jobId: string, employeeId: string | null) => void;
   onLogDuration: (id: string, minutes: string) => void;
   getInitials: (name: string) => string;
+  onNavigate?: (section: string, targetId?: string) => void;
 }
 
-function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, getInitials }: DetailProps) {
+function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, getInitials, onNavigate }: DetailProps) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">{job.clients?.name || "Unknown"}</h2>
+        <button
+          onClick={() => onNavigate?.("clients", job.client_id)}
+          className="text-lg font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors text-left"
+        >
+          {job.clients?.name || "Unknown"}
+        </button>
         <p className="text-xs text-muted-foreground mt-0.5">
           {job.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
         </p>
@@ -852,7 +860,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
               {job.employees.photo_url && <AvatarImage src={job.employees.photo_url} alt={job.employees.name} />}
               <AvatarFallback className="text-[0.5rem] bg-primary/10 text-primary">{getInitials(job.employees.name)}</AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium text-foreground">{job.employees.name}</span>
+            <button
+              onClick={() => onNavigate?.("team", job.assigned_to || undefined)}
+              className="text-sm font-medium text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors"
+            >
+              {job.employees.name}
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-2 mb-2 text-muted-foreground">
@@ -950,7 +963,8 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
       {job.status === "completed" && (
         <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground mb-2">Client Feedback</p>
-          <div className="space-y-2">
+          <JobFeedbackDisplay jobId={job.id} />
+          <div className="space-y-2 mt-2">
             <Button
               variant="outline"
               size="sm"
@@ -1041,5 +1055,37 @@ function SendFeedbackButton({ job }: { job: Job }) {
       {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
       Send Feedback Request
     </Button>
+  );
+}
+
+/* ---------- Inline Feedback Display ---------- */
+function JobFeedbackDisplay({ jobId }: { jobId: string }) {
+  const [feedback, setFeedback] = useState<{ rating: number; comments: string | null } | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("feedback")
+      .select("rating, comments")
+      .eq("job_id", jobId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setFeedback(data as any);
+        setLoaded(true);
+      });
+  }, [jobId]);
+
+  if (!loaded) return null;
+  if (!feedback) return <p className="text-xs text-muted-foreground italic mb-2">No feedback submitted yet.</p>;
+
+  return (
+    <div className="bg-muted/50 rounded-lg p-3 mb-2">
+      <div className="flex gap-0.5 mb-1">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <span key={s} className={`text-sm ${s <= feedback.rating ? "text-primary" : "text-muted-foreground/30"}`}>★</span>
+        ))}
+      </div>
+      {feedback.comments && <p className="text-xs text-muted-foreground">{feedback.comments}</p>}
+    </div>
   );
 }

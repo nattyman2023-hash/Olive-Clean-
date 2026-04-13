@@ -21,7 +21,7 @@ function getPublicUrl(bucket: string, path: string) {
   return data.publicUrl;
 }
 
-export default function RecentUploads() {
+export default function RecentUploads({ onNavigate }: { onNavigate?: (section: string, targetId?: string) => void }) {
   const [lightbox, setLightbox] = useState<string | null>(null);
 
   const { data: attachments = [], isLoading } = useQuery({
@@ -55,9 +55,7 @@ export default function RecentUploads() {
   const jobMap = new Map(jobsData.map((j: any) => [j.id, j]));
 
   const handleJobClick = (jobId: string) => {
-    // Navigate to the jobs tab by clicking on it
-    const tab = document.querySelector('[data-state][value="jobs"]') as HTMLElement;
-    if (tab) tab.click();
+    onNavigate?.("jobs", jobId);
   };
 
   if (isLoading) {

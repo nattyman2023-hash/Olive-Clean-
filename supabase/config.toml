@@ -21,3 +21,5 @@ project_id = "tgdhglzegfbmdnzvseaa"
     verify_jwt = false
   [functions.finalize-invoice]
     verify_jwt = false
+  [functions.send-feedback-reminders]
+    verify_jwt = true

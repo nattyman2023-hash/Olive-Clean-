@@ -105,7 +105,7 @@ const getOptionalEmployeeEmail = (value: string | null | undefined) => {
   return { success: true as const, email: parsed.data };
 };
 
-export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
+export default function TeamTab({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
   const { startImpersonation, isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -776,6 +776,9 @@ export default function TeamTab({ readOnly }: { readOnly?: boolean }) {
             </CardContent>
           </Card>
 
+          {/* Client Reviews */}
+          <EmployeeReviews employeeId={profileEmployee.id} />
+
           {/* Performance History */}
           <Card>
             <CardHeader className="pb-3">
@@ -1443,6 +1446,65 @@ function RoleAssignmentCard({
               </div>
             </label>
           ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------- Employee Reviews ---------- */
+function EmployeeReviews({ employeeId }: { employeeId: string }) {
+  const { data: reviews = [], isLoading } = useQuery({
+    queryKey: ["employee_reviews", employeeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("feedback")
+        .select("id, rating, comments, created_at, job_id")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium">Client Reviews</CardTitle>
+          {avgRating && (
+            <span className="text-xs font-medium text-primary">★ {avgRating} avg ({reviews.length})</span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-primary mx-auto" />
+        ) : reviews.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No reviews yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {reviews.map((r) => (
+              <div key={r.id} className="border-b border-border pb-2 last:border-0 last:pb-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <span key={s} className={`text-xs ${s <= r.rating ? "text-primary" : "text-muted-foreground/30"}`}>★</span>
+                    ))}
+                  </div>
+                  <span className="text-[0.6rem] text-muted-foreground">
+                    {new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </span>
+                </div>
+                {r.comments && <p className="text-xs text-muted-foreground mt-1">{r.comments}</p>}
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

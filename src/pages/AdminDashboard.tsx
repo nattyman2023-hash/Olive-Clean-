@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import SEOHead from "@/components/SEOHead";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,48 +42,25 @@ function AdminGate() {
   );
 }
 
-function renderSection(section: string, canAccess: (s: string) => boolean, canEdit: (s: string) => boolean, isAdmin: boolean) {
-  if (!canAccess(section)) return <AdminGate />;
-  const editable = canEdit(section);
-  const readOnly = !editable;
-
-  const content = (() => {
-    switch (section) {
-      case "bookings": return <BookingsTab readOnly={readOnly} />;
-      case "clients": return <ClientsTab readOnly={readOnly} />;
-      case "jobs": return <JobsTab readOnly={readOnly} />;
-      case "leads": return <LeadsTab />;
-      case "perks": return <PerksTab />;
-      case "analytics": return <AnalyticsTab />;
-      case "team": return <TeamTab readOnly={readOnly} />;
-      case "hiring": return <HiringTab readOnly={readOnly} />;
-      case "services": return <ServicesManager />;
-      case "routes": return <RoutesTab />;
-      case "supplies": return <SuppliesTab readOnly={readOnly} />;
-      case "finance": return <FinanceTab readOnly={readOnly} />;
-      case "calendar": return <CalendarTab />;
-      case "time-off": return <TimeOffManager isAdmin={isAdmin} />;
-      case "quotes": return <QuotesTab readOnly={readOnly} />;
-      case "photos": return <RecentUploads />;
-      case "comms-log": return <EmailsTab />;
-      case "permissions": return <PermissionsManager />;
-      default: return <BookingsTab readOnly={readOnly} />;
-    }
-  })();
-
-  return (
-    <>
-      <ReadOnlyBanner readOnly={readOnly} />
-      {content}
-    </>
-  );
-}
-
 export default function AdminDashboard() {
   const { user, isAdmin, isStaff, isAdminAssistant, isCleaningTechnician, isFinance, loading: authLoading, rolesLoading, signOut, isImpersonating, impersonatedRole } = useAuth();
   const { canAccess, canEdit, allowedSections, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("bookings");
+  // For cross-tab navigation: store a target ID to pre-select in the destination tab
+  const [navTargetId, setNavTargetId] = useState<string | null>(null);
+
+  const handleNavigate = useCallback((section: string, targetId?: string) => {
+    setNavTargetId(targetId || null);
+    setActiveSection(section);
+  }, []);
+
+  // Clear navTargetId after it's been consumed
+  const consumeNavTarget = useCallback(() => {
+    const id = navTargetId;
+    setNavTargetId(null);
+    return id;
+  }, [navTargetId]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -91,7 +68,6 @@ export default function AdminDashboard() {
     }
   }, [authLoading, user, navigate]);
 
-  // Allow access if user has any dashboard role or has any permissions
   useEffect(() => {
     if (!authLoading && !rolesLoading && !permsLoading && user && !isAdmin && !isStaff && !isAdminAssistant && !isCleaningTechnician && !isFinance && allowedSections.length === 0) {
       toast("You don't have access to this dashboard.");
@@ -109,6 +85,45 @@ export default function AdminDashboard() {
 
   if (!user || (!isAdmin && !isStaff && !isAdminAssistant && !isFinance && !isCleaningTechnician)) return null;
 
+  const effectiveIsAdmin = isImpersonating ? false : isAdmin;
+
+  function renderSection(section: string) {
+    if (!canAccess(section)) return <AdminGate />;
+    const editable = canEdit(section);
+    const readOnly = !editable;
+
+    const content = (() => {
+      switch (section) {
+        case "bookings": return <BookingsTab readOnly={readOnly} />;
+        case "clients": return <ClientsTab readOnly={readOnly} />;
+        case "jobs": return <JobsTab readOnly={readOnly} onNavigate={handleNavigate} />;
+        case "leads": return <LeadsTab />;
+        case "perks": return <PerksTab />;
+        case "analytics": return <AnalyticsTab />;
+        case "team": return <TeamTab readOnly={readOnly} onNavigate={handleNavigate} />;
+        case "hiring": return <HiringTab readOnly={readOnly} onNavigate={handleNavigate} />;
+        case "services": return <ServicesManager />;
+        case "routes": return <RoutesTab />;
+        case "supplies": return <SuppliesTab readOnly={readOnly} />;
+        case "finance": return <FinanceTab readOnly={readOnly} onNavigate={handleNavigate} />;
+        case "calendar": return <CalendarTab />;
+        case "time-off": return <TimeOffManager isAdmin={effectiveIsAdmin} />;
+        case "quotes": return <QuotesTab readOnly={readOnly} />;
+        case "photos": return <RecentUploads onNavigate={handleNavigate} />;
+        case "comms-log": return <EmailsTab />;
+        case "permissions": return <PermissionsManager />;
+        default: return <BookingsTab readOnly={readOnly} />;
+      }
+    })();
+
+    return (
+      <>
+        <ReadOnlyBanner readOnly={readOnly} />
+        {content}
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-muted/30">
       <SEOHead title="Admin Dashboard — Olive Clean" description="Olive Clean admin management dashboard." noindex />
@@ -118,7 +133,7 @@ export default function AdminDashboard() {
             activeSection={activeSection}
             onSectionChange={setActiveSection}
             canAccess={canAccess}
-            isAdmin={isImpersonating ? false : isAdmin}
+            isAdmin={effectiveIsAdmin}
           />
 
           <div className="flex-1 flex flex-col min-w-0">
@@ -153,7 +168,7 @@ export default function AdminDashboard() {
 
             <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl">
               {isAdmin && !isImpersonating && <LowStockWidget />}
-              {renderSection(activeSection, canAccess, canEdit, isImpersonating ? false : isAdmin)}
+              {renderSection(activeSection)}
             </main>
           </div>
         </div>
