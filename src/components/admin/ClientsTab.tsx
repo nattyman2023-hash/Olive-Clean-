@@ -266,7 +266,8 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
       (c.email || "").toLowerCase().includes(search.toLowerCase()) ||
       (c.phone || "").includes(search);
     const matchesNeighborhood = neighborhoodFilter === "all" || c.neighborhood === neighborhoodFilter;
-    return matchesSearch && matchesNeighborhood;
+    const matchesRetention = !retentionFilter || lostClients.has(c.id);
+    return matchesSearch && matchesNeighborhood && matchesRetention;
   });
 
   return (
@@ -293,6 +294,14 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
+          <Button
+            size="sm"
+            variant={retentionFilter ? "default" : "outline"}
+            onClick={() => setRetentionFilter(!retentionFilter)}
+            className="rounded-lg text-xs"
+          >
+            Lost Clients {lostClients.size > 0 ? `(${lostClients.size})` : ""}
+          </Button>
           {!readOnly && (
             <Button size="sm" onClick={openNew} className="rounded-lg active:scale-[0.97]">
               <Plus className="h-4 w-4 mr-1" /> Add Client
