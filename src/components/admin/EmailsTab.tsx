@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -29,6 +30,7 @@ interface EmailLogRow {
   error_message: string | null;
   metadata: Record<string, any> | null;
   created_at: string;
+  email_body: string | null;
 }
 
 interface TemplatePreview {
@@ -75,6 +77,7 @@ function EmailLogsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [previewRow, setPreviewRow] = useState<EmailLogRow | null>(null);
 
   const dateRange = useMemo(() => {
     const now = new Date();
