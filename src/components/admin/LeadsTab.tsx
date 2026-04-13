@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
-import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Eye, X } from "lucide-react";
+import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Eye, Clock } from "lucide-react";
+import ActivityTimeline from "./ActivityTimeline";
 
 const STATUS_ORDER = ["new", "quoted", "scheduled", "converted"] as const;
 const STATUS_LABELS: Record<string, string> = { new: "New", quoted: "Quoted", scheduled: "Scheduled", converted: "Converted" };
@@ -21,6 +24,26 @@ function scoreColor(score: number) {
   if (score >= 60) return "bg-emerald-100 text-emerald-800";
   if (score >= 30) return "bg-amber-100 text-amber-800";
   return "bg-muted text-muted-foreground";
+}
+
+function ResponseTimer({ createdAt, status }: { createdAt: string; status: string }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (status !== "new") return;
+    const id = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(id);
+  }, [status]);
+
+  if (status !== "new") return null;
+  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+  const isOverdue = mins > 120;
+  const label = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[0.6rem] font-medium ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}>
+      <Clock className="h-2.5 w-2.5" /> {label}
+    </span>
+  );
 }
 
 export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string, targetId?: string) => void }) {
@@ -136,6 +159,23 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
     onError: (e) => toast.error("Conversion failed: " + (e as Error).message),
   });
 
+  const logCall = useMutation({
+    mutationFn: async (lead: any) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("crm_notes").insert({
+        parent_type: "lead",
+        parent_id: lead.id,
+        author_id: user?.id || null,
+        content: "Phone call logged",
+        note_type: "phone_call",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-notes"] });
+      toast.success("Call logged");
+    },
+  });
+
   const filtered = leads.filter((l: any) => {
     if (statusFilter !== "all" && l.status !== statusFilter) return false;
     if (search) {
@@ -199,9 +239,12 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-foreground">{lead.name || "Unknown"}</p>
+                        <button className="font-semibold text-foreground hover:text-primary hover:underline text-left" onClick={() => setSelectedLead(lead)}>
+                          {lead.name || "Unknown"}
+                        </button>
                         <Badge variant="secondary" className={scoreColor(lead.score)}>Score: {lead.score}</Badge>
                         <Badge variant="secondary" className={STATUS_COLORS[lead.status] || ""}>{STATUS_LABELS[lead.status] || lead.status}</Badge>
+                        <ResponseTimer createdAt={lead.created_at} status={lead.status} />
                         <Badge variant="outline" className="text-[0.6rem] px-1.5 py-0">
                           {lead.source === "client_portal" ? "Portal" : lead.source === "chatbot" ? "Chat" : lead.source === "website" ? "Website" : lead.source === "booking_migration" ? "Booking" : lead.source === "form" ? "Form" : lead.source}
                         </Badge>
@@ -233,9 +276,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                         <>
                           {lead.status === "new" && (
                             <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
-                              // Navigate to quotes tab and trigger new quote form with lead data pre-filled
                               if (onNavigate) {
-                                // Store lead data in sessionStorage for the quote form to pick up
                                 sessionStorage.setItem("prefill-quote", JSON.stringify({
                                   leadId: lead.id,
                                   name: lead.name,
@@ -276,92 +317,106 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
         </div>
       )}
 
-      {/* Lead Detail Dialog */}
-      <Dialog open={!!selectedLead} onOpenChange={(o) => { if (!o) setSelectedLead(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-base">Lead Details</DialogTitle>
-          </DialogHeader>
+      {/* Lead Detail Sheet (CRM Hub) */}
+      <Sheet open={!!selectedLead} onOpenChange={(o) => { if (!o) setSelectedLead(null); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-base flex items-center gap-2">
+              {selectedLead?.name || "Lead Details"}
+              {selectedLead && <Badge variant="secondary" className={STATUS_COLORS[selectedLead.status] || ""}>{STATUS_LABELS[selectedLead.status] || selectedLead.status}</Badge>}
+              {selectedLead && <ResponseTimer createdAt={selectedLead.created_at} status={selectedLead.status} />}
+            </SheetTitle>
+          </SheetHeader>
+
           {selectedLead && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">Name</p>
-                  <p className="font-medium text-foreground">{selectedLead.name || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <Badge variant="secondary" className={STATUS_COLORS[selectedLead.status] || ""}>{STATUS_LABELS[selectedLead.status] || selectedLead.status}</Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Email</p>
-                  <p className="text-foreground">{selectedLead.email || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Phone</p>
-                  <p className="text-foreground">{selectedLead.phone || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Location</p>
-                  <p className="text-foreground">{selectedLead.location || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Score</p>
-                  <Badge variant="secondary" className={scoreColor(selectedLead.score)}>{selectedLead.score}</Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Source</p>
-                  <p className="text-foreground capitalize">{selectedLead.source}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Frequency</p>
-                  <p className="text-foreground capitalize">{selectedLead.frequency || "—"}</p>
-                </div>
-                {selectedLead.bedrooms && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Home Size</p>
-                    <p className="text-foreground">{selectedLead.bedrooms} bed / {selectedLead.bathrooms || "?"} bath</p>
-                  </div>
+            <div className="space-y-4 mt-4">
+              {/* Quick Actions */}
+              <div className="flex flex-wrap gap-2">
+                {selectedLead.status === "new" && onNavigate && (
+                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
+                    sessionStorage.setItem("prefill-quote", JSON.stringify({
+                      leadId: selectedLead.id, name: selectedLead.name, email: selectedLead.email,
+                      phone: selectedLead.phone, address: selectedLead.location,
+                    }));
+                    onNavigate("quotes");
+                    setSelectedLead(null);
+                  }}>
+                    <FileText className="h-3 w-3 mr-1" /> Create Quote
+                  </Button>
                 )}
-                <div>
-                  <p className="text-xs text-muted-foreground">Urgency</p>
-                  <p className="text-foreground capitalize">{selectedLead.urgency || "—"}</p>
-                </div>
+                <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => logCall.mutate(selectedLead)}>
+                  <Phone className="h-3 w-3 mr-1" /> Log Call
+                </Button>
+                {selectedLead.email && (
+                  <Button size="sm" variant="outline" className="text-xs h-7" asChild>
+                    <a href={`mailto:${selectedLead.email}`}><Mail className="h-3 w-3 mr-1" /> Email</a>
+                  </Button>
+                )}
+                {selectedLead.status !== "converted" && (
+                  <Button size="sm" className="text-xs h-7" onClick={() => { convertToJob.mutate(selectedLead); setSelectedLead(null); }}>
+                    <ArrowRight className="h-3 w-3 mr-1" /> Convert to Job
+                  </Button>
+                )}
               </div>
+
+              {/* Contact Info Grid */}
+              <div className="grid grid-cols-2 gap-3 text-sm bg-muted/30 rounded-lg p-3">
+                <div><p className="text-[0.65rem] text-muted-foreground">Email</p><p className="text-foreground text-xs">{selectedLead.email || "—"}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Phone</p><p className="text-foreground text-xs">{selectedLead.phone || "—"}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Location</p><p className="text-foreground text-xs">{selectedLead.location || "—"}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Score</p><Badge variant="secondary" className={`${scoreColor(selectedLead.score)} text-[0.6rem]`}>{selectedLead.score}</Badge></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Source</p><p className="text-foreground text-xs capitalize">{selectedLead.source}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Frequency</p><p className="text-foreground text-xs capitalize">{selectedLead.frequency || "—"}</p></div>
+                {selectedLead.bedrooms && <div><p className="text-[0.65rem] text-muted-foreground">Home</p><p className="text-foreground text-xs">{selectedLead.bedrooms} bed / {selectedLead.bathrooms || "?"} bath</p></div>}
+                <div><p className="text-[0.65rem] text-muted-foreground">Created</p><p className="text-foreground text-xs">{format(new Date(selectedLead.created_at), "MMM d, yyyy h:mm a")}</p></div>
+              </div>
+
+              {/* Tabs: Activity & Chat */}
+              <Tabs defaultValue="activity" className="w-full">
+                <TabsList className="w-full">
+                  <TabsTrigger value="activity" className="flex-1 text-xs">Activity</TabsTrigger>
+                  {selectedLead.chat_transcript && Array.isArray(selectedLead.chat_transcript) && selectedLead.chat_transcript.length > 0 && (
+                    <TabsTrigger value="chat" className="flex-1 text-xs">Chat</TabsTrigger>
+                  )}
+                </TabsList>
+                <TabsContent value="activity" className="mt-3">
+                  <ActivityTimeline parentType="lead" parentId={selectedLead.id} />
+                </TabsContent>
+                {selectedLead.chat_transcript && Array.isArray(selectedLead.chat_transcript) && selectedLead.chat_transcript.length > 0 && (
+                  <TabsContent value="chat" className="mt-3">
+                    <div className="bg-muted/30 rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
+                      {selectedLead.chat_transcript.map((msg: any, idx: number) => (
+                        <div key={idx} className={`text-xs ${msg.role === "user" ? "text-foreground" : "text-muted-foreground"}`}>
+                          <span className="font-medium">{msg.role === "user" ? "Visitor" : "Olivia"}:</span>{" "}
+                          {msg.content || msg.text || JSON.stringify(msg)}
+                        </div>
+                      ))}
+                    </div>
+                  </TabsContent>
+                )}
+              </Tabs>
+
+              {/* Notes from lead record */}
               {selectedLead.notes && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                  <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{selectedLead.notes}</p>
+                  <p className="text-[0.65rem] text-muted-foreground mb-1">Lead Notes</p>
+                  <p className="text-xs text-foreground bg-muted/50 rounded-lg p-2">{selectedLead.notes}</p>
                 </div>
               )}
-              {selectedLead.chat_transcript && Array.isArray(selectedLead.chat_transcript) && selectedLead.chat_transcript.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Chat Transcript</p>
-                  <div className="bg-muted/30 rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
-                    {selectedLead.chat_transcript.map((msg: any, idx: number) => (
-                      <div key={idx} className={`text-xs ${msg.role === "user" ? "text-foreground" : "text-muted-foreground"}`}>
-                        <span className="font-medium">{msg.role === "user" ? "Visitor" : "Olivia"}:</span>{" "}
-                        {msg.content || msg.text || JSON.stringify(msg)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <p className="text-[0.65rem] text-muted-foreground">
-                Created {format(new Date(selectedLead.created_at), "MMM d, yyyy 'at' h:mm a")}
-              </p>
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" className="text-xs rounded-lg" onClick={() => { setEditingLead({ ...selectedLead }); setSelectedLead(null); }}>
+
+              {/* Bottom actions */}
+              <div className="flex gap-2 pt-2 border-t border-border">
+                <Button variant="outline" size="sm" className="text-xs" onClick={() => { setEditingLead({ ...selectedLead }); setSelectedLead(null); }}>
                   <Pencil className="h-3 w-3 mr-1" /> Edit
                 </Button>
-                <Button variant="outline" size="sm" className="text-xs rounded-lg text-destructive hover:text-destructive" onClick={() => { setDeleteLeadId(selectedLead.id); setSelectedLead(null); }}>
+                <Button variant="outline" size="sm" className="text-xs text-destructive hover:text-destructive" onClick={() => { setDeleteLeadId(selectedLead.id); setSelectedLead(null); }}>
                   <Trash2 className="h-3 w-3 mr-1" /> Delete
                 </Button>
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Lead Dialog */}
       <Dialog open={!!editingLead} onOpenChange={(o) => { if (!o) setEditingLead(null); }}>
