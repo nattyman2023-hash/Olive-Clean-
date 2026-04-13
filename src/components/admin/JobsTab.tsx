@@ -483,6 +483,8 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     fetchJobs();
   };
 
+  const STATUS_PRIORITY: Record<string, number> = { scheduled: 0, in_progress: 1, completed: 2, cancelled: 3 };
+
   const filtered = jobs.filter((j) => {
     const clientName = j.clients?.name || "";
     const empName = j.employees?.name || "";
@@ -498,6 +500,11 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     const matchesService = serviceFilter === "all" || j.service === serviceFilter;
     const matchesNeighborhood = neighborhoodFilter === "all" || j.clients?.neighborhood === neighborhoodFilter;
     return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesEmployee && matchesService && matchesNeighborhood;
+  }).sort((a, b) => {
+    const pa = STATUS_PRIORITY[a.status] ?? 9;
+    const pb = STATUS_PRIORITY[b.status] ?? 9;
+    if (pa !== pb) return pa - pb;
+    return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
   });
 
   const getInitials = (name: string) =>

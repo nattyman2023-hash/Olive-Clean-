@@ -779,6 +779,9 @@ export default function TeamTab({ readOnly, onNavigate }: { readOnly?: boolean; 
           {/* Client Reviews */}
           <EmployeeReviews employeeId={profileEmployee.id} />
 
+          {/* Recent & Completed Jobs */}
+          <EmployeeJobHistory employeeUserId={profileEmployee.user_id} onNavigate={onNavigate} />
+
           {/* Performance History */}
           <Card>
             <CardHeader className="pb-3">

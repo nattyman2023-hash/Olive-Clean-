@@ -190,6 +190,8 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
       b.email.toLowerCase().includes(search.toLowerCase()) ||
       b.phone.includes(search);
     const matchesStatus = statusFilter === "all" || b.status === statusFilter;
+    // Hide confirmed bookings that have been converted to jobs (cleanup)
+    if (b.status === "confirmed") return matchesSearch && matchesStatus;
     return matchesSearch && matchesStatus;
   });
 
