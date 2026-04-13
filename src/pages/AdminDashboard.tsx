@@ -112,6 +112,7 @@ export default function AdminDashboard() {
         case "quotes": return <QuotesTab readOnly={readOnly} />;
         case "photos": return <RecentUploads onNavigate={handleNavigate} />;
         case "comms-log": return <EmailsTab />;
+        case "call-list": return <CallListTab />;
         case "permissions": return <PermissionsManager />;
         default: return <LeadsTab onNavigate={handleNavigate} />;
       }
@@ -160,6 +161,7 @@ export default function AdminDashboard() {
                     {impersonatedRole.replace(/_/g, " ")}
                   </span>
                 )}
+                <QuickNoteButton />
                 <NotificationBell />
                 <Button variant="ghost" size="icon" onClick={signOut} className="active:scale-95 transition-transform">
                   <LogOut className="h-4 w-4" />
