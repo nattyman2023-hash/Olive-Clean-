@@ -561,6 +561,7 @@ export type Database = {
           client_id: string
           comments: string | null
           created_at: string
+          employee_id: string | null
           id: string
           job_id: string
           rating: number
@@ -569,6 +570,7 @@ export type Database = {
           client_id: string
           comments?: string | null
           created_at?: string
+          employee_id?: string | null
           id?: string
           job_id: string
           rating: number
@@ -577,6 +579,7 @@ export type Database = {
           client_id?: string
           comments?: string | null
           created_at?: string
+          employee_id?: string | null
           id?: string
           job_id?: string
           rating?: number
@@ -793,6 +796,7 @@ export type Database = {
           created_at: string
           duration_minutes: number | null
           estimated_drive_minutes: number | null
+          feedback_email_sent: boolean
           id: string
           notes: string | null
           price: number | null
@@ -810,6 +814,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           estimated_drive_minutes?: number | null
+          feedback_email_sent?: boolean
           id?: string
           notes?: string | null
           price?: number | null
@@ -827,6 +832,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           estimated_drive_minutes?: number | null
+          feedback_email_sent?: boolean
           id?: string
           notes?: string | null
           price?: number | null
