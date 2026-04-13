@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import ActivityTimeline from "./ActivityTimeline";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -976,6 +977,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
           </div>
         </div>
       )}
+
+      {/* Activity & Notes */}
+      <div className="border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground mb-2">Activity & Notes</p>
+        <ActivityTimeline parentType="job" parentId={job.id} />
+      </div>
 
       {/* Status actions */}
       <div className="border-t border-border pt-4">

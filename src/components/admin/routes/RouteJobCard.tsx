@@ -11,22 +11,27 @@ interface RouteJobCardProps {
   onDrop: () => void;
   onDragEnd: () => void;
   isDragging: boolean;
+  onSelect?: () => void;
 }
 
-export default function RouteJobCard({ job, index, zoneColors, defaultZone, onDragStart, onDrop, onDragEnd, isDragging }: RouteJobCardProps) {
+export default function RouteJobCard({ job, index, zoneColors, defaultZone, onDragStart, onDrop, onDragEnd, isDragging, onSelect }: RouteJobCardProps) {
   const zone = job.clients?.neighborhood || "";
   const zoneStyle = zoneColors[zone] || defaultZone;
   const isPriority = !!(job.clients?.preferences as Record<string, unknown>)?.priority;
+  let isDrag = false;
 
   return (
     <div
       draggable
       data-job-id={job.id}
-      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
+      onMouseDown={() => { isDrag = false; }}
+      onMouseMove={() => { isDrag = true; }}
+      onClick={() => { if (!isDrag && onSelect) onSelect(); }}
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; isDrag = true; onDragStart(); }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
       onDragEnd={onDragEnd}
-      className={`border-l-4 rounded-xl border border-border p-4 shadow-sm transition-all ${zoneStyle} ${isDragging ? "opacity-40 scale-[0.97]" : ""} cursor-grab active:cursor-grabbing`}
+      className={`border-l-4 rounded-xl border border-border p-4 shadow-sm transition-all ${zoneStyle} ${isDragging ? "opacity-40 scale-[0.97]" : "hover:shadow-md"} cursor-grab active:cursor-grabbing`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2 min-w-0 flex-1">

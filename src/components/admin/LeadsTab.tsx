@@ -237,14 +237,14 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
           {filtered.map((lead: any) => {
             const isStale = lead.status === "new" && new Date(lead.created_at).getTime() < twoHoursAgo;
             return (
-              <Card key={lead.id} className={`${isStale ? "border-destructive/50 bg-destructive/5" : ""}`}>
+              <Card key={lead.id} className={`cursor-pointer hover:shadow-sm transition-shadow ${isStale ? "border-destructive/50 bg-destructive/5" : ""}`} onClick={() => setSelectedLead(lead)}>
                 <CardContent className="py-4 px-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button className="font-semibold text-foreground hover:text-primary hover:underline text-left" onClick={() => setSelectedLead(lead)}>
+                        <span className="font-semibold text-foreground text-left">
                           {lead.name || "Unknown"}
-                        </button>
+                        </span>
                         <Badge variant="secondary" className={scoreColor(lead.score)}>Score: {lead.score}</Badge>
                         <Badge variant="secondary" className={STATUS_COLORS[lead.status] || ""}>{STATUS_LABELS[lead.status] || lead.status}</Badge>
                         <ResponseTimer createdAt={lead.created_at} status={lead.status} />
@@ -265,7 +265,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingLead({ ...lead })} title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
