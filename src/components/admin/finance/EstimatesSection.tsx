@@ -61,6 +61,24 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
     if (error) { toast.error("Failed to update."); return; }
     toast.success(`Estimate marked as ${status}.`);
 
+    // Auto-create job when accepted
+    if (status === "accepted") {
+      const est = estimates.find((e) => e.id === id);
+      if (est) {
+        const serviceName = (est.items as any)?.[0]?.description || "Cleaning Service";
+        const { error: jobErr } = await supabase.from("jobs").insert({
+          client_id: est.client_id,
+          service: serviceName,
+          scheduled_at: new Date().toISOString(),
+          price: est.total,
+          notes: `Auto-created from accepted quote ${est.estimate_number}`,
+          status: "scheduled",
+        });
+        if (jobErr) { toast.error("Quote accepted but failed to create job."); }
+        else { toast.success("Job auto-created from accepted quote!"); }
+      }
+    }
+
     if (status === "sent") {
       const est = estimates.find((e) => e.id === id);
       if (est) {

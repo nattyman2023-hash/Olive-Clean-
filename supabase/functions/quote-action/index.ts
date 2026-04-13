@@ -73,6 +73,17 @@ Deno.serve(async (req) => {
         })
         .eq("id", estimate.id);
 
+      // Auto-create job from accepted quote
+      const serviceName = estimate.items?.[0]?.description || "Cleaning Service";
+      await supabaseAdmin.from("jobs").insert({
+        client_id: estimate.client_id,
+        service: serviceName,
+        scheduled_at: new Date().toISOString(),
+        price: estimate.total,
+        notes: `Auto-created from approved quote ${estimate.estimate_number}`,
+        status: "scheduled",
+      });
+
       return new Response(JSON.stringify({ success: true, message: "Quote approved" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
