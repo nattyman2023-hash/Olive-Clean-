@@ -13,12 +13,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
-import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Eye, Clock } from "lucide-react";
+import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Clock } from "lucide-react";
 import ActivityTimeline from "./ActivityTimeline";
 
-const STATUS_ORDER = ["new", "quoted", "scheduled", "converted"] as const;
-const STATUS_LABELS: Record<string, string> = { new: "New", quoted: "Quoted", scheduled: "Scheduled", converted: "Converted" };
-const STATUS_COLORS: Record<string, string> = { new: "bg-blue-100 text-blue-800", quoted: "bg-amber-100 text-amber-800", scheduled: "bg-primary/10 text-primary", converted: "bg-emerald-100 text-emerald-800" };
+const STATUS_ORDER = ["new", "quoted", "scheduled", "converted", "archived"] as const;
+const STATUS_LABELS: Record<string, string> = { new: "New", quoted: "Quoted", scheduled: "Scheduled", converted: "Converted", archived: "Archived" };
+const STATUS_COLORS: Record<string, string> = { new: "bg-blue-100 text-blue-800", quoted: "bg-amber-100 text-amber-800", scheduled: "bg-primary/10 text-primary", converted: "bg-emerald-100 text-emerald-800", archived: "bg-muted text-muted-foreground" };
 
 function scoreColor(score: number) {
   if (score >= 60) return "bg-emerald-100 text-emerald-800";
@@ -177,6 +177,9 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
   });
 
   const filtered = leads.filter((l: any) => {
+    // Hide scheduled leads by default (they live in Jobs now) unless explicitly filtered
+    if (statusFilter === "all" && l.status === "scheduled") return false;
+    if (statusFilter === "all" && l.status === "archived") return false;
     if (statusFilter !== "all" && l.status !== statusFilter) return false;
     if (search) {
       const s = search.toLowerCase();
@@ -263,9 +266,6 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedLead(lead)} title="View details">
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingLead({ ...lead })} title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -409,6 +409,11 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                 <Button variant="outline" size="sm" className="text-xs" onClick={() => { setEditingLead({ ...selectedLead }); setSelectedLead(null); }}>
                   <Pencil className="h-3 w-3 mr-1" /> Edit
                 </Button>
+                {selectedLead.status !== "archived" && (
+                  <Button variant="outline" size="sm" className="text-xs" onClick={() => { updateStatus.mutate({ id: selectedLead.id, status: "archived" }); setSelectedLead(null); }}>
+                    Archive
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="text-xs text-destructive hover:text-destructive" onClick={() => { setDeleteLeadId(selectedLead.id); setSelectedLead(null); }}>
                   <Trash2 className="h-3 w-3 mr-1" /> Delete
                 </Button>

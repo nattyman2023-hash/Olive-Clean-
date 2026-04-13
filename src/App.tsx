@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,6 +12,12 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import PageLoader from "@/components/PageLoader";
 import SmartRedirect from "@/components/SmartRedirect";
 import React, { Suspense } from "react";
+
+function ConditionalChatWidget() {
+  const location = useLocation();
+  if (location.pathname.startsWith("/admin")) return null;
+  return <ChatWidget />;
+}
 
 // Lazy-load all page components for code-splitting
 const Index = React.lazy(() => import("./pages/Index.tsx"));
@@ -83,7 +89,7 @@ const App = () => (
               </Routes>
             </Suspense>
           </ErrorBoundary>
-          <ChatWidget />
+          <ConditionalChatWidget />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

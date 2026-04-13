@@ -1,13 +1,18 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, subDays } from "date-fns";
-import { Phone, Mail, Loader2, AlertCircle, UserX, Clock, CheckSquare } from "lucide-react";
+import { Phone, Mail, Loader2, AlertCircle, UserX, Clock, CheckSquare, ArrowRight } from "lucide-react";
+import ActivityTimeline from "./ActivityTimeline";
 
-interface CallItem {
+type OutreachStatus = "needs_nudge" | "attempted" | "speaking" | "won_back";
+
+interface OutreachItem {
   id: string;
   name: string;
   email: string | null;
@@ -16,21 +21,46 @@ interface CallItem {
   tag: string;
   parentType: "lead" | "client";
   detail: string;
+  outreachStatus: OutreachStatus;
 }
+
+const COLUMNS: { key: OutreachStatus; label: string; color: string }[] = [
+  { key: "needs_nudge", label: "Needs Nudge", color: "border-destructive/30" },
+  { key: "attempted", label: "Attempted", color: "border-amber-400/40" },
+  { key: "speaking", label: "Speaking", color: "border-blue-400/40" },
+  { key: "won_back", label: "Won Back", color: "border-emerald-400/40" },
+];
+
+const TAG_STYLES: Record<string, string> = {
+  "Stale Lead": "bg-destructive/10 text-destructive",
+  "Stale Quote": "bg-amber-100 text-amber-800",
+  "Win-back": "bg-purple-100 text-purple-800",
+  "Follow-up Task": "bg-blue-100 text-blue-800",
+};
+
+const TAG_ICONS: Record<string, React.ElementType> = {
+  "Stale Lead": AlertCircle,
+  "Stale Quote": Clock,
+  "Win-back": UserX,
+  "Follow-up Task": CheckSquare,
+};
 
 export default function CallListTab() {
   const queryClient = useQueryClient();
+  const [selectedItem, setSelectedItem] = useState<OutreachItem | null>(null);
+  // Local status overrides for client-type items (no DB column)
+  const [clientStatuses, setClientStatuses] = useState<Record<string, OutreachStatus>>({});
 
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ["call-list"],
+    queryKey: ["outreach-hub"],
     queryFn: async () => {
-      const list: CallItem[] = [];
+      const list: OutreachItem[] = [];
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
-      // 1. Stale leads: new, created > 2 hours ago
+      // 1. Stale leads
       const { data: staleLeads } = await supabase
         .from("leads")
-        .select("id, name, email, phone, created_at")
+        .select("id, name, email, phone, created_at, outreach_status")
         .eq("status", "new")
         .lt("created_at", twoHoursAgo)
         .order("created_at", { ascending: true })
@@ -42,10 +72,11 @@ export default function CallListTab() {
           reason: `New lead, no response for ${formatDistanceToNow(new Date(l.created_at))}`,
           tag: "Stale Lead", parentType: "lead",
           detail: format(new Date(l.created_at), "MMM d"),
+          outreachStatus: l.outreach_status || "needs_nudge",
         });
       });
 
-      // 2. Stale quotes: sent > 7 days ago, not accepted
+      // 2. Stale quotes
       const sevenDaysAgo = subDays(new Date(), 7).toISOString();
       const { data: staleQuotes } = await supabase
         .from("estimates")
@@ -63,14 +94,15 @@ export default function CallListTab() {
           reason: `Quote ${q.estimate_number} sent ${formatDistanceToNow(new Date(q.sent_at))} ago, no response`,
           tag: "Stale Quote", parentType: "client",
           detail: q.estimate_number,
+          outreachStatus: "needs_nudge",
         });
       });
 
-      // 3. Lost clients: no job completed in 45+ days
+      // 3. Lost clients
       const fortyFiveDaysAgo = subDays(new Date(), 45).toISOString();
       const { data: allClients } = await supabase
         .from("clients")
-        .select("id, name, email, phone")
+        .select("id, name, email, phone, created_at")
         .limit(200);
 
       if (allClients && allClients.length > 0) {
@@ -80,7 +112,6 @@ export default function CallListTab() {
           .eq("status", "completed")
           .gte("completed_at", fortyFiveDaysAgo);
         const activeClientIds = new Set((recentJobs || []).map((j: any) => j.client_id));
-        // Also exclude clients created in last 45 days (they're new)
         allClients.forEach((c: any) => {
           if (!activeClientIds.has(c.id) && new Date(c.created_at || 0) < new Date(fortyFiveDaysAgo)) {
             list.push({
@@ -88,12 +119,13 @@ export default function CallListTab() {
               reason: "No completed job in 45+ days",
               tag: "Win-back", parentType: "client",
               detail: "",
+              outreachStatus: "needs_nudge",
             });
           }
         });
       }
 
-      // 4. Pending tasks from crm_notes
+      // 4. Pending tasks
       const { data: tasks } = await supabase
         .from("crm_notes")
         .select("id, parent_type, parent_id, content, created_at")
@@ -103,7 +135,6 @@ export default function CallListTab() {
         .limit(50);
 
       if (tasks && tasks.length > 0) {
-        // Get names for parent_ids
         const leadIds = tasks.filter((t: any) => t.parent_type === "lead").map((t: any) => t.parent_id);
         const clientIds = tasks.filter((t: any) => t.parent_type === "client").map((t: any) => t.parent_id);
         const [leadNames, clientNames] = await Promise.all([
@@ -121,6 +152,7 @@ export default function CallListTab() {
             email: parent?.email || null, phone: parent?.phone || null,
             reason: t.content.substring(0, 80), tag: "Follow-up Task",
             parentType: t.parent_type, detail: format(new Date(t.created_at), "MMM d"),
+            outreachStatus: "needs_nudge",
           });
         });
       }
@@ -131,34 +163,42 @@ export default function CallListTab() {
   });
 
   const logCall = useMutation({
-    mutationFn: async (item: CallItem) => {
+    mutationFn: async (item: OutreachItem) => {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("crm_notes").insert({
         parent_type: item.parentType,
         parent_id: item.id,
         author_id: user?.id || null,
-        content: "Phone call logged from Call List",
+        content: "Phone call logged from Outreach Hub",
         note_type: "phone_call",
       });
+      // Move lead outreach_status to "attempted"
+      if (item.parentType === "lead") {
+        await supabase.from("leads").update({ outreach_status: "attempted" } as any).eq("id", item.id);
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["call-list"] });
-      toast.success("Call logged");
+    onSuccess: (_, item) => {
+      queryClient.invalidateQueries({ queryKey: ["outreach-hub"] });
+      if (item.parentType === "client") {
+        setClientStatuses((prev) => ({ ...prev, [item.id]: "attempted" }));
+      }
+      toast.success("Call logged — moved to Attempted");
     },
   });
 
-  const TAG_STYLES: Record<string, string> = {
-    "Stale Lead": "bg-destructive/10 text-destructive",
-    "Stale Quote": "bg-amber-100 text-amber-800",
-    "Win-back": "bg-purple-100 text-purple-800",
-    "Follow-up Task": "bg-blue-100 text-blue-800",
+  const moveItem = async (item: OutreachItem, newStatus: OutreachStatus) => {
+    if (item.parentType === "lead") {
+      await supabase.from("leads").update({ outreach_status: newStatus } as any).eq("id", item.id);
+      queryClient.invalidateQueries({ queryKey: ["outreach-hub"] });
+    } else {
+      setClientStatuses((prev) => ({ ...prev, [item.id]: newStatus }));
+    }
+    toast.success(`Moved to ${COLUMNS.find((c) => c.key === newStatus)?.label}`);
   };
 
-  const TAG_ICONS: Record<string, React.ElementType> = {
-    "Stale Lead": AlertCircle,
-    "Stale Quote": Clock,
-    "Win-back": UserX,
-    "Follow-up Task": CheckSquare,
+  const getItemStatus = (item: OutreachItem): OutreachStatus => {
+    if (item.parentType === "client" && clientStatuses[item.id]) return clientStatuses[item.id];
+    return item.outreachStatus;
   };
 
   if (isLoading) {
@@ -168,7 +208,7 @@ export default function CallListTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Priority Call List</h2>
+        <h2 className="text-lg font-semibold text-foreground">Outreach Hub</h2>
         <p className="text-xs text-muted-foreground mt-1">
           {items.length} contact{items.length !== 1 ? "s" : ""} needing follow-up
         </p>
@@ -176,17 +216,13 @@ export default function CallListTab() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {["Stale Lead", "Stale Quote", "Win-back", "Follow-up Task"].map((tag) => {
-          const count = items.filter((i) => i.tag === tag).length;
-          const Icon = TAG_ICONS[tag];
+        {COLUMNS.map((col) => {
+          const count = items.filter((i) => getItemStatus(i) === col.key).length;
           return (
-            <Card key={tag}>
-              <CardContent className="py-3 px-4 flex items-center gap-2">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-2xl font-bold text-foreground tabular-nums">{count}</p>
-                  <p className="text-[0.65rem] text-muted-foreground">{tag}</p>
-                </div>
+            <Card key={col.key}>
+              <CardContent className="py-3 px-4">
+                <p className="text-2xl font-bold text-foreground tabular-nums">{count}</p>
+                <p className="text-[0.65rem] text-muted-foreground">{col.label}</p>
               </CardContent>
             </Card>
           );
@@ -199,43 +235,96 @@ export default function CallListTab() {
           <p className="text-sm">All caught up! No follow-ups needed.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {items.map((item, idx) => {
-            const Icon = TAG_ICONS[item.tag] || AlertCircle;
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {COLUMNS.map((col) => {
+            const colItems = items.filter((i) => getItemStatus(i) === col.key);
             return (
-              <Card key={`${item.id}-${idx}`}>
-                <CardContent className="py-3 px-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm text-foreground">{item.name}</p>
-                        <Badge variant="secondary" className={`text-[0.6rem] ${TAG_STYLES[item.tag] || ""}`}>
-                          <Icon className="h-2.5 w-2.5 mr-0.5" /> {item.tag}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{item.reason}</p>
-                      <div className="flex gap-3 text-[0.65rem] text-muted-foreground">
-                        {item.phone && <span className="inline-flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" /> {item.phone}</span>}
-                        {item.email && <span className="inline-flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" /> {item.email}</span>}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <Button size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => logCall.mutate(item)}>
-                        <Phone className="h-3 w-3" /> Log Call
-                      </Button>
-                      {item.email && (
-                        <Button size="sm" variant="outline" className="text-xs h-7 gap-1" asChild>
-                          <a href={`mailto:${item.email}`}><Mail className="h-3 w-3" /> Email</a>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={col.key} className={`rounded-xl border-2 ${col.color} bg-card p-3 space-y-2 min-h-[200px]`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">{col.label}</h3>
+                  <Badge variant="secondary" className="text-[0.6rem]">{colItems.length}</Badge>
+                </div>
+                {colItems.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic text-center py-6">No contacts</p>
+                )}
+                {colItems.map((item, idx) => {
+                  const Icon = TAG_ICONS[item.tag] || AlertCircle;
+                  return (
+                    <Card key={`${item.id}-${idx}`} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setSelectedItem(item)}>
+                      <CardContent className="py-2.5 px-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-xs text-foreground truncate flex-1">{item.name}</p>
+                          <Badge variant="secondary" className={`text-[0.55rem] shrink-0 ${TAG_STYLES[item.tag] || ""}`}>
+                            <Icon className="h-2 w-2 mr-0.5" /> {item.tag}
+                          </Badge>
+                        </div>
+                        <p className="text-[0.6rem] text-muted-foreground line-clamp-2">{item.reason}</p>
+                        <div className="flex gap-2 mt-1.5">
+                          <Button size="sm" variant="outline" className="text-[0.6rem] h-5 px-1.5 gap-0.5" onClick={(e) => { e.stopPropagation(); logCall.mutate(item); }}>
+                            <Phone className="h-2.5 w-2.5" /> Call
+                          </Button>
+                          {item.email && (
+                            <Button size="sm" variant="outline" className="text-[0.6rem] h-5 px-1.5 gap-0.5" asChild onClick={(e) => e.stopPropagation()}>
+                              <a href={`mailto:${item.email}`}><Mail className="h-2.5 w-2.5" /> Email</a>
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             );
           })}
         </div>
       )}
+
+      {/* Detail Sheet */}
+      <Sheet open={!!selectedItem} onOpenChange={(o) => { if (!o) setSelectedItem(null); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-base">{selectedItem?.name || "Contact Details"}</SheetTitle>
+          </SheetHeader>
+          {selectedItem && (
+            <div className="space-y-4 mt-4">
+              {/* Contact Info */}
+              <div className="grid grid-cols-2 gap-3 text-sm bg-muted/30 rounded-lg p-3">
+                <div><p className="text-[0.65rem] text-muted-foreground">Email</p><p className="text-foreground text-xs">{selectedItem.email || "—"}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Phone</p><p className="text-foreground text-xs">{selectedItem.phone || "—"}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Reason</p><p className="text-foreground text-xs">{selectedItem.reason}</p></div>
+                <div><p className="text-[0.65rem] text-muted-foreground">Tag</p><Badge variant="secondary" className={`${TAG_STYLES[selectedItem.tag] || ""} text-[0.6rem]`}>{selectedItem.tag}</Badge></div>
+              </div>
+
+              {/* Move Actions */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Move to column</p>
+                <div className="flex flex-wrap gap-2">
+                  {COLUMNS.filter((c) => c.key !== getItemStatus(selectedItem)).map((col) => (
+                    <Button key={col.key} size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => { moveItem(selectedItem, col.key); setSelectedItem(null); }}>
+                      <ArrowRight className="h-3 w-3" /> {col.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => logCall.mutate(selectedItem)}>
+                  <Phone className="h-3 w-3" /> Log Call
+                </Button>
+                {selectedItem.email && (
+                  <Button size="sm" variant="outline" className="text-xs h-7 gap-1" asChild>
+                    <a href={`mailto:${selectedItem.email}`}><Mail className="h-3 w-3" /> Email</a>
+                  </Button>
+                )}
+              </div>
+
+              {/* Activity Timeline */}
+              <ActivityTimeline parentType={selectedItem.parentType} parentId={selectedItem.id} />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

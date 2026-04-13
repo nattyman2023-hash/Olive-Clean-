@@ -5,14 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useIsDesktop } from "@/hooks/use-mobile";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-} from "@/components/ui/drawer";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,7 +83,6 @@ const jobStatusConfig: Record<string, { label: string; icon: typeof Clock; class
 const FALLBACK_SERVICES = ["essential", "general", "signature-deep", "makeover-deep"];
 
 export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; onNavigate?: (section: string, targetId?: string) => void }) {
-  const isDesktop = useIsDesktop();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
@@ -150,7 +147,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       toast.error("Failed to load jobs.");
       return;
     }
-    // Build employee lookup by user_id (assigned_to stores user_id)
     const empByUserId = new Map(employees.map((e) => [e.user_id, e]));
     const normalized = (data || []).map((j: any) => ({
       ...j,
@@ -191,7 +187,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     }
     toast.success("Job created.");
 
-    // Send job-assigned email if assigned
     if (form.assigned_to) {
       const emp = employees.find((e) => e.user_id === form.assigned_to);
       const client = clients.find((c) => c.id === form.client_id);
@@ -242,7 +237,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
           const newCount = (member.cleanings_completed || 0) + 1;
           const updateData: any = { cleanings_completed: newCount };
 
-          // Fetch program to get interval
           const PROGRAM_KEY_MAP: Record<string, string> = {
             loyalty_club: "Loyalty Club", friends_family: "Friends & Family",
             veterans: "Veterans", retired: "Retired",
@@ -264,7 +258,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
             });
           }
 
-          // 6-month complimentary dusting check
           if (member.joined_at) {
             const joinedDate = new Date(member.joined_at);
             const sixMonthsAgo = new Date();
@@ -286,7 +279,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
             }
           }
 
-          // Referral reward: if this member was referred, award referrer on first completed cleaning
           if (member.referred_by && newCount === 1) {
             const { data: existingReward } = await supabase
               .from("loyalty_milestones")
@@ -333,10 +325,11 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       }
     }
 
-    // Send job-update email to client for cancellations/rescheduling
+    // Boomerang logic: if cancelled, return associated lead to pipeline
     if (status === "cancelled") {
       const job = jobs.find((j) => j.id === id);
       if (job?.client_id) {
+        // Send job-update email to client
         const { data: clientData } = await supabase.from("clients").select("email, name").eq("id", job.client_id).single();
         if (clientData?.email) {
           supabase.functions.invoke("send-transactional-email", {
@@ -354,6 +347,24 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
           });
         }
       }
+
+      // Boomerang: find lead that converted to this job, set back to "new"
+      const { data: boomerangLead } = await supabase
+        .from("leads")
+        .select("id")
+        .eq("converted_job_id", id)
+        .maybeSingle();
+      if (boomerangLead) {
+        await supabase.from("leads").update({ status: "new" } as any).eq("id", boomerangLead.id);
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from("crm_notes").insert({
+          parent_type: "lead",
+          parent_id: boomerangLead.id,
+          author_id: user?.id || null,
+          content: "Job cancelled — lead returned to pipeline",
+          note_type: "system",
+        });
+      }
     }
 
     fetchJobs();
@@ -368,7 +379,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     }
     toast.success(employeeId ? "Job reassigned." : "Assignment removed.");
 
-    // Send job-assigned email to the employee
     if (employeeId) {
       const emp = employees.find((e) => e.user_id === employeeId);
       const job = jobs.find((j) => j.id === jobId);
@@ -453,7 +463,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     }
     toast.success(`${ids.length} job${ids.length > 1 ? "s" : ""} marked as ${status}.`);
 
-    // Auto-create invoice drafts for completed jobs
     if (status === "completed") {
       const completedJobs = jobs.filter((j) => ids.includes(j.id));
       for (const cj of completedJobs) {
@@ -657,120 +666,98 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       {viewMode === "map" ? (
         <JobsMap jobs={filtered} />
       ) : (
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-3">
-            {/* Select All */}
-            {!loading && filtered.length > 0 && (
-              <div className="flex items-center gap-3 px-2">
-                <Checkbox
-                  checked={selectedJobs.size === filtered.length && filtered.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-                <span className="text-xs text-muted-foreground">
-                  {selectedJobs.size > 0 ? `${selectedJobs.size} selected` : "Select all"}
-                </span>
-              </div>
-            )}
-            {loading ? (
-              <div className="text-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="bg-card rounded-xl border border-border p-12 text-center">
-                <p className="text-muted-foreground text-sm">No jobs found.</p>
-              </div>
-            ) : (
-              filtered.map((j) => {
-                const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
-                const Icon = sc.icon;
-                const isChecked = selectedJobs.has(j.id);
-                return (
-                  <div key={j.id} className="flex items-start gap-3">
-                    <div className="pt-5">
-                      <Checkbox
-                        checked={isChecked}
-                        onCheckedChange={() => toggleJobSelection(j.id)}
-                      />
-                    </div>
-                    <button
-                      onClick={() => setSelected(j)}
-                      className={`flex-1 text-left bg-card rounded-xl border p-5 transition-all hover:shadow-md active:scale-[0.99] ${
-                        selected?.id === j.id ? "border-primary shadow-md" : isChecked ? "border-primary/50 shadow-sm" : "border-border shadow-sm"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-foreground text-sm truncate">{j.clients?.name || "Unknown Client"}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </p>
-                          {j.employees?.name && (
-                            <div className="flex items-center gap-1.5 mt-1.5">
-                              <Avatar className="h-4 w-4">
-                                {j.employees.photo_url && <AvatarImage src={j.employees.photo_url} alt={j.employees.name} />}
-                                <AvatarFallback className="text-[0.4rem] bg-primary/10 text-primary">{getInitials(j.employees.name)}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-[0.65rem] text-muted-foreground">{j.employees.name}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
-                          <Icon className="h-3 w-3" />
-                          {sc.label}
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Detail — desktop inline, mobile/tablet drawer */}
-          {isDesktop ? (
-            <div className="lg:col-span-1">
-              {selected ? (
-              <JobDetailPanel
-                  job={selected}
-                  employees={employees}
-                  onStatusChange={updateJobStatus}
-                  onReassign={reassignJob}
-                  onLogDuration={logDuration}
-                  getInitials={getInitials}
-                  onNavigate={onNavigate}
-                />
-              ) : (
-                <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
-                  <Briefcase className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Select a job to view details</p>
-                </div>
-              )}
+        <div className="space-y-3">
+          {/* Select All */}
+          {!loading && filtered.length > 0 && (
+            <div className="flex items-center gap-3 px-2">
+              <Checkbox
+                checked={selectedJobs.size === filtered.length && filtered.length > 0}
+                onCheckedChange={toggleSelectAll}
+              />
+              <span className="text-xs text-muted-foreground">
+                {selectedJobs.size > 0 ? `${selectedJobs.size} selected` : "Select all"}
+              </span>
+            </div>
+          )}
+          {loading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="bg-card rounded-xl border border-border p-12 text-center">
+              <p className="text-muted-foreground text-sm">No jobs found.</p>
             </div>
           ) : (
-            <Drawer open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-              <DrawerContent className="max-h-[85vh] overflow-y-auto px-4 pb-6">
-                <DrawerHeader className="text-left">
-                  <DrawerTitle>{selected?.clients?.name || "Job Details"}</DrawerTitle>
-                  <DrawerDescription>
-                    {selected?.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || ""}
-                  </DrawerDescription>
-                </DrawerHeader>
-                {selected && (
-                  <JobDetailPanel
-                    job={selected}
-                    employees={employees}
-                    onStatusChange={updateJobStatus}
-                    onReassign={reassignJob}
-                    onLogDuration={logDuration}
-                    getInitials={getInitials}
-                    onNavigate={onNavigate}
-                  />
-                )}
-              </DrawerContent>
-            </Drawer>
+            filtered.map((j) => {
+              const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
+              const Icon = sc.icon;
+              const isChecked = selectedJobs.has(j.id);
+              return (
+                <div key={j.id} className="flex items-start gap-3">
+                  <div className="pt-5">
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={() => toggleJobSelection(j.id)}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setSelected(j)}
+                    className={`flex-1 text-left bg-card rounded-xl border p-5 transition-all hover:shadow-md active:scale-[0.99] ${
+                      selected?.id === j.id ? "border-primary shadow-md" : isChecked ? "border-primary/50 shadow-sm" : "border-border shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-foreground text-sm truncate">{j.clients?.name || "Unknown Client"}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                        {j.employees?.name && (
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <Avatar className="h-4 w-4">
+                              {j.employees.photo_url && <AvatarImage src={j.employees.photo_url} alt={j.employees.name} />}
+                              <AvatarFallback className="text-[0.4rem] bg-primary/10 text-primary">{getInitials(j.employees.name)}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-[0.65rem] text-muted-foreground">{j.employees.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
+                        <Icon className="h-3 w-3" />
+                        {sc.label}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
       )}
+
+      {/* Job Detail Sheet (right drawer) */}
+      <Sheet open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-base">
+              {selected?.clients?.name || "Job Details"}
+            </SheetTitle>
+          </SheetHeader>
+          {selected && (
+            <div className="mt-4">
+              <JobDetailPanel
+                job={selected}
+                employees={employees}
+                onStatusChange={updateJobStatus}
+                onReassign={reassignJob}
+                onLogDuration={logDuration}
+                getInitials={getInitials}
+                onNavigate={onNavigate}
+              />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Bulk Action Toolbar */}
       {!readOnly && selectedJobs.size > 0 && (
@@ -831,7 +818,7 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
   );
 }
 
-/* ---------- Detail Panel (extracted for readability) ---------- */
+/* ---------- Detail Panel ---------- */
 
 interface DetailProps {
   job: Job;
@@ -845,7 +832,7 @@ interface DetailProps {
 
 function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, getInitials, onNavigate }: DetailProps) {
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
+    <div className="space-y-5">
       <div>
         <button
           onClick={() => onNavigate?.("clients", job.client_id)}
