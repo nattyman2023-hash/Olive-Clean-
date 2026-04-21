@@ -373,7 +373,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Lead Detail Sheet (CRM Hub) */}
       <Sheet open={!!selectedLead} onOpenChange={(o) => { if (!o) setSelectedLead(null); }}>
