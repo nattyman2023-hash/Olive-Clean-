@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Clock } from "lucide-react";
 import ActivityTimeline from "./ActivityTimeline";
+import LeadsKanban from "./leads/LeadsKanban";
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 
 const STATUS_ORDER = ["new", "quoted", "scheduled", "converted", "archived"] as const;
 const STATUS_LABELS: Record<string, string> = { new: "New", quoted: "Quoted", scheduled: "Scheduled", converted: "Converted", archived: "Archived" };
@@ -53,6 +55,14 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [editingLead, setEditingLead] = useState<any | null>(null);
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">(() => {
+    if (typeof window === "undefined") return "kanban";
+    return (localStorage.getItem("leads-view-mode") as "kanban" | "list") || "kanban";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("leads-view-mode", viewMode);
+  }, [viewMode]);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["admin-leads"],
@@ -196,38 +206,86 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Filters + View Toggle */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads..." className="pl-9" />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {viewMode === "list" && (
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30 self-end sm:self-auto">
+          <Button
+            type="button"
+            variant={viewMode === "kanban" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode("kanban")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Kanban
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1"
+            onClick={() => setViewMode("list")}
+          >
+            <ListIcon className="h-3.5 w-3.5" /> List
+          </Button>
+        </div>
       </div>
 
-      {/* Pipeline summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {STATUS_ORDER.map(s => {
-          const count = leads.filter((l: any) => l.status === s).length;
-          return (
-            <Card key={s} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setStatusFilter(s)}>
-              <CardContent className="py-3 px-4">
-                <p className="text-xs text-muted-foreground">{STATUS_LABELS[s]}</p>
-                <p className="text-2xl font-bold text-foreground tabular-nums">{count}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Pipeline summary (list view only) */}
+      {viewMode === "list" && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {STATUS_ORDER.map(s => {
+            const count = leads.filter((l: any) => l.status === s).length;
+            return (
+              <Card key={s} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setStatusFilter(s)}>
+                <CardContent className="py-3 px-4">
+                  <p className="text-xs text-muted-foreground">{STATUS_LABELS[s]}</p>
+                  <p className="text-2xl font-bold text-foreground tabular-nums">{count}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Leads list */}
-      {filtered.length === 0 ? (
+      {/* Kanban view */}
+      {viewMode === "kanban" && (
+        <LeadsKanban
+          leads={leads}
+          search={search}
+          onSelectLead={(lead) => setSelectedLead(lead)}
+          onConvertLead={(lead) => convertToJob.mutate(lead)}
+          onCreateQuote={(lead) => {
+            if (!onNavigate) return;
+            sessionStorage.setItem("prefill-quote", JSON.stringify({
+              leadId: lead.id,
+              name: lead.name,
+              email: lead.email,
+              phone: lead.phone,
+              address: lead.location,
+              service: lead.frequency === "one-time" ? "deep-clean" : "general",
+              bedrooms: lead.bedrooms,
+              bathrooms: lead.bathrooms,
+            }));
+            onNavigate("quotes");
+          }}
+        />
+      )}
+
+      {/* Leads list (list view only) */}
+      {viewMode === "list" && (filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <User className="h-8 w-8 mx-auto mb-2 opacity-40" />
           <p className="text-sm">No leads found</p>
@@ -315,7 +373,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Lead Detail Sheet (CRM Hub) */}
       <Sheet open={!!selectedLead} onOpenChange={(o) => { if (!o) setSelectedLead(null); }}>
