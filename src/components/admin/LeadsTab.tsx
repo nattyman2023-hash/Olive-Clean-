@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Clock } from "lucide-react";
 import ActivityTimeline from "./ActivityTimeline";
+import LeadsKanban from "./leads/LeadsKanban";
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 
 const STATUS_ORDER = ["new", "quoted", "scheduled", "converted", "archived"] as const;
 const STATUS_LABELS: Record<string, string> = { new: "New", quoted: "Quoted", scheduled: "Scheduled", converted: "Converted", archived: "Archived" };
@@ -53,6 +55,14 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [editingLead, setEditingLead] = useState<any | null>(null);
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">(() => {
+    if (typeof window === "undefined") return "kanban";
+    return (localStorage.getItem("leads-view-mode") as "kanban" | "list") || "kanban";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("leads-view-mode", viewMode);
+  }, [viewMode]);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["admin-leads"],
