@@ -1,91 +1,92 @@
+## Performance Optimization Pass
 
-
-## Leads Kanban Board with Drag-and-Drop Pipeline
-
-Transform the Leads section from a list view to a visual Kanban sales funnel. The existing drawer, ActivityTimeline, deduplication, and boomerang infrastructure stays — we're swapping the presentation layer.
+Five focused changes to reduce initial bundle size on every surface (public, admin, employee, client) without splitting into subdomains. No feature changes — purely how code is loaded.
 
 ---
 
-### 1. Kanban Architecture
+### 1. Lazy-load `ChatWidget` on public pages
 
-Six columns mapped to the existing `leads.status` field, with the Outreach column reading from `leads.outreach_status`:
+**Problem:** `ChatWidget` imports `react-markdown` and the full Supabase client, and currently loads on every public page even when the user never opens it.
 
-| Column | Source field / value |
-|--------|---------------------|
-| **New** | `status = 'new'` |
-| **Contacted** | `status = 'contacted'` |
-| **Quoted** | `status = 'quoted'` |
-| **Outreach (Nudge)** | `status = 'follow_up'` OR boomeranged leads |
-| **Converted** | `status = 'converted'` (collapsed by default — shows count only) |
-| **Archived** | `status = 'archived'` (hidden by default — toggle to view) |
+**Fix:** In `src/App.tsx`, convert `ChatWidget` to `React.lazy`. Inside `ConditionalChatWidget`, render a tiny always-visible floating button (plain HTML, no deps). Only mount the lazy `<ChatWidget />` after the user clicks it the first time.
 
-`status = 'scheduled'` leads remain hidden (already live in Jobs).
+**Win:** ~50–80 KB removed from every public page's initial load.
 
 ---
 
-### 2. Card Design
+### 2. Lazy-load every admin tab in `AdminDashboard.tsx`
 
-Each card shows:
-- **Header**: Name + color-coded score badge (red <40, amber 40–70, green >70)
-- **Body**: Service type, bedrooms/bathrooms, frequency
-- **Footer**: "Last activity X ago" (most recent `crm_notes` entry or `created_at`), source icon
-- **Red glow border**: if `status = 'new'` and no `crm_notes` entry in 48+ hours
+**Problem:** `AdminDashboard.tsx` eagerly imports all 19 tabs (Jobs, Routes, Analytics, Finance, Quotes, Hiring, Emails, etc.). Opening "Leads" forces the browser to also download Recharts, MapTiler GL, dnd-kit, and every Radix primitive used anywhere in admin.
 
-Clicking a card opens the existing right-side Sheet drawer with ActivityTimeline (no change to drawer).
+**Fix:** Convert all tab imports to `React.lazy()`, wrap `renderSection`'s output in a single `<Suspense fallback={<Loader2 />}>`. Each tab becomes its own chunk that downloads only when the admin clicks that sidebar item.
+
+**Win:** Initial admin load drops dramatically (likely 60–70%). Tab switches show a brief spinner the first time, then are instant (cached).
 
 ---
 
-### 3. Drag-and-Drop Behavior
+### 3. Lazy-load map components inside their tabs
 
-Use `@dnd-kit/core` (lighter than react-beautiful-dnd, better React 18 support).
+**Problem:** `JobsMap`, `RouteMap`, `EmployeeJobMap` pull in MapTiler SDK + map GL libraries (~200–400 KB). Currently loaded as soon as the parent tab opens, even if the user stays in List view.
 
-| Drop target | Action |
-|-------------|--------|
-| Any standard column | Update `leads.status` immediately |
-| **Quoted** | Update status + open "Create Quote" drawer prefilled |
-| **Archived** | Open dialog asking for loss reason (Price / No response / Out of area / Other) → save reason as `crm_notes` system entry → set `status = 'archived'` |
-| **Converted** | Trigger existing "Convert to Job" flow |
+**Fix:**
+- `JobsTab.tsx` → lazy-import `JobsMap`, only render when user toggles to map view
+- `RoutesTab.tsx` → lazy-import `RouteMap` (already partially lazy — verify and finish)
+- `EmployeeDashboard` → lazy-import `EmployeeJobMap`
 
-Optimistic UI updates with rollback on error.
+**Win:** Admins/employees who don't use map view never download map libs.
 
 ---
 
-### 4. Layout
+### 4. Manual vendor chunk splitting in `vite.config.ts`
 
-```text
-┌─────────┬───────────┬─────────┬──────────────┬───────────┬──────────┐
-│  NEW    │ CONTACTED │ QUOTED  │ OUTREACH     │ CONVERTED │ ARCHIVED │
-│ (count) │  (count)  │ (count) │ (count)      │  [hidden] │ [toggle] │
-├─────────┼───────────┼─────────┼──────────────┼───────────┼──────────┤
-│ [card]  │ [card]    │ [card]  │ [card]       │           │          │
-│ [card]  │ [card]    │         │ [card]       │           │          │
-│ [card]  │           │         │              │           │          │
-└─────────┴───────────┴─────────┴──────────────┴───────────┴──────────┘
-```
+**Problem:** Default Vite bundling lumps all `node_modules` into one big `vendor` chunk that gets invalidated on every dependency change.
 
-Header bar above board keeps existing controls: search, status filter (now acts as column highlight), source filter, sort, and "+ New Lead" button. A "View toggle" lets users switch back to the old list/table view if preferred.
+**Fix:** Add `build.rollupOptions.output.manualChunks` to `vite.config.ts` grouping libs:
+- `react-vendor`: react, react-dom, react-router-dom
+- `radix-vendor`: all `@radix-ui/*`
+- `query-vendor`: @tanstack/react-query, supabase client
+- `charts-vendor`: recharts, date-fns
+- `dnd-vendor`: @dnd-kit/*
+- `map-vendor`: maptiler-related libs
+- `markdown-vendor`: react-markdown
 
-Horizontal scroll on narrow viewports; columns stack vertically below 768px.
+**Win:** Better long-term browser caching — changing one feature doesn't invalidate the entire vendor bundle. Parallel chunk downloads.
 
 ---
 
-### 5. Files
+### 5. Audit `lucide-react` and barrel imports
 
-| File | Action |
+**Problem:** Pages like `AdminDashboard` import many icons; if any file uses `import * as Icons from 'lucide-react'`, the whole icon set ships.
+
+**Fix:** Quick `rg` audit to confirm all `lucide-react` imports are named (e.g. `import { Loader2 } from 'lucide-react'`). Same for any barrel files in `@/components/ui`. Fix any offenders.
+
+**Win:** Small but easy — a few KB per page.
+
+---
+
+### Files Modified
+
+| File | Change |
 |------|--------|
-| `package.json` | Add `@dnd-kit/core` and `@dnd-kit/sortable` |
-| `src/components/admin/LeadsTab.tsx` | Add view toggle (Kanban / List); render new Kanban as default |
-| `src/components/admin/leads/LeadsKanban.tsx` | **New** — Kanban board with DndContext, columns, drop handlers |
-| `src/components/admin/leads/LeadKanbanCard.tsx` | **New** — Individual draggable card with score, activity, glow |
-| `src/components/admin/leads/ArchiveReasonDialog.tsx` | **New** — Loss reason prompt on archive drop |
-| `src/components/admin/leads/leadStageConfig.ts` | **New** — Column definitions and status→column mapping |
+| `src/App.tsx` | Lazy `ChatWidget`, mount on first click only |
+| `src/pages/AdminDashboard.tsx` | Convert all 19 tab imports to `React.lazy` + `Suspense` wrapper |
+| `src/components/admin/JobsTab.tsx` | Lazy `JobsMap`, render only in map view |
+| `src/components/admin/RoutesTab.tsx` | Verify/complete lazy `RouteMap` |
+| `src/pages/EmployeeDashboard.tsx` | Lazy `EmployeeJobMap` |
+| `vite.config.ts` | Add `manualChunks` config |
+| (audit pass) | Fix any wildcard `lucide-react` or barrel imports |
 
-No database migration needed — `status` and `outreach_status` columns already exist. Loss reasons are persisted as `crm_notes` system entries with `note_type = 'system'` and content like "Lead archived: Price too high".
+---
 
-### What stays the same
-- Existing right-side Sheet drawer for lead details
-- ActivityTimeline component
-- Deduplication logic on lead creation
-- Boomerang logic from cancelled jobs
-- "+ New Lead", edit, delete actions
+### What Stays the Same
 
+- All features, routes, auth, RBAC
+- Visual design and UX (only difference: brief spinner first time you open a heavy tab)
+- No subdomain split — keeping single deploy
+- No database changes, no new dependencies
+
+---
+
+### Optional Follow-up (not in this pass)
+
+After deploy, run a real performance profile to measure improvement. If public marketing pages are still heavy after this pass, *then* consider splitting admin/employee/client portals into a subdomain.

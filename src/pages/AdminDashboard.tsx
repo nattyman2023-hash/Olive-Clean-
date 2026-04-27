@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import SEOHead from "@/components/SEOHead";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,24 +9,24 @@ import { toast } from "sonner";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 
-import ClientsTab from "@/components/admin/ClientsTab";
-import JobsTab from "@/components/admin/JobsTab";
-import PerksTab from "@/components/admin/PerksTab";
-import AnalyticsTab from "@/components/admin/AnalyticsTab";
-import TeamTab from "@/components/admin/TeamTab";
-import HiringTab from "@/components/admin/HiringTab";
-import RoutesTab from "@/components/admin/RoutesTab";
-import SuppliesTab from "@/components/admin/SuppliesTab";
-import FinanceTab from "@/components/admin/FinanceTab";
-import CalendarTab from "@/components/admin/CalendarTab";
-import TimeOffManager from "@/components/admin/TimeOffManager";
-import QuotesTab from "@/components/admin/QuotesTab";
-import RecentUploads from "@/components/admin/RecentUploads";
-import ServicesManager from "@/components/admin/ServicesManager";
-import LeadsTab from "@/components/admin/LeadsTab";
-import PermissionsManager from "@/components/admin/PermissionsManager";
-import EmailsTab from "@/components/admin/EmailsTab";
-import CallListTab from "@/components/admin/CallListTab";
+const ClientsTab = lazy(() => import("@/components/admin/ClientsTab"));
+const JobsTab = lazy(() => import("@/components/admin/JobsTab"));
+const PerksTab = lazy(() => import("@/components/admin/PerksTab"));
+const AnalyticsTab = lazy(() => import("@/components/admin/AnalyticsTab"));
+const TeamTab = lazy(() => import("@/components/admin/TeamTab"));
+const HiringTab = lazy(() => import("@/components/admin/HiringTab"));
+const RoutesTab = lazy(() => import("@/components/admin/RoutesTab"));
+const SuppliesTab = lazy(() => import("@/components/admin/SuppliesTab"));
+const FinanceTab = lazy(() => import("@/components/admin/FinanceTab"));
+const CalendarTab = lazy(() => import("@/components/admin/CalendarTab"));
+const TimeOffManager = lazy(() => import("@/components/admin/TimeOffManager"));
+const QuotesTab = lazy(() => import("@/components/admin/QuotesTab"));
+const RecentUploads = lazy(() => import("@/components/admin/RecentUploads"));
+const ServicesManager = lazy(() => import("@/components/admin/ServicesManager"));
+const LeadsTab = lazy(() => import("@/components/admin/LeadsTab"));
+const PermissionsManager = lazy(() => import("@/components/admin/PermissionsManager"));
+const EmailsTab = lazy(() => import("@/components/admin/EmailsTab"));
+const CallListTab = lazy(() => import("@/components/admin/CallListTab"));
 import NotificationBell from "@/components/NotificationBell";
 import QuickNoteButton from "@/components/admin/QuickNoteButton";
 import LowStockWidget from "@/components/admin/LowStockWidget";
@@ -121,7 +121,15 @@ export default function AdminDashboard() {
     return (
       <>
         <ReadOnlyBanner readOnly={readOnly} />
-        {content}
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          }
+        >
+          {content}
+        </Suspense>
       </>
     );
   }

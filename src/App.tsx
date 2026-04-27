@@ -7,16 +7,38 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import ImpersonationBar from "@/components/admin/ImpersonationBar";
 import ScrollToTop from "@/components/layout/ScrollToTop";
-import ChatWidget from "@/components/chat/ChatWidget";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import PageLoader from "@/components/PageLoader";
 import SmartRedirect from "@/components/SmartRedirect";
-import React, { Suspense } from "react";
+import { MessageCircle } from "lucide-react";
+import React, { Suspense, useState } from "react";
+
+const ChatWidget = React.lazy(() => import("@/components/chat/ChatWidget"));
 
 function ConditionalChatWidget() {
   const location = useLocation();
+  const [mounted, setMounted] = useState(false);
   if (location.pathname.startsWith("/admin")) return null;
-  return <ChatWidget />;
+
+  // Until the user clicks the button, render only a lightweight placeholder
+  // so we avoid loading react-markdown + chat code on initial page load.
+  if (!mounted) {
+    return (
+      <button
+        onClick={() => setMounted(true)}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground shadow-lg shadow-accent/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+        aria-label="Open chat"
+      >
+        <MessageCircle className="h-6 w-6" />
+      </button>
+    );
+  }
+
+    return (
+      <Suspense fallback={null}>
+        <ChatWidget defaultOpen />
+      </Suspense>
+    );
 }
 
 // Lazy-load all page components for code-splitting
