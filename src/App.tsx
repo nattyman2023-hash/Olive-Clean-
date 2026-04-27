@@ -34,11 +34,11 @@ function ConditionalChatWidget() {
     );
   }
 
-  return (
-    <Suspense fallback={null}>
-      <ChatWidget />
-    </Suspense>
-  );
+    return (
+      <Suspense fallback={null}>
+        <ChatWidget defaultOpen />
+      </Suspense>
+    );
 }
 
 // Lazy-load all page components for code-splitting
