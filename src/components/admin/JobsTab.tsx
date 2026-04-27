@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import ActivityTimeline from "./ActivityTimeline";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,7 @@ import {
   Filter,
   Trash2,
 } from "lucide-react";
-import JobsMap from "./jobs/JobsMap";
+const JobsMap = lazy(() => import("./jobs/JobsMap"));
 import JobPhotosGallery from "./JobPhotosGallery";
 import AttendanceVerification from "./AttendanceVerification";
 
@@ -665,7 +665,9 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
 
       {/* Map or List View */}
       {viewMode === "map" ? (
-        <JobsMap jobs={filtered} />
+        <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <JobsMap jobs={filtered} />
+        </Suspense>
       ) : (
         <div className="space-y-3">
           {/* Select All */}

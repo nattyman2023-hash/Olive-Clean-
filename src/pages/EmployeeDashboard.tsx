@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import SEOHead from "@/components/SEOHead";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +18,7 @@ import {
   Navigation, Home, Play, Receipt, Plus, Upload, MessageSquare,
   ChevronLeft, ChevronRight, CalendarDays, ArrowRightLeft
 } from "lucide-react";
-import EmployeeJobMap from "@/components/employee/EmployeeJobMap";
+const EmployeeJobMap = lazy(() => import("@/components/employee/EmployeeJobMap"));
 import TimeOffManager from "@/components/admin/TimeOffManager";
 import NotificationBell from "@/components/NotificationBell";
 import ShiftTradeCard from "@/components/employee/ShiftTradeCard";
@@ -307,7 +307,9 @@ export default function EmployeeDashboard() {
         )}
 
         {!jobsLoading && dayJobs.length > 0 && (
-          <EmployeeJobMap jobs={dayJobs} />
+          <Suspense fallback={null}>
+            <EmployeeJobMap jobs={dayJobs} />
+          </Suspense>
         )}
 
         {/* Team Messages */}
