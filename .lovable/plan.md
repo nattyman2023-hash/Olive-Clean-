@@ -1,94 +1,149 @@
-# Leads & Quotes — Fixes Pass
+# Jobs Tab Redesign + Auto Quote-to-Job Conversion
 
-Focused on the gaps you flagged. No Jobs/Outreach/Clients work in this pass — those come next.
+## Goals
+1. Reorganize the Jobs tab into 4 clear sections with safe, auditable status transitions and stronger filters.
+2. Make accepted quotes (whether accepted by the customer via link or by an admin) automatically become a job, disappear from the active quote engine, and leave a visible trail everywhere.
 
-## 1. Add Lead (manual entry)
+---
 
-New **"+ Add Lead"** button at top-right of `LeadsTab.tsx`, next to the search/filters. Opens a right-side drawer (`AddLeadDrawer.tsx`) using:
-- `Input` for name + email
-- `PhoneInput` (E.164 validated)
-- `AddressInput` (street / city / state / zip)
-- Optional: bedrooms, bathrooms, frequency, urgency, source (default `manual`), notes
+## Part 1 — Jobs Tab Sectioned Redesign
 
-On save: insert into `leads` with `status='new'`, `source='manual'`, structured address fields. Toast + close + refresh Kanban.
+### New section model
+Status mapping (existing `jobs.status` values: `scheduled`, `in_progress`, `completed`, `cancelled`):
 
-## 2. Drag-and-drop verification & fix
+| Section | Includes | Purpose |
+|---|---|---|
+| **New** | `scheduled` jobs created in the last 24h **or** still unassigned (`assigned_to IS NULL`) | Triage queue — needs a tech assigned / confirmed |
+| **Scheduled** | `scheduled` (assigned) + `in_progress` | Active operations board |
+| **Converted** | `completed` | Done — invoice was auto-drafted, view payouts/feedback |
+| **Archived** | `cancelled` | Cancellation reason + restore action |
 
-The DnD is wired in `LeadsKanban.tsx` but you say it's not working. Likely causes:
-- Card drag handle overlapping clickable areas (whole-card click hijacks pointer before activation distance hits)
-- Sensor `activationConstraint: { distance: 6 }` may need to drop to `4`, or switch to a dedicated drag handle (grip icon top-right of card)
+Sections render as **tabs at the top** of the Jobs tab, with a count badge per section. Default tab = **New**. List/Map view toggle stays.
 
-Fix: add an explicit drag-handle area on `LeadKanbanCard.tsx` (small grip icon, `cursor-grab`) so clicking the card body still opens the drawer but dragging only works from the handle. Also add visual feedback (cursor + opacity) during drag.
+### Status-safe transitions
+Replace the free-form status dropdown with an explicit transition matrix (only legal moves are shown as buttons in the drawer + bulk menu):
 
-## 3. Remove duplicate "Create Quote" actions
+```text
+scheduled ──▶ in_progress ──▶ completed
+    │              │
+    └──▶ cancelled ◀┘   (in_progress → cancelled requires reason)
+completed ──▶ (locked, admin-only "reopen" reverts to in_progress)
+cancelled ──▶ (admin-only "restore" → scheduled)
+```
 
-Audit:
-- `LeadKanbanCard.tsx` "Quote" button
-- Lead detail drawer "Create Quote" button
-- Drag-to-Quoted column auto-trigger
+Rules enforced client-side + via existing RLS:
+- Cannot skip from `scheduled` → `completed` without going through `in_progress` (prevents accidental completion of unstarted work).
+- `cancelled` requires a reason saved to `jobs.cancel_reason` and timestamp `jobs.cancelled_at` (already exists).
+- `completed` writes `completed_at` (already does); reopen clears it and the auto-draft invoice toast warns admin.
+- Every transition writes a row to `crm_notes` (parent_type=`job`, parent_id=jobId, note_type=`status_change`) capturing actor, old → new, optional reason. This is the audit trail surfaced in the job drawer's Activity timeline.
 
-Keep **one** path: a single "Create Quote" button inside the **lead detail drawer** + the drag-to-Quoted-column shortcut. Remove the redundant button from the kanban card itself (cards stay clean — click to open drawer, drag to move).
+### Better filters
+Top filter bar (collapsible, persistent in URL params):
+- Date range (from / to) on `scheduled_at`
+- Assigned tech (multi-select)
+- Service (multi-select)
+- Neighborhood
+- Source: `from_quote`, `from_lead`, `manual` — derived from `notes` prefix today; we'll add an explicit `jobs.source text` column for clean filtering
+- Quick chips: **Today**, **This week**, **Unassigned**, **Overdue** (scheduled in past, not started)
 
-## 4. Quick Quote button on Quotes tab (walk-in caller flow)
+Active filter count + "Clear all" stays as today.
 
-New **"+ Quick Quote"** button at top of `QuotesTab.tsx`. Opens a drawer that does the full flow in one place:
+### Visual layout
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Jobs   [+ New Job]                          [List | Map] │
+├──────────────────────────────────────────────────────────┤
+│ [New 4]  [Scheduled 27]  [Converted 113]  [Archived 6]  │
+├──────────────────────────────────────────────────────────┤
+│ Filters: Date▾  Tech▾  Service▾  Source▾  [Clear]       │
+│ Chips:  Today · This week · Unassigned · Overdue        │
+├──────────────────────────────────────────────────────────┤
+│ ☐ Job rows … (compact, with status-aware action buttons)│
+└──────────────────────────────────────────────────────────┘
+```
 
-**Step 1 — Client lookup/create (inline in drawer):**
-- Search field that matches existing clients by name/email/phone (live)
-- If no match: inline form with name + `PhoneInput` + email + `AddressInput`
-- On submit, calls `findOrCreateClient` (already exists) — returns client_id
+Job detail still uses the right-side **Drawer Standard** sheet (per project memory).
 
-**Step 2 — Build the quote:**
-- Reuses `InvoiceForm` (`type="estimate"`) prefilled with that client_id
-- Default 14-day expiry (already implemented)
-- Save → creates estimate → toast with "Send to client" action that triggers existing send flow
+---
 
-This means admins can take a phone call and produce a sendable quote without ever touching Leads.
+## Part 2 — Automatic Quote → Job Conversion
 
-## 5. PhoneInput / AddressInput rollout
+### Today's gaps
+- `quote-action` edge function (customer accepts via email link) creates a job ✅ but leaves the estimate at `status='accepted'`, so it still appears in the active quotes list.
+- `EstimatesSection.updateStatus` (admin marks accepted) creates a job but does the same.
+- There's a separate "Convert to Job" dialog (`handleConvertToJob`) — duplicated path.
+- No audit trail entry on the quote, lead, or job.
+- Customer/admin don't see a confirmation that the quote became Job #X.
 
-Replace plain text inputs in:
-- `AddLeadDrawer.tsx` (new) — uses both
-- Quick Quote drawer client form — uses both
-- `ClientsTab.tsx` add/edit client form — uses both
-- `BookingsTab.tsx` admin booking form — uses both
-- Public `BookPage.tsx` booking form — uses both
-- `LeadQuoteDrawer.tsx` — uses both when prefilling
+### Unified conversion flow
 
-`findOrCreateClient` already accepts the structured fields — passing them through populates `address_line1`, `city`, `state`, `zip` on the `clients` row.
+A single helper in code (`src/lib/convertQuoteToJob.ts`) used by both the admin path and the edge function path. It performs an idempotent transaction:
 
-## 6. Lead → Client conversion uses structured address
+1. Mark estimate `status='converted'`, set `converted_invoice_id` / new `converted_job_id` column on estimates (new column).
+2. Create the `jobs` row with `source='quote'`, `notes='From quote {estimate_number}'`.
+3. Create the draft invoice linked via `estimate_id` (already done).
+4. Insert audit rows:
+   - `crm_notes` on the **estimate** (parent_type=`estimate`): "Converted to Job #abcd1234 by {actor or 'customer via link'}"
+   - `crm_notes` on the **job**: "Created from quote {estimate_number}"
+   - If a matching lead exists (by `client_id` or email): set `leads.status='converted'`, `leads.converted_job_id`, add a note "Lead converted via quote acceptance"
+5. Insert a row in `notifications` for all admins: "Quote {number} accepted — Job created" with metadata linking to the job (so it shows in the bell + daily digest).
+6. Send the customer a transactional email `quote-accepted-confirmation` with the scheduled date placeholder + a link to view the job in their portal.
 
-When converting a lead, use `lead.address_line1/city/state/zip` (now populated by manual entry) to create the client with structured fields, not just the legacy single-line `location`.
+### "Removal from the quote engine"
+- `EstimatesSection` filters out `status IN ('converted', 'declined', 'expired')` from the active list by default.
+- Add a **"Show archived quotes"** toggle that reveals them with a clear converted/declined badge and a link to the resulting job.
+- Stale-quotes widget already excludes non-`sent`; verified.
+
+### User-visible status updates
+- **Admin Quotes tab**: accepted quote immediately shows a green "Converted → Job #xxxx" pill and is moved out of the active list.
+- **Admin Jobs tab**: new job lands in the **New** section with a "From quote" badge.
+- **Bell notifications**: admins get a real-time notification (uses existing `notifications` table + realtime channel).
+- **Customer portal** (`/portal`): client sees the new job in their upcoming list with a "Created from your accepted quote" note.
+- **Email**: customer gets the confirmation email; admins get it surfaced in the daily digest under "Quotes converted today".
+
+### Idempotency & race safety
+The helper checks `estimates.status === 'converted'` first and returns the existing `converted_job_id` if present — covers the case where the customer clicks Approve twice or admin and customer race.
 
 ---
 
 ## Technical Details
 
-**New files**
-- `src/components/admin/leads/AddLeadDrawer.tsx`
-- `src/components/admin/finance/QuickQuoteDrawer.tsx` (wraps a client lookup + InvoiceForm)
-- `src/components/admin/shared/ClientLookupOrCreate.tsx` (shared search-or-create combobox, reusable)
+### Database migration
+- `ALTER TABLE jobs ADD COLUMN source text DEFAULT 'manual';` (values: `manual`, `quote`, `lead`, `booking`)
+- `ALTER TABLE estimates ADD COLUMN converted_job_id uuid;`
+- Backfill: `UPDATE jobs SET source='quote' WHERE notes ILIKE 'Auto-created from%quote%' OR notes ILIKE 'Converted from%';`
+- No CHECK constraints (per project rules) — values validated in code.
 
-**Modified**
-- `src/components/admin/LeadsTab.tsx` — Add Lead button + drawer trigger
-- `src/components/admin/leads/LeadKanbanCard.tsx` — drag handle, remove inline Quote button
-- `src/components/admin/leads/LeadsKanban.tsx` — sensor tuning if needed
-- `src/components/admin/QuotesTab.tsx` — Quick Quote button + drawer
-- `src/components/admin/ClientsTab.tsx` — Phone/Address inputs in client form
-- `src/components/admin/BookingsTab.tsx` — Phone/Address inputs
-- `src/pages/BookPage.tsx` — Phone/Address inputs on public form
-- `src/lib/findOrCreateClient.ts` — already supports structured fields, no change needed
+### Files to add
+- `src/lib/convertQuoteToJob.ts` — shared idempotent conversion helper (client-side, uses RLS).
+- `src/components/admin/jobs/JobsSectionTabs.tsx` — tab strip with counts.
+- `src/components/admin/jobs/JobStatusActions.tsx` — renders only legal transition buttons + cancel-reason / reopen confirm dialogs.
+- `src/components/admin/jobs/JobFiltersBar.tsx` — extracted filter bar with quick chips and URL-param sync.
 
-**No DB migrations** — `leads` and `clients` already have `address_line1/city/state/zip` from the previous pass.
+### Files to edit
+- `src/components/admin/JobsTab.tsx` — replace the single status filter with the section tabs, integrate the new components, group rows by section.
+- `src/components/admin/QuotesTab.tsx` + `src/components/admin/finance/EstimatesSection.tsx` — call the shared `convertQuoteToJob` helper, hide converted quotes from active list, show "Converted → Job #" pill, add "Show archived" toggle.
+- `supabase/functions/quote-action/index.ts` — replace inline job/invoice/lead update block with the same logic (server-side equivalent), add `crm_notes` + `notifications` inserts, send `quote-accepted-confirmation` email, set `estimates.status='converted'` and `converted_job_id`.
+- `supabase/functions/_shared/` — add a small `convertQuoteToJob.ts` mirror used by the edge function.
+
+### New email template
+- `supabase/functions/send-transactional-email` already supports templates by name — register `quote-accepted-confirmation` (subject: "Your cleaning is booked! 🌿", body: estimate number, total, link to portal).
+
+### Removal of duplication
+- Drop the standalone "Convert to Job" dialog in EstimatesSection — accepting a quote IS the conversion. Keep a "Reschedule job" action on the resulting job instead (in Jobs tab).
+- Drop the duplicate job-creation block in `EstimatesSection.updateStatus`.
+
+### Non-goals (call out so we don't scope-creep)
+- Not changing the quote creation flow (Quick Quote drawer stays as-is).
+- Not changing payout / feedback automations triggered by `completed`.
+- Not touching the public quote-view page beyond the success state already there.
 
 ---
 
-## What this does NOT include (next passes)
-
-- Jobs Tab sectioned redesign (New / Scheduled / In Progress / Completed / Cancelled + cancel reason + refund)
-- Outreach Hub win-back Kanban
-- Clients Tab profile enrichment beyond address fields
-- End-to-end backend dedup audit across booking_requests → clients
-
-Approve and I'll ship this slice.
+## Acceptance Checklist
+- Jobs tab shows 4 tabs with live counts; default is **New**.
+- Status buttons in the job drawer only show legal next states; cancel requires a reason.
+- Every status change appears in the job's Activity timeline with actor + timestamp.
+- Customer accepting a quote via email creates a job, hides the quote from the active list, fires admin notification + customer confirmation, and writes audit notes on quote, job, and (if present) lead.
+- Admin marking a quote accepted does the exact same thing through the same helper.
+- Re-clicking Approve doesn't create a duplicate job.
