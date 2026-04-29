@@ -162,6 +162,19 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       employees: j.assigned_to ? empByUserId.get(j.assigned_to) || null : null,
     })) as Job[];
     setJobs(normalized);
+
+    // Deep link: if a notification stashed a job id, open that drawer
+    try {
+      const targetId = sessionStorage.getItem("openJobId");
+      if (targetId) {
+        const target = normalized.find((j) => j.id === targetId);
+        if (target) {
+          setSection(getSectionForJob(target));
+          setSelected(target);
+        }
+        sessionStorage.removeItem("openJobId");
+      }
+    } catch { /* noop */ }
   };
 
   const fetchClients = async () => {
