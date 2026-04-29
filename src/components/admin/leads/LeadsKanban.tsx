@@ -13,6 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import LeadKanbanCard from "./LeadKanbanCard";
@@ -259,20 +260,29 @@ function KanbanColumn({ stage, leads, collapsed, onToggleCollapse, onSelectLead,
       }`}
     >
       {/* Column header */}
-      <button
-        onClick={onToggleCollapse}
-        className="flex items-center justify-between px-3 py-2.5 border-b border-border/60 hover:bg-muted/50 transition-colors rounded-t-xl text-left"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`h-2 w-2 rounded-full ${stage.accent}`} />
-          <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="font-semibold text-xs text-foreground truncate">{stage.label}</span>
-          <Badge variant="secondary" className="text-[0.6rem] px-1.5 py-0 tabular-nums">
-            {leads.length}
-          </Badge>
-        </div>
-        {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-      </button>
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onToggleCollapse}
+              className="flex items-center justify-between px-3 py-2.5 border-b border-border/60 hover:bg-muted/50 transition-colors rounded-t-xl text-left w-full"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`h-2 w-2 rounded-full ${stage.accent}`} />
+                <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="font-semibold text-xs text-foreground truncate">{stage.label}</span>
+                <Badge variant="secondary" className="text-[0.6rem] px-1.5 py-0 tabular-nums">
+                  {leads.length}
+                </Badge>
+              </div>
+              {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[220px] text-xs">
+            {stage.description}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       {/* Cards */}
       {!collapsed && (

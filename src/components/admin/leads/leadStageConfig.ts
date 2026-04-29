@@ -30,7 +30,13 @@ export function leadToStage(lead: any): StageId | null {
   if (status === "contacted") return "contacted";
   if (status === "quoted") return "quoted";
   if (status === "follow_up" || status === "outreach" || lead?.outreach_status === "boomerang") return "outreach";
-  if (status === "converted") return "converted";
+  if (status === "converted") {
+    // Auto-hide converted leads after 7 days (still queryable in DB).
+    const created = lead?.created_at ? new Date(lead.created_at).getTime() : Date.now();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - created > sevenDays) return null;
+    return "converted";
+  }
   if (status === "archived") return "archived";
   return "new";
 }

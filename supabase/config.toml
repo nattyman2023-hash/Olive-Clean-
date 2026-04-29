@@ -23,3 +23,5 @@ project_id = "tgdhglzegfbmdnzvseaa"
     verify_jwt = false
   [functions.send-feedback-reminders]
     verify_jwt = true
+  [functions.quote-action]
+    verify_jwt = false
