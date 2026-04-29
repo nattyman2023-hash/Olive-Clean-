@@ -177,7 +177,17 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
 
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Estimates</h3>
-        {!readOnly && <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />New Estimate</Button>}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`text-[0.7rem] px-2.5 py-1 rounded-full border transition-colors ${
+              showArchived ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {showArchived ? "Hiding archived" : "Show archived"}
+          </button>
+          {!readOnly && <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg"><Plus className="h-4 w-4 mr-1" />New Estimate</Button>}
+        </div>
       </div>
 
       {showForm && <InvoiceForm type="estimate" onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); fetch_(); }} />}
@@ -188,11 +198,17 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
         <div className="bg-card rounded-xl border border-border p-12 text-center"><p className="text-sm text-muted-foreground">No estimates yet.</p></div>
       ) : (
         <div className="space-y-2">
-          {estimates.map((est) => (
+          {estimates.filter((e) => showArchived || !TERMINAL.has(e.status)).map((est) => (
             <div key={est.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <button onClick={() => setPreview(est)} className="font-medium text-sm text-foreground hover:text-primary truncate block">{est.estimate_number}</button>
                 <p className="text-xs text-muted-foreground">{est.clients?.name || "Unknown"} · ${Number(est.total).toFixed(2)}</p>
+                {est.status === "converted" && est.converted_job_id && (
+                  <p className="text-[0.65rem] text-violet-700 mt-1 inline-flex items-center gap-1">
+                    <ExternalLink className="h-2.5 w-2.5" />
+                    Converted → Job #{est.converted_job_id.slice(0, 8)}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[est.status] || STATUS_STYLES.draft}`}>{est.status}</span>
@@ -201,11 +217,11 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
                 {!readOnly && est.status === "draft" && (
                   <Button size="sm" variant="outline" onClick={() => updateStatus(est.id, "sent")} className="text-xs h-7 rounded-lg">Send</Button>
                 )}
-                {!readOnly && (est.status === "sent" || est.status === "accepted") && !est.converted_invoice_id && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => setConvertForm(est)} className="text-xs h-7 rounded-lg"><ArrowRight className="h-3 w-3 mr-1" />To Invoice</Button>
-                    <Button size="sm" variant="outline" onClick={() => { setJobDialog(est); setJobNotes(`Converted from ${est.estimate_number}`); }} className="text-xs h-7 rounded-lg"><Briefcase className="h-3 w-3 mr-1" />To Job</Button>
-                  </>
+                {!readOnly && est.status === "sent" && (
+                  <Button size="sm" variant="outline" onClick={() => updateStatus(est.id, "accepted")} className="text-xs h-7 rounded-lg">Mark Accepted</Button>
+                )}
+                {!readOnly && est.status === "accepted" && !est.converted_job_id && (
+                  <Button size="sm" variant="outline" onClick={() => convertNow(est)} className="text-xs h-7 rounded-lg"><ArrowRight className="h-3 w-3 mr-1" />Convert to Job</Button>
                 )}
                 {!readOnly && est.status === "accepted" && (
                   <Button
@@ -231,43 +247,6 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
           ))}
         </div>
       )}
-
-      {/* Convert to Job Dialog */}
-      <Dialog open={!!jobDialog} onOpenChange={(open) => { if (!open) setJobDialog(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Convert Quote to Job</DialogTitle>
-            <DialogDescription>
-              Create a scheduled job from {jobDialog?.estimate_number} for {jobDialog?.clients?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Scheduled Date & Time *</label>
-              <Input type="datetime-local" value={jobDate} onChange={(e) => setJobDate(e.target.value)} className="rounded-lg" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Service</label>
-              <p className="text-sm text-foreground">{jobDialog?.items?.[0]?.description || "Cleaning Service"}</p>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Price</label>
-              <p className="text-sm font-bold text-foreground">${Number(jobDialog?.total || 0).toFixed(2)}</p>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
-              <Textarea value={jobNotes} onChange={(e) => setJobNotes(e.target.value)} className="rounded-lg" rows={2} />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setJobDialog(null)}>Cancel</Button>
-              <Button onClick={handleConvertToJob} disabled={jobSaving || !jobDate}>
-                {jobSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Create Job
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
