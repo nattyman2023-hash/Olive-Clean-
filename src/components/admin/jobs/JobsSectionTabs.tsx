@@ -1,17 +1,17 @@
 import { Briefcase, Clock, CheckCircle2, Archive } from "lucide-react";
 
-export type JobSection = "new" | "scheduled" | "converted" | "archived";
+export type JobSection = "new" | "scheduled" | "completed" | "archived";
 
 const sections: { key: JobSection; label: string; icon: any }[] = [
   { key: "new", label: "New", icon: Briefcase },
   { key: "scheduled", label: "Scheduled", icon: Clock },
-  { key: "converted", label: "Converted", icon: CheckCircle2 },
+  { key: "completed", label: "Completed", icon: CheckCircle2 },
   { key: "archived", label: "Archived", icon: Archive },
 ];
 
 export function getSectionForJob(job: { status: string; assigned_to: string | null; created_at: string }): JobSection {
   if (job.status === "cancelled") return "archived";
-  if (job.status === "completed") return "converted";
+  if (job.status === "completed") return "completed";
   if (job.status === "in_progress") return "scheduled";
   // status === scheduled
   const ageMs = Date.now() - new Date(job.created_at).getTime();
