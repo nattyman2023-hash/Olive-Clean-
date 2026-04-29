@@ -1008,6 +1008,10 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                 onStatusChange={updateJobStatus}
                 onReassign={reassignJob}
                 onLogDuration={logDuration}
+                onUpdateFields={updateJobFields}
+                serviceTemplates={serviceTemplates}
+                fallbackServices={FALLBACK_SERVICES}
+                readOnly={readOnly}
                 getInitials={getInitials}
                 onNavigate={onNavigate}
               />
