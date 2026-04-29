@@ -538,6 +538,13 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
         onClose={() => setQuoteLead(null)}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ["admin-leads"] })}
       />
+
+      {/* Manual Add Lead Drawer */}
+      <AddLeadDrawer
+        open={showAddLead}
+        onClose={() => setShowAddLead(false)}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ["admin-leads"] })}
+      />
     </div>
   );
 }
