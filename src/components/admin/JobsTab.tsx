@@ -583,17 +583,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by client, employee, or service..." className="pl-10 rounded-xl" />
         </div>
         <div className="flex gap-2 flex-wrap items-center">
-          {["all", "scheduled", "in_progress", "completed", "cancelled"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors active:scale-[0.97] ${
-                statusFilter === s ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {s === "all" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-            </button>
-          ))}
           <div className="flex bg-card border border-border rounded-lg p-0.5">
             <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><List className="h-4 w-4" /></button>
             <button onClick={() => setViewMode("map")} className={`p-1.5 rounded-md transition-colors ${viewMode === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><MapIcon className="h-4 w-4" /></button>
