@@ -4,6 +4,7 @@ import ActivityTimeline from "./ActivityTimeline";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -39,12 +40,15 @@ import {
   Send,
   Filter,
   Trash2,
+  Pencil,
+  Save,
 } from "lucide-react";
 const JobsMap = lazy(() => import("./jobs/JobsMap"));
 import JobPhotosGallery from "./JobPhotosGallery";
 import AttendanceVerification from "./AttendanceVerification";
 import JobsSectionTabs, { getSectionForJob, type JobSection } from "./jobs/JobsSectionTabs";
 import JobStatusActions from "./jobs/JobStatusActions";
+import JobAuditLog from "./jobs/JobAuditLog";
 
 interface Job {
   id: string;
@@ -476,6 +480,50 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     }
 
     fetchJobs();
+  };
+
+  const updateJobFields = async (
+    id: string,
+    patch: { scheduled_at?: string; service?: string; duration_minutes?: number | null; price?: number | null; notes?: string | null }
+  ) => {
+    const job = jobs.find((j) => j.id === id);
+    if (!job) return;
+
+    // Compute diff for audit trail
+    const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
+    const changes: string[] = [];
+    if (patch.scheduled_at && patch.scheduled_at !== job.scheduled_at) changes.push(`Scheduled: ${fmtDate(job.scheduled_at)} → ${fmtDate(patch.scheduled_at)}`);
+    if (patch.service && patch.service !== job.service) changes.push(`Service: ${job.service} → ${patch.service}`);
+    if (patch.duration_minutes !== undefined && patch.duration_minutes !== job.duration_minutes) changes.push(`Duration: ${job.duration_minutes ?? "—"} → ${patch.duration_minutes ?? "—"} min`);
+    if (patch.price !== undefined && patch.price !== Number(job.price)) changes.push(`Price: $${Number(job.price ?? 0).toFixed(2)} → $${Number(patch.price ?? 0).toFixed(2)}`);
+    if (patch.notes !== undefined && (patch.notes || "") !== (job.notes || "")) changes.push(`Notes updated`);
+
+    if (changes.length === 0) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    const { error } = await supabase.from("jobs").update(patch as any).eq("id", id);
+    if (error) {
+      toast.error("Failed to update job.");
+      return;
+    }
+    toast.success("Job updated.");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const actor = user?.email || "admin";
+      await supabase.from("crm_notes").insert({
+        parent_type: "job",
+        parent_id: id,
+        author_id: user?.id || null,
+        content: `${changes.join(" • ")} (by ${actor})`,
+        note_type: "job_edit",
+      });
+    } catch { /* non-blocking */ }
+
+    await fetchJobs();
+    if (selected?.id === id) setSelected({ ...selected, ...patch } as Job);
   };
 
   const logDuration = async (id: string, minutes: string) => {
@@ -960,6 +1008,10 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                 onStatusChange={updateJobStatus}
                 onReassign={reassignJob}
                 onLogDuration={logDuration}
+                onUpdateFields={updateJobFields}
+                serviceTemplates={serviceTemplates}
+                fallbackServices={FALLBACK_SERVICES}
+                readOnly={readOnly}
                 getInitials={getInitials}
                 onNavigate={onNavigate}
               />
@@ -1035,11 +1087,66 @@ interface DetailProps {
   onStatusChange: (id: string, status: string, reason?: string) => void;
   onReassign: (jobId: string, employeeId: string | null) => void;
   onLogDuration: (id: string, minutes: string) => void;
+  onUpdateFields: (id: string, patch: { scheduled_at?: string; service?: string; duration_minutes?: number | null; price?: number | null; notes?: string | null }) => Promise<void>;
+  serviceTemplates: { id: string; name: string; checklist_items: any; default_duration_minutes: number | null; default_price: number | null }[];
+  fallbackServices: string[];
+  readOnly?: boolean;
   getInitials: (name: string) => string;
   onNavigate?: (section: string, targetId?: string) => void;
 }
 
-function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, getInitials, onNavigate }: DetailProps) {
+function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, onUpdateFields, serviceTemplates, fallbackServices, readOnly, getInitials, onNavigate }: DetailProps) {
+  const [editing, setEditing] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [auditTick, setAuditTick] = useState(0);
+
+  const toLocalInput = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const [editForm, setEditForm] = useState({
+    scheduled_at: toLocalInput(job.scheduled_at),
+    service: job.service,
+    duration_minutes: job.duration_minutes?.toString() || "",
+    price: job.price?.toString() || "",
+    notes: job.notes || "",
+  });
+
+  // Reset edit form whenever a new job is opened
+  useEffect(() => {
+    setEditing(false);
+    setEditForm({
+      scheduled_at: toLocalInput(job.scheduled_at),
+      service: job.service,
+      duration_minutes: job.duration_minutes?.toString() || "",
+      price: job.price?.toString() || "",
+      notes: job.notes || "",
+    });
+  }, [job.id]);
+
+  const SERVICES = serviceTemplates.length > 0
+    ? serviceTemplates.map(t => t.name.toLowerCase().replace(/\s+/g, "-"))
+    : fallbackServices;
+
+  const saveEdits = async () => {
+    setSavingEdit(true);
+    try {
+      await onUpdateFields(job.id, {
+        scheduled_at: new Date(editForm.scheduled_at).toISOString(),
+        service: editForm.service,
+        duration_minutes: editForm.duration_minutes ? parseInt(editForm.duration_minutes) : null,
+        price: editForm.price ? parseFloat(editForm.price) : null,
+        notes: editForm.notes || null,
+      });
+      setEditing(false);
+      setAuditTick((t) => t + 1);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div>
@@ -1088,38 +1195,115 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
         </select>
       </div>
 
-      <div className="border-t border-border pt-4 space-y-3">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Scheduled</span>
-          <span className="font-medium text-foreground">
-            {new Date(job.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
-          </span>
+      {/* Schedule & Details (editable) */}
+      <div className="border-t border-border pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-muted-foreground">Schedule & Details</p>
+          {!readOnly && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-1 text-[0.7rem] text-primary hover:underline active:scale-95"
+            >
+              <Pencil className="h-3 w-3" /> Edit
+            </button>
+          )}
         </div>
-        {job.duration_minutes && (
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Est. Duration</span>
-            <span className="font-medium text-foreground">{job.duration_minutes} min</span>
+        {!editing ? (
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Scheduled</span>
+              <span className="font-medium text-foreground">
+                {new Date(job.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+            </div>
+            {job.duration_minutes && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Est. Duration</span>
+                <span className="font-medium text-foreground">{job.duration_minutes} min</span>
+              </div>
+            )}
+            {job.actual_duration_minutes && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Actual Duration</span>
+                <span className="font-medium text-foreground">{job.actual_duration_minutes} min</span>
+              </div>
+            )}
+            {job.price != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Price</span>
+                <span className="font-medium text-foreground">${Number(job.price).toFixed(2)}</span>
+              </div>
+            )}
+            {job.notes && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1 mt-2">Notes</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{job.notes}</p>
+              </div>
+            )}
           </div>
-        )}
-        {job.actual_duration_minutes && (
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Actual Duration</span>
-            <span className="font-medium text-foreground">{job.actual_duration_minutes} min</span>
-          </div>
-        )}
-        {job.price && (
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Price</span>
-            <span className="font-medium text-foreground">${Number(job.price).toFixed(2)}</span>
+        ) : (
+          <div className="space-y-3 bg-muted/30 rounded-lg p-3 border border-border">
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={editForm.scheduled_at}
+                onChange={(e) => setEditForm({ ...editForm, scheduled_at: e.target.value })}
+                className="rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Service</label>
+              <select
+                value={editForm.service}
+                onChange={(e) => setEditForm({ ...editForm, service: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground"
+              >
+                {SERVICES.map((s) => (
+                  <option key={s} value={s}>{s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[0.65rem] text-muted-foreground mb-1 block">Duration (min)</label>
+                <Input
+                  type="number"
+                  value={editForm.duration_minutes}
+                  onChange={(e) => setEditForm({ ...editForm, duration_minutes: e.target.value })}
+                  className="rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-[0.65rem] text-muted-foreground mb-1 block">Price ($)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                  className="rounded-lg text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Notes</label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                className="rounded-lg text-sm"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditing(false)} disabled={savingEdit}>Cancel</Button>
+              <Button size="sm" className="rounded-lg gap-1.5" onClick={saveEdits} disabled={savingEdit}>
+                {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save Changes
+              </Button>
+            </div>
           </div>
         )}
       </div>
-      {job.notes && (
-        <div className="border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground mb-1">Notes</p>
-          <p className="text-sm text-foreground">{job.notes}</p>
-        </div>
-      )}
 
       {/* Attendance & Verification */}
       <AttendanceVerification
@@ -1204,6 +1388,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
         {job.status === "cancelled" && job.cancel_reason && (
           <p className="text-[0.7rem] text-destructive mt-2 italic">Reason: {job.cancel_reason}</p>
         )}
+      </div>
+
+      {/* Status History (audit log) */}
+      <div className="border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground mb-2">Status History</p>
+        <JobAuditLog jobId={job.id} refreshKey={auditTick} />
       </div>
     </div>
   );
