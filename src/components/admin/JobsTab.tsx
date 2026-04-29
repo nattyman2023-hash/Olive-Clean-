@@ -799,14 +799,17 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       ) : (
         <div className="space-y-3">
           {/* Select All */}
-          {!loading && filtered.length > 0 && (
+          {!loading && pagedJobs.length > 0 && (
             <div className="flex items-center gap-3 px-2">
               <Checkbox
-                checked={selectedJobs.size === filtered.length && filtered.length > 0}
-                onCheckedChange={toggleSelectAll}
+                checked={selectedJobs.size === pagedJobs.length && pagedJobs.length > 0}
+                onCheckedChange={() => {
+                  if (selectedJobs.size === pagedJobs.length) setSelectedJobs(new Set());
+                  else setSelectedJobs(new Set(pagedJobs.map((j) => j.id)));
+                }}
               />
               <span className="text-xs text-muted-foreground">
-                {selectedJobs.size > 0 ? `${selectedJobs.size} selected` : "Select all"}
+                {selectedJobs.size > 0 ? `${selectedJobs.size} selected` : `Select all on page (${pagedJobs.length})`}
               </span>
             </div>
           )}
@@ -819,7 +822,7 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
               <p className="text-muted-foreground text-sm">No jobs found.</p>
             </div>
           ) : (
-            filtered.map((j) => {
+            pagedJobs.map((j) => {
               const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
               const Icon = sc.icon;
               const isChecked = selectedJobs.has(j.id);
@@ -867,6 +870,37 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                 </div>
               );
             })
+          )}
+          {/* Pager */}
+          {!loading && isPaginated && filtered.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-3 pt-4 px-2">
+              <span className="text-xs text-muted-foreground">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg h-8"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  ‹ Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Page {safePage} of {totalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg h-8"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next ›
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       )}
