@@ -906,7 +906,7 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
 interface DetailProps {
   job: Job;
   employees: EmployeeOption[];
-  onStatusChange: (id: string, status: string) => void;
+  onStatusChange: (id: string, status: string, reason?: string) => void;
   onReassign: (jobId: string, employeeId: string | null) => void;
   onLogDuration: (id: string, minutes: string) => void;
   getInitials: (name: string) => string;
