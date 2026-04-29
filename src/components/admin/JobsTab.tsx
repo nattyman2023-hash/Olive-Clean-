@@ -1069,21 +1069,10 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
       {/* Status actions */}
       <div className="border-t border-border pt-4">
         <p className="text-xs text-muted-foreground mb-2">Update Status</p>
-        <div className="grid grid-cols-2 gap-2">
-          {["scheduled", "in_progress", "completed", "cancelled"].map((s) => {
-            const sc = jobStatusConfig[s];
-            return (
-              <button
-                key={s}
-                onClick={() => onStatusChange(job.id, s)}
-                disabled={job.status === s}
-                className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-[0.97] disabled:opacity-40 ${sc.className}`}
-              >
-                {sc.label}
-              </button>
-            );
-          })}
-        </div>
+        <JobStatusActions status={job.status} onTransition={(next, reason) => onStatusChange(job.id, next, reason)} />
+        {job.status === "cancelled" && job.cancel_reason && (
+          <p className="text-[0.7rem] text-destructive mt-2 italic">Reason: {job.cancel_reason}</p>
+        )}
       </div>
     </div>
   );
