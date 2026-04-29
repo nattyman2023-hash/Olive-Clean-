@@ -529,6 +529,19 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
 
   const STATUS_PRIORITY: Record<string, number> = { scheduled: 0, in_progress: 1, completed: 2, cancelled: 3 };
 
+  const sectionCounts = jobs.reduce(
+    (acc, j) => {
+      const s = getSectionForJob(j);
+      acc[s] += 1;
+      return acc;
+    },
+    { new: 0, scheduled: 0, converted: 0, archived: 0 } as Record<JobSection, number>
+  );
+
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday); endOfToday.setDate(endOfToday.getDate() + 1);
+  const endOfWeek = new Date(startOfToday); endOfWeek.setDate(endOfWeek.getDate() + 7);
+
   const filtered = jobs.filter((j) => {
     const clientName = j.clients?.name || "";
     const empName = j.employees?.name || "";
@@ -537,13 +550,20 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       clientName.toLowerCase().includes(search.toLowerCase()) ||
       empName.toLowerCase().includes(search.toLowerCase()) ||
       j.service.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || j.status === statusFilter;
+    const matchesSection = getSectionForJob(j) === section;
     const matchesDateFrom = !dateFrom || j.scheduled_at >= dateFrom;
     const matchesDateTo = !dateTo || j.scheduled_at.slice(0, 10) <= dateTo;
     const matchesEmployee = employeeFilter === "all" || j.assigned_to === employeeFilter;
     const matchesService = serviceFilter === "all" || j.service === serviceFilter;
     const matchesNeighborhood = neighborhoodFilter === "all" || j.clients?.neighborhood === neighborhoodFilter;
-    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesEmployee && matchesService && matchesNeighborhood;
+    const matchesSource = sourceFilter === "all" || (j.source || "manual") === sourceFilter;
+    const sched = new Date(j.scheduled_at);
+    let matchesChip = true;
+    if (quickChip === "today") matchesChip = sched >= startOfToday && sched < endOfToday;
+    else if (quickChip === "week") matchesChip = sched >= startOfToday && sched < endOfWeek;
+    else if (quickChip === "unassigned") matchesChip = !j.assigned_to;
+    else if (quickChip === "overdue") matchesChip = j.status === "scheduled" && sched < new Date();
+    return matchesSearch && matchesSection && matchesDateFrom && matchesDateTo && matchesEmployee && matchesService && matchesNeighborhood && matchesSource && matchesChip;
   }).sort((a, b) => {
     const pa = STATUS_PRIORITY[a.status] ?? 9;
     const pb = STATUS_PRIORITY[b.status] ?? 9;
