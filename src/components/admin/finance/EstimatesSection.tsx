@@ -61,19 +61,11 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
 
     // Auto-create job when accepted
     if (status === "accepted") {
-      const est = estimates.find((e) => e.id === id);
-      if (est) {
-        const serviceName = (est.items as any)?.[0]?.description || "Cleaning Service";
-        const { error: jobErr } = await supabase.from("jobs").insert({
-          client_id: est.client_id,
-          service: serviceName,
-          scheduled_at: new Date().toISOString(),
-          price: est.total,
-          notes: `Auto-created from accepted quote ${est.estimate_number}`,
-          status: "scheduled",
-        });
-        if (jobErr) { toast.error("Quote accepted but failed to create job."); }
-        else { toast.success("Job auto-created from accepted quote!"); }
+      try {
+        const result = await convertQuoteToJob(id);
+        toast.success(result.alreadyConverted ? "Already linked to a job." : "Quote converted to a scheduled job.");
+      } catch (e: any) {
+        toast.error(e?.message || "Quote accepted but conversion failed.");
       }
     }
 
@@ -102,26 +94,14 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
     fetch_();
   };
 
-  const handleConvertToJob = async () => {
-    if (!jobDialog || !jobDate) { toast.error("Select a scheduled date."); return; }
-    setJobSaving(true);
-    const serviceName = jobDialog.items?.[0]?.description || "Cleaning Service";
-    const { error } = await supabase.from("jobs").insert({
-      client_id: jobDialog.client_id,
-      service: serviceName,
-      scheduled_at: new Date(jobDate).toISOString(),
-      price: jobDialog.total,
-      notes: jobNotes || `Converted from ${jobDialog.estimate_number}`,
-      status: "scheduled",
-    });
-    if (error) { toast.error("Failed to create job."); setJobSaving(false); return; }
-    await supabase.from("estimates").update({ status: "converted" }).eq("id", jobDialog.id);
-    toast.success("Quote converted to job!");
-    setJobDialog(null);
-    setJobDate("");
-    setJobNotes("");
-    setJobSaving(false);
-    fetch_();
+  const convertNow = async (est: Estimate) => {
+    try {
+      const result = await convertQuoteToJob(est.id);
+      toast.success(result.alreadyConverted ? "Already converted." : "Quote converted to job.");
+      fetch_();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to convert.");
+    }
   };
 
   if (preview) {
