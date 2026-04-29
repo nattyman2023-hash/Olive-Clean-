@@ -482,6 +482,50 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     fetchJobs();
   };
 
+  const updateJobFields = async (
+    id: string,
+    patch: { scheduled_at?: string; service?: string; duration_minutes?: number | null; price?: number | null; notes?: string | null }
+  ) => {
+    const job = jobs.find((j) => j.id === id);
+    if (!job) return;
+
+    // Compute diff for audit trail
+    const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
+    const changes: string[] = [];
+    if (patch.scheduled_at && patch.scheduled_at !== job.scheduled_at) changes.push(`Scheduled: ${fmtDate(job.scheduled_at)} → ${fmtDate(patch.scheduled_at)}`);
+    if (patch.service && patch.service !== job.service) changes.push(`Service: ${job.service} → ${patch.service}`);
+    if (patch.duration_minutes !== undefined && patch.duration_minutes !== job.duration_minutes) changes.push(`Duration: ${job.duration_minutes ?? "—"} → ${patch.duration_minutes ?? "—"} min`);
+    if (patch.price !== undefined && patch.price !== Number(job.price)) changes.push(`Price: $${Number(job.price ?? 0).toFixed(2)} → $${Number(patch.price ?? 0).toFixed(2)}`);
+    if (patch.notes !== undefined && (patch.notes || "") !== (job.notes || "")) changes.push(`Notes updated`);
+
+    if (changes.length === 0) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    const { error } = await supabase.from("jobs").update(patch as any).eq("id", id);
+    if (error) {
+      toast.error("Failed to update job.");
+      return;
+    }
+    toast.success("Job updated.");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const actor = user?.email || "admin";
+      await supabase.from("crm_notes").insert({
+        parent_type: "job",
+        parent_id: id,
+        author_id: user?.id || null,
+        content: `${changes.join(" • ")} (by ${actor})`,
+        note_type: "job_edit",
+      });
+    } catch { /* non-blocking */ }
+
+    await fetchJobs();
+    if (selected?.id === id) setSelected({ ...selected, ...patch } as Job);
+  };
+
   const logDuration = async (id: string, minutes: string) => {
     const val = parseInt(minutes);
     if (isNaN(val)) return;
