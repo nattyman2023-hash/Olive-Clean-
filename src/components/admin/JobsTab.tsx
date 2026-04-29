@@ -43,6 +43,8 @@ import {
 const JobsMap = lazy(() => import("./jobs/JobsMap"));
 import JobPhotosGallery from "./JobPhotosGallery";
 import AttendanceVerification from "./AttendanceVerification";
+import JobsSectionTabs, { getSectionForJob, type JobSection } from "./jobs/JobsSectionTabs";
+import JobStatusActions from "./jobs/JobStatusActions";
 
 interface Job {
   id: string;
@@ -57,6 +59,8 @@ interface Job {
   price: number | null;
   notes: string | null;
   created_at: string;
+  source?: string | null;
+  cancel_reason?: string | null;
   clients?: { name: string; neighborhood: string | null; lat: number | null; lng: number | null } | null;
   employees?: { name: string; photo_url: string | null } | null;
 }
