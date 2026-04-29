@@ -644,17 +644,41 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
             {c.label}
           </button>
         ))}
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value as any)}
-          className="ml-auto px-2 py-1 rounded-full text-[0.7rem] bg-card border border-border text-foreground"
-        >
-          <option value="all">All sources</option>
-          <option value="manual">Manual</option>
-          <option value="quote">From quote</option>
-          <option value="lead">From lead</option>
-          <option value="booking">From booking</option>
-        </select>
+      </div>
+
+      {/* Source Filter Chips */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground mr-1">Source</span>
+        {([
+          { key: "all", label: "All" },
+          { key: "manual", label: "Manual" },
+          { key: "quote", label: "From quote" },
+          { key: "lead", label: "From lead" },
+          { key: "booking", label: "From booking" },
+        ] as const).map((s) => {
+          const active = sourceFilter === s.key;
+          const count = sourceCounts[s.key] || 0;
+          return (
+            <button
+              key={s.key}
+              onClick={() => setSourceFilter(s.key as any)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[0.7rem] font-medium border transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              {s.label}
+              <span
+                className={`text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-full ${
+                  active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter Bar */}
