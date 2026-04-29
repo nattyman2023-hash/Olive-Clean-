@@ -1195,38 +1195,115 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
         </select>
       </div>
 
-      <div className="border-t border-border pt-4 space-y-3">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Scheduled</span>
-          <span className="font-medium text-foreground">
-            {new Date(job.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
-          </span>
+      {/* Schedule & Details (editable) */}
+      <div className="border-t border-border pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-muted-foreground">Schedule & Details</p>
+          {!readOnly && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-1 text-[0.7rem] text-primary hover:underline active:scale-95"
+            >
+              <Pencil className="h-3 w-3" /> Edit
+            </button>
+          )}
         </div>
-        {job.duration_minutes && (
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Est. Duration</span>
-            <span className="font-medium text-foreground">{job.duration_minutes} min</span>
+        {!editing ? (
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Scheduled</span>
+              <span className="font-medium text-foreground">
+                {new Date(job.scheduled_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+            </div>
+            {job.duration_minutes && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Est. Duration</span>
+                <span className="font-medium text-foreground">{job.duration_minutes} min</span>
+              </div>
+            )}
+            {job.actual_duration_minutes && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Actual Duration</span>
+                <span className="font-medium text-foreground">{job.actual_duration_minutes} min</span>
+              </div>
+            )}
+            {job.price != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Price</span>
+                <span className="font-medium text-foreground">${Number(job.price).toFixed(2)}</span>
+              </div>
+            )}
+            {job.notes && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1 mt-2">Notes</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{job.notes}</p>
+              </div>
+            )}
           </div>
-        )}
-        {job.actual_duration_minutes && (
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Actual Duration</span>
-            <span className="font-medium text-foreground">{job.actual_duration_minutes} min</span>
-          </div>
-        )}
-        {job.price && (
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Price</span>
-            <span className="font-medium text-foreground">${Number(job.price).toFixed(2)}</span>
+        ) : (
+          <div className="space-y-3 bg-muted/30 rounded-lg p-3 border border-border">
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={editForm.scheduled_at}
+                onChange={(e) => setEditForm({ ...editForm, scheduled_at: e.target.value })}
+                className="rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Service</label>
+              <select
+                value={editForm.service}
+                onChange={(e) => setEditForm({ ...editForm, service: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground"
+              >
+                {SERVICES.map((s) => (
+                  <option key={s} value={s}>{s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[0.65rem] text-muted-foreground mb-1 block">Duration (min)</label>
+                <Input
+                  type="number"
+                  value={editForm.duration_minutes}
+                  onChange={(e) => setEditForm({ ...editForm, duration_minutes: e.target.value })}
+                  className="rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-[0.65rem] text-muted-foreground mb-1 block">Price ($)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                  className="rounded-lg text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[0.65rem] text-muted-foreground mb-1 block">Notes</label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                className="rounded-lg text-sm"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditing(false)} disabled={savingEdit}>Cancel</Button>
+              <Button size="sm" className="rounded-lg gap-1.5" onClick={saveEdits} disabled={savingEdit}>
+                {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save Changes
+              </Button>
+            </div>
           </div>
         )}
       </div>
-      {job.notes && (
-        <div className="border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground mb-1">Notes</p>
-          <p className="text-sm text-foreground">{job.notes}</p>
-        </div>
-      )}
 
       {/* Attendance & Verification */}
       <AttendanceVerification
