@@ -94,6 +94,8 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [section, setSection] = useState<JobSection>("new");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [quickChip, setQuickChip] = useState<"" | "today" | "week" | "unassigned" | "overdue">("");
   const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "quote" | "lead" | "booking">("all");
   const [selected, setSelected] = useState<Job | null>(null);
@@ -535,7 +537,19 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       acc[s] += 1;
       return acc;
     },
-    { new: 0, scheduled: 0, converted: 0, archived: 0 } as Record<JobSection, number>
+    { new: 0, scheduled: 0, completed: 0, archived: 0 } as Record<JobSection, number>
+  );
+
+  // Per-source counts within the currently-active section (independent of search/date filters).
+  const sourceCounts = jobs.reduce(
+    (acc, j) => {
+      if (getSectionForJob(j) !== section) return acc;
+      const src = (j.source || "manual") as "manual" | "quote" | "lead" | "booking";
+      acc[src] = (acc[src] || 0) + 1;
+      acc.all = (acc.all || 0) + 1;
+      return acc;
+    },
+    { all: 0, manual: 0, quote: 0, lead: 0, booking: 0 } as Record<string, number>
   );
 
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
