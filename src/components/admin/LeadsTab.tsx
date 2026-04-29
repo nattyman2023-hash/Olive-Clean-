@@ -17,6 +17,7 @@ import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, Alert
 import ActivityTimeline from "./ActivityTimeline";
 import LeadsKanban from "./leads/LeadsKanban";
 import LeadQuoteDrawer from "./leads/LeadQuoteDrawer";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LayoutGrid, List as ListIcon } from "lucide-react";
 
 const STATUS_ORDER = ["new", "quoted", "scheduled", "converted", "archived"] as const;
@@ -392,6 +393,11 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                     <ArrowRight className="h-3 w-3 mr-1" /> Convert to Job
                   </Button>
                 )}
+                {selectedLead.status !== "converted" && selectedLead.status !== "archived" && (
+                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { setQuoteLead(selectedLead); setSelectedLead(null); }}>
+                    <FileText className="h-3 w-3 mr-1" /> Create Quote
+                  </Button>
+                )}
               </div>
 
               {/* Contact Info Grid */}
@@ -477,7 +483,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Phone</label>
-                  <Input value={editingLead.phone || ""} onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })} className="rounded-lg" />
+                  <PhoneInput value={editingLead.phone || undefined} onChange={(v) => setEditingLead({ ...editingLead, phone: v || null })} className="rounded-lg" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Location</label>
@@ -532,6 +538,13 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* In-place Lead → Quote Drawer */}
+      <LeadQuoteDrawer
+        lead={quoteLead}
+        onClose={() => setQuoteLead(null)}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ["admin-leads"] })}
+      />
     </div>
   );
 }
