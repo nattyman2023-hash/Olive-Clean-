@@ -13,9 +13,8 @@ export function getSectionForJob(job: { status: string; assigned_to: string | nu
   if (job.status === "cancelled") return "archived";
   if (job.status === "completed") return "completed";
   if (job.status === "in_progress") return "scheduled";
-  // status === scheduled
-  const ageMs = Date.now() - new Date(job.created_at).getTime();
-  if (!job.assigned_to || ageMs < 24 * 60 * 60 * 1000) return "new";
+  // status === scheduled — intent-based: unassigned = inbox, assigned = scheduled
+  if (!job.assigned_to) return "new";
   return "scheduled";
 }
 
