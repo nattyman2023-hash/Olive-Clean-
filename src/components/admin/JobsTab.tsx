@@ -1456,11 +1456,9 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
 
       {/* Status actions */}
       <div className="border-t border-border pt-4">
-        <p className="text-xs text-muted-foreground mb-2">Update Status</p>
+        <p className="text-xs text-muted-foreground mb-2">Actions</p>
         <JobStatusActions
           status={job.status}
-          assignedTo={job.assigned_to}
-          createdAt={job.created_at}
           onTransition={(next, reason) => onStatusChange(job.id, next, reason)}
         />
         {job.status === "cancelled" && job.cancel_reason && (
