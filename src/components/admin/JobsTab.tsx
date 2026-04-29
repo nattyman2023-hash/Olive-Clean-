@@ -94,6 +94,8 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [section, setSection] = useState<JobSection>("new");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [quickChip, setQuickChip] = useState<"" | "today" | "week" | "unassigned" | "overdue">("");
   const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "quote" | "lead" | "booking">("all");
   const [selected, setSelected] = useState<Job | null>(null);
@@ -255,6 +257,32 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
         content,
         note_type: "status_change",
       });
+
+      // Fan-out in-app notifications to admins (and assigned tech), suppress self
+      const titleMap: Record<string, string> = {
+        in_progress: "Job started",
+        completed: "Job completed",
+        cancelled: "Job cancelled",
+        scheduled: "Job restored",
+      };
+      const recipients = new Set<string>();
+      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+      admins?.forEach((a: any) => recipients.add(a.user_id));
+      if (job?.assigned_to) recipients.add(job.assigned_to);
+      if (user?.id) recipients.delete(user.id);
+      if (recipients.size > 0) {
+        const prettyService = job?.service?.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Job";
+        const prettyDate = job?.scheduled_at ? new Date(job.scheduled_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+        await supabase.from("notifications").insert(
+          Array.from(recipients).map((uid) => ({
+            user_id: uid,
+            type: `job_${status}`,
+            title: `${titleMap[status] || "Job updated"} — ${job?.clients?.name || "Client"}`,
+            body: `${prettyService}${prettyDate ? ` · ${prettyDate}` : ""}${reason ? ` · Reason: ${reason}` : ""}`,
+            metadata: { job_id: id, previous_status: previousStatus, new_status: status, reason: reason || null } as any,
+          }))
+        );
+      }
     } catch (_) { /* non-blocking */ }
 
     // Auto-increment loyalty cleanings on completion
@@ -535,7 +563,19 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       acc[s] += 1;
       return acc;
     },
-    { new: 0, scheduled: 0, converted: 0, archived: 0 } as Record<JobSection, number>
+    { new: 0, scheduled: 0, completed: 0, archived: 0 } as Record<JobSection, number>
+  );
+
+  // Per-source counts within the currently-active section (independent of search/date filters).
+  const sourceCounts = jobs.reduce(
+    (acc, j) => {
+      if (getSectionForJob(j) !== section) return acc;
+      const src = (j.source || "manual") as "manual" | "quote" | "lead" | "booking";
+      acc[src] = (acc[src] || 0) + 1;
+      acc.all = (acc.all || 0) + 1;
+      return acc;
+    },
+    { all: 0, manual: 0, quote: 0, lead: 0, booking: 0 } as Record<string, number>
   );
 
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
@@ -573,6 +613,16 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
 
   const getInitials = (name: string) =>
     name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+
+  // Pagination — only Scheduled & Completed sections paginate
+  const isPaginated = section === "scheduled" || section === "completed";
+  const totalPages = isPaginated ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)) : 1;
+  const safePage = Math.min(page, totalPages);
+  const pagedJobs = isPaginated ? filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE) : filtered;
+
+  useEffect(() => {
+    setPage(1);
+  }, [section, search, sourceFilter, quickChip, dateFrom, dateTo, employeeFilter, serviceFilter, neighborhoodFilter]);
 
   return (
     <div>
@@ -630,17 +680,41 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
             {c.label}
           </button>
         ))}
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value as any)}
-          className="ml-auto px-2 py-1 rounded-full text-[0.7rem] bg-card border border-border text-foreground"
-        >
-          <option value="all">All sources</option>
-          <option value="manual">Manual</option>
-          <option value="quote">From quote</option>
-          <option value="lead">From lead</option>
-          <option value="booking">From booking</option>
-        </select>
+      </div>
+
+      {/* Source Filter Chips */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground mr-1">Source</span>
+        {([
+          { key: "all", label: "All" },
+          { key: "manual", label: "Manual" },
+          { key: "quote", label: "From quote" },
+          { key: "lead", label: "From lead" },
+          { key: "booking", label: "From booking" },
+        ] as const).map((s) => {
+          const active = sourceFilter === s.key;
+          const count = sourceCounts[s.key] || 0;
+          return (
+            <button
+              key={s.key}
+              onClick={() => setSourceFilter(s.key as any)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[0.7rem] font-medium border transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              {s.label}
+              <span
+                className={`text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-full ${
+                  active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter Bar */}
@@ -751,14 +825,17 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       ) : (
         <div className="space-y-3">
           {/* Select All */}
-          {!loading && filtered.length > 0 && (
+          {!loading && pagedJobs.length > 0 && (
             <div className="flex items-center gap-3 px-2">
               <Checkbox
-                checked={selectedJobs.size === filtered.length && filtered.length > 0}
-                onCheckedChange={toggleSelectAll}
+                checked={selectedJobs.size === pagedJobs.length && pagedJobs.length > 0}
+                onCheckedChange={() => {
+                  if (selectedJobs.size === pagedJobs.length) setSelectedJobs(new Set());
+                  else setSelectedJobs(new Set(pagedJobs.map((j) => j.id)));
+                }}
               />
               <span className="text-xs text-muted-foreground">
-                {selectedJobs.size > 0 ? `${selectedJobs.size} selected` : "Select all"}
+                {selectedJobs.size > 0 ? `${selectedJobs.size} selected` : `Select all on page (${pagedJobs.length})`}
               </span>
             </div>
           )}
@@ -771,7 +848,7 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
               <p className="text-muted-foreground text-sm">No jobs found.</p>
             </div>
           ) : (
-            filtered.map((j) => {
+            pagedJobs.map((j) => {
               const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
               const Icon = sc.icon;
               const isChecked = selectedJobs.has(j.id);
@@ -819,6 +896,37 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                 </div>
               );
             })
+          )}
+          {/* Pager */}
+          {!loading && isPaginated && filtered.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-3 pt-4 px-2">
+              <span className="text-xs text-muted-foreground">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg h-8"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  ‹ Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Page {safePage} of {totalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg h-8"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next ›
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       )}

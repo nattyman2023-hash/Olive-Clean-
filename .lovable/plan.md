@@ -1,149 +1,108 @@
-# Jobs Tab Redesign + Auto Quote-to-Job Conversion
+# Jobs Tab Polish + Quote Conversion Reliability
 
-## Goals
-1. Reorganize the Jobs tab into 4 clear sections with safe, auditable status transitions and stronger filters.
-2. Make accepted quotes (whether accepted by the customer via link or by an admin) automatically become a job, disappear from the active quote engine, and leave a visible trail everywhere.
+Four targeted improvements to the Jobs workflow based on real-world feedback and a verified data bug.
 
----
+## 1. Rename "Converted" → "Completed"
 
-## Part 1 — Jobs Tab Sectioned Redesign
+In `src/components/admin/jobs/JobsSectionTabs.tsx`:
+- Rename the `converted` section label to **"Completed"** (keep the internal key `converted` to avoid a wider refactor, OR rename key to `completed` everywhere — recommend renaming key for clarity).
+- Update icon stays `CheckCircle2`.
+- Update `getSectionForJob`: `status === "completed"` → returns `"completed"`.
+- Update `JobsTab.tsx` section state type, counts object, and any references.
 
-### New section model
-Status mapping (existing `jobs.status` values: `scheduled`, `in_progress`, `completed`, `cancelled`):
+The word "Converted" was confusing — a finished cleaning job is "Completed". "Converted" stays a Quote-engine term only.
 
-| Section | Includes | Purpose |
-|---|---|---|
-| **New** | `scheduled` jobs created in the last 24h **or** still unassigned (`assigned_to IS NULL`) | Triage queue — needs a tech assigned / confirmed |
-| **Scheduled** | `scheduled` (assigned) + `in_progress` | Active operations board |
-| **Converted** | `completed` | Done — invoice was auto-drafted, view payouts/feedback |
-| **Archived** | `cancelled` | Cancellation reason + restore action |
+## 2. Source Filter — Promote to Visible Chip Row
 
-Sections render as **tabs at the top** of the Jobs tab, with a count badge per section. Default tab = **New**. List/Map view toggle stays.
-
-### Status-safe transitions
-Replace the free-form status dropdown with an explicit transition matrix (only legal moves are shown as buttons in the drawer + bulk menu):
+Currently the source picker is a small dropdown squeezed at the right of the quick-chip row. Replace it with a dedicated, labeled chip group directly under the section tabs:
 
 ```text
-scheduled ──▶ in_progress ──▶ completed
-    │              │
-    └──▶ cancelled ◀┘   (in_progress → cancelled requires reason)
-completed ──▶ (locked, admin-only "reopen" reverts to in_progress)
-cancelled ──▶ (admin-only "restore" → scheduled)
+Source:  [ All ] [ Manual ] [ From quote ] [ From lead ] [ From booking ]
 ```
 
-Rules enforced client-side + via existing RLS:
-- Cannot skip from `scheduled` → `completed` without going through `in_progress` (prevents accidental completion of unstarted work).
-- `cancelled` requires a reason saved to `jobs.cancel_reason` and timestamp `jobs.cancelled_at` (already exists).
-- `completed` writes `completed_at` (already does); reopen clears it and the auto-draft invoice toast warns admin.
-- Every transition writes a row to `crm_notes` (parent_type=`job`, parent_id=jobId, note_type=`status_change`) capturing actor, old → new, optional reason. This is the audit trail surfaced in the job drawer's Activity timeline.
+- Each chip shows a live count (jobs in current section matching that source).
+- Active chip: filled `bg-primary text-primary-foreground`.
+- Counts derive from the same `jobs` array, filtered by current section only (independent of search/date filters so users can see what's hidden).
+- Keeps the existing `sourceFilter` state and filter logic in `filtered`.
 
-### Better filters
-Top filter bar (collapsible, persistent in URL params):
-- Date range (from / to) on `scheduled_at`
-- Assigned tech (multi-select)
-- Service (multi-select)
-- Neighborhood
-- Source: `from_quote`, `from_lead`, `manual` — derived from `notes` prefix today; we'll add an explicit `jobs.source text` column for clean filtering
-- Quick chips: **Today**, **This week**, **Unassigned**, **Overdue** (scheduled in past, not started)
+## 3. Pagination for Scheduled & Completed Sections
 
-Active filter count + "Clear all" stays as today.
+Long histories make the list unscrollable. Add client-side pagination (server-side is overkill for current volume):
 
-### Visual layout
-```text
-┌──────────────────────────────────────────────────────────┐
-│ Jobs   [+ New Job]                          [List | Map] │
-├──────────────────────────────────────────────────────────┤
-│ [New 4]  [Scheduled 27]  [Converted 113]  [Archived 6]  │
-├──────────────────────────────────────────────────────────┤
-│ Filters: Date▾  Tech▾  Service▾  Source▾  [Clear]       │
-│ Chips:  Today · This week · Unassigned · Overdue        │
-├──────────────────────────────────────────────────────────┤
-│ ☐ Job rows … (compact, with status-aware action buttons)│
-└──────────────────────────────────────────────────────────┘
+- New state: `const [page, setPage] = useState(1)` and `const PAGE_SIZE = 20`.
+- Apply pagination **only** when `section === "scheduled" || section === "completed"`. New & Archived stay un-paginated (typically small).
+- Slice `filtered` for display: `paged = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)`.
+- Reset `page` to 1 when section, search, sourceFilter, or any filter changes (single `useEffect`).
+- Render a compact pager at the bottom of the list:
+  ```text
+  ‹ Prev   Page 1 of 4   Next ›        Showing 1–20 of 73
+  ```
+- Disable Prev on page 1, Next on last page. Keep "Select all" semantics scoped to the current page.
+
+## 4. Toast + In-App Notifications for Every Audit Event
+
+Today only the actor sees a toast and only `quote_converted` writes a `notifications` row. Expand coverage so other admins/staff see activity in real time.
+
+### A. Quote → Job Conversion (`src/lib/convertQuoteToJob.ts`)
+Already inserts `notifications` for admins (good). Add:
+- Toast call in callers (`EstimatesSection.tsx`, `quote-action` Edge Function results) that surfaces both success and the `alreadyConverted` short-circuit case. Confirm both UI entry points already toast — if not, add `toast.success("Quote ${number} converted to job")`.
+
+### B. Every Job Status Transition (`JobsTab.tsx → updateJobStatus`)
+After the existing `crm_notes` audit insert, fan out an in-app notification to all admins (and to the assigned cleaning technician, if any):
+
+```ts
+const recipients = new Set<string>();
+const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+admins?.forEach(a => recipients.add(a.user_id));
+if (job?.assigned_to) recipients.add(job.assigned_to);
+
+const titleMap = {
+  in_progress: "Job started",
+  completed: "Job completed",
+  cancelled: "Job cancelled",
+  scheduled: "Job restored",
+};
+await supabase.from("notifications").insert(
+  Array.from(recipients).map(uid => ({
+    user_id: uid,
+    type: `job_${status}`,
+    title: `${titleMap[status]} — ${job?.clients?.name ?? "Client"}`,
+    body: `${prettyService} · ${prettyDate}${reason ? ` · Reason: ${reason}` : ""}`,
+    metadata: { job_id: id, previous_status: previousStatus, new_status: status, reason: reason || null },
+  }))
+);
 ```
 
-Job detail still uses the right-side **Drawer Standard** sheet (per project memory).
+This keeps the toast for the actor (already present) and adds bell-icon notifications for the rest of the team, mirroring the audit note 1:1.
 
----
+### C. Self-suppression
+Skip inserting a notification for the actor (`auth.uid()`) — they already saw the toast. Prevents bell spam.
 
-## Part 2 — Automatic Quote → Job Conversion
+## 5. Bug Fix — Orphaned "Converted" Quotes Not Producing Visible Jobs
 
-### Today's gaps
-- `quote-action` edge function (customer accepts via email link) creates a job ✅ but leaves the estimate at `status='accepted'`, so it still appears in the active quotes list.
-- `EstimatesSection.updateStatus` (admin marks accepted) creates a job but does the same.
-- There's a separate "Convert to Job" dialog (`handleConvertToJob`) — duplicated path.
-- No audit trail entry on the quote, lead, or job.
-- Customer/admin don't see a confirmation that the quote became Job #X.
+Verified in DB: estimate `EST-MNWDCHXV` has `status='converted'` but `converted_job_id IS NULL` — meaning a prior conversion attempt half-succeeded (estimate flipped, job never created). The new `convertQuoteToJob` helper would still process it (idempotent guard requires BOTH `status='converted'` AND `converted_job_id`), but no UI surfaces this.
 
-### Unified conversion flow
+Fixes:
+1. **One-time backfill migration** — for every `estimates` row where `status='converted'` and `converted_job_id IS NULL`, either:
+   - Reset to `status='accepted'` so admin can manually re-trigger conversion, OR
+   - Run conversion server-side via a `DO` block calling the same insert logic.
+   
+   Recommend **option 1** (safer): mark them `accepted` and add a `crm_note` "Auto-reset by system: conversion never produced a job. Please re-convert."
+2. **Quote engine highlight** — in `EstimatesSection.tsx`, surface accepted-but-not-converted quotes with a yellow "Needs conversion" badge so they don't get lost.
+3. **Defensive check in `convertQuoteToJob.ts`** — wrap steps 1–3 in a logical try/catch with rollback (delete the half-created job if estimate update fails, etc.) to prevent recurrence.
 
-A single helper in code (`src/lib/convertQuoteToJob.ts`) used by both the admin path and the edge function path. It performs an idempotent transaction:
+## Files Modified
 
-1. Mark estimate `status='converted'`, set `converted_invoice_id` / new `converted_job_id` column on estimates (new column).
-2. Create the `jobs` row with `source='quote'`, `notes='From quote {estimate_number}'`.
-3. Create the draft invoice linked via `estimate_id` (already done).
-4. Insert audit rows:
-   - `crm_notes` on the **estimate** (parent_type=`estimate`): "Converted to Job #abcd1234 by {actor or 'customer via link'}"
-   - `crm_notes` on the **job**: "Created from quote {estimate_number}"
-   - If a matching lead exists (by `client_id` or email): set `leads.status='converted'`, `leads.converted_job_id`, add a note "Lead converted via quote acceptance"
-5. Insert a row in `notifications` for all admins: "Quote {number} accepted — Job created" with metadata linking to the job (so it shows in the bell + daily digest).
-6. Send the customer a transactional email `quote-accepted-confirmation` with the scheduled date placeholder + a link to view the job in their portal.
+| File | Change |
+|---|---|
+| `src/components/admin/jobs/JobsSectionTabs.tsx` | Rename Converted → Completed (key + label) |
+| `src/components/admin/JobsTab.tsx` | Update section types, add source-chip row, add pagination, fan-out notifications, suppress self |
+| `src/lib/convertQuoteToJob.ts` | Wrap conversion in try/rollback for atomicity |
+| `src/components/admin/finance/EstimatesSection.tsx` | "Needs conversion" badge for orphaned accepted quotes |
+| **New migration** | Backfill orphaned converted-without-job estimates back to `accepted` |
 
-### "Removal from the quote engine"
-- `EstimatesSection` filters out `status IN ('converted', 'declined', 'expired')` from the active list by default.
-- Add a **"Show archived quotes"** toggle that reveals them with a clear converted/declined badge and a link to the resulting job.
-- Stale-quotes widget already excludes non-`sent`; verified.
+## Out of Scope (note for next pass)
 
-### User-visible status updates
-- **Admin Quotes tab**: accepted quote immediately shows a green "Converted → Job #xxxx" pill and is moved out of the active list.
-- **Admin Jobs tab**: new job lands in the **New** section with a "From quote" badge.
-- **Bell notifications**: admins get a real-time notification (uses existing `notifications` table + realtime channel).
-- **Customer portal** (`/portal`): client sees the new job in their upcoming list with a "Created from your accepted quote" note.
-- **Email**: customer gets the confirmation email; admins get it surfaced in the daily digest under "Quotes converted today".
-
-### Idempotency & race safety
-The helper checks `estimates.status === 'converted'` first and returns the existing `converted_job_id` if present — covers the case where the customer clicks Approve twice or admin and customer race.
-
----
-
-## Technical Details
-
-### Database migration
-- `ALTER TABLE jobs ADD COLUMN source text DEFAULT 'manual';` (values: `manual`, `quote`, `lead`, `booking`)
-- `ALTER TABLE estimates ADD COLUMN converted_job_id uuid;`
-- Backfill: `UPDATE jobs SET source='quote' WHERE notes ILIKE 'Auto-created from%quote%' OR notes ILIKE 'Converted from%';`
-- No CHECK constraints (per project rules) — values validated in code.
-
-### Files to add
-- `src/lib/convertQuoteToJob.ts` — shared idempotent conversion helper (client-side, uses RLS).
-- `src/components/admin/jobs/JobsSectionTabs.tsx` — tab strip with counts.
-- `src/components/admin/jobs/JobStatusActions.tsx` — renders only legal transition buttons + cancel-reason / reopen confirm dialogs.
-- `src/components/admin/jobs/JobFiltersBar.tsx` — extracted filter bar with quick chips and URL-param sync.
-
-### Files to edit
-- `src/components/admin/JobsTab.tsx` — replace the single status filter with the section tabs, integrate the new components, group rows by section.
-- `src/components/admin/QuotesTab.tsx` + `src/components/admin/finance/EstimatesSection.tsx` — call the shared `convertQuoteToJob` helper, hide converted quotes from active list, show "Converted → Job #" pill, add "Show archived" toggle.
-- `supabase/functions/quote-action/index.ts` — replace inline job/invoice/lead update block with the same logic (server-side equivalent), add `crm_notes` + `notifications` inserts, send `quote-accepted-confirmation` email, set `estimates.status='converted'` and `converted_job_id`.
-- `supabase/functions/_shared/` — add a small `convertQuoteToJob.ts` mirror used by the edge function.
-
-### New email template
-- `supabase/functions/send-transactional-email` already supports templates by name — register `quote-accepted-confirmation` (subject: "Your cleaning is booked! 🌿", body: estimate number, total, link to portal).
-
-### Removal of duplication
-- Drop the standalone "Convert to Job" dialog in EstimatesSection — accepting a quote IS the conversion. Keep a "Reschedule job" action on the resulting job instead (in Jobs tab).
-- Drop the duplicate job-creation block in `EstimatesSection.updateStatus`.
-
-### Non-goals (call out so we don't scope-creep)
-- Not changing the quote creation flow (Quick Quote drawer stays as-is).
-- Not changing payout / feedback automations triggered by `completed`.
-- Not touching the public quote-view page beyond the success state already there.
-
----
-
-## Acceptance Checklist
-- Jobs tab shows 4 tabs with live counts; default is **New**.
-- Status buttons in the job drawer only show legal next states; cancel requires a reason.
-- Every status change appears in the job's Activity timeline with actor + timestamp.
-- Customer accepting a quote via email creates a job, hides the quote from the active list, fires admin notification + customer confirmation, and writes audit notes on quote, job, and (if present) lead.
-- Admin marking a quote accepted does the exact same thing through the same helper.
-- Re-clicking Approve doesn't create a duplicate job.
+- Outreach Hub win-back Kanban
+- Clients Tab profile enrichment
+- Drag-and-drop on Leads Kanban (still pending from earlier requests)

@@ -50,7 +50,7 @@ export async function convertQuoteToJob(
   if (jobErr || !job) throw new Error(jobErr?.message || "Failed to create job");
 
   // 2. Mark estimate converted
-  await supabase
+  const { error: estErr } = await supabase
     .from("estimates")
     .update({
       status: "converted",
@@ -58,6 +58,11 @@ export async function convertQuoteToJob(
       converted_job_id: job.id,
     } as any)
     .eq("id", est.id);
+  if (estErr) {
+    // Rollback the orphan job so we don't leave an unlinked record
+    await supabase.from("jobs").delete().eq("id", job.id);
+    throw new Error(`Failed to mark estimate converted: ${estErr.message}`);
+  }
 
   // 3. Draft invoice (only if none exists for this estimate)
   const { data: existingInv } = await supabase
