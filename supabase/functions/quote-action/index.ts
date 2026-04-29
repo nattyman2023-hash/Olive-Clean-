@@ -11,8 +11,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { token, action } = await req.json();
-    if (!token || !action || !["view", "approve"].includes(action)) {
+    const { token, action, reason } = await req.json();
+    if (!token || !action || !["view", "approve", "decline"].includes(action)) {
       return new Response(JSON.stringify({ error: "Invalid request" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -70,21 +70,64 @@ Deno.serve(async (req) => {
         .update({
           status: "accepted",
           approved_at: new Date().toISOString(),
+          accepted_via: "customer",
         })
         .eq("id", estimate.id);
 
       // Auto-create job from accepted quote
       const serviceName = estimate.items?.[0]?.description || "Cleaning Service";
-      await supabaseAdmin.from("jobs").insert({
+      const { data: newJob } = await supabaseAdmin.from("jobs").insert({
         client_id: estimate.client_id,
         service: serviceName,
         scheduled_at: new Date().toISOString(),
         price: estimate.total,
         notes: `Auto-created from approved quote ${estimate.estimate_number}`,
         status: "scheduled",
+      }).select("id").single();
+
+      // Auto-create draft invoice (linked) so finance can finalize later
+      await supabaseAdmin.from("invoices").insert({
+        client_id: estimate.client_id,
+        estimate_id: estimate.id,
+        invoice_number: `INV-${Date.now().toString(36).toUpperCase()}`,
+        status: "draft",
+        items: estimate.items,
+        subtotal: estimate.subtotal,
+        tax_rate: estimate.tax_rate,
+        tax_amount: estimate.tax_amount,
+        total: estimate.total,
+        notes: `Draft from accepted quote ${estimate.estimate_number}`,
       });
 
+      // Convert any matching lead so it leaves the active Leads board
+      if (newJob?.id) {
+        await supabaseAdmin
+          .from("leads")
+          .update({ status: "converted", converted_job_id: newJob.id })
+          .eq("email", (estimate as any).client_email || "")
+          .neq("status", "converted");
+      }
+
       return new Response(JSON.stringify({ success: true, message: "Quote approved" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "decline") {
+      if (estimate.status === "declined") {
+        return new Response(JSON.stringify({ quote: estimate, message: "Already declined" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      await supabaseAdmin
+        .from("estimates")
+        .update({
+          status: "declined",
+          declined_at: new Date().toISOString(),
+          decline_reason: typeof reason === "string" ? reason.slice(0, 500) : null,
+        })
+        .eq("id", estimate.id);
+      return new Response(JSON.stringify({ success: true, message: "Quote declined" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

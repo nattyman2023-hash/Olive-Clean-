@@ -34,8 +34,16 @@ export default function InvoiceForm({ type, onClose, onSaved, initial }: Invoice
   const [items, setItems] = useState<LineItem[]>(initial?.items || [{ description: "", qty: 1, rate: 0 }]);
   const [taxRate, setTaxRate] = useState(initial?.tax_rate?.toString() || "0");
   const [notes, setNotes] = useState(initial?.notes || "");
+  // Default quote expiry = today + 14 days when creating an estimate
+  const defaultValidUntil = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().slice(0, 10);
+  })();
   const [dueDate, setDueDate] = useState(initial?.due_date || "");
-  const [validUntil, setValidUntil] = useState(initial?.valid_until || "");
+  const [validUntil, setValidUntil] = useState(
+    initial?.valid_until || (type === "estimate" ? defaultValidUntil : "")
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
