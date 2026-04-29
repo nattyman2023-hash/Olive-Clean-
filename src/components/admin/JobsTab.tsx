@@ -1087,11 +1087,66 @@ interface DetailProps {
   onStatusChange: (id: string, status: string, reason?: string) => void;
   onReassign: (jobId: string, employeeId: string | null) => void;
   onLogDuration: (id: string, minutes: string) => void;
+  onUpdateFields: (id: string, patch: { scheduled_at?: string; service?: string; duration_minutes?: number | null; price?: number | null; notes?: string | null }) => Promise<void>;
+  serviceTemplates: { id: string; name: string; checklist_items: any; default_duration_minutes: number | null; default_price: number | null }[];
+  fallbackServices: string[];
+  readOnly?: boolean;
   getInitials: (name: string) => string;
   onNavigate?: (section: string, targetId?: string) => void;
 }
 
-function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, getInitials, onNavigate }: DetailProps) {
+function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDuration, onUpdateFields, serviceTemplates, fallbackServices, readOnly, getInitials, onNavigate }: DetailProps) {
+  const [editing, setEditing] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [auditTick, setAuditTick] = useState(0);
+
+  const toLocalInput = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const [editForm, setEditForm] = useState({
+    scheduled_at: toLocalInput(job.scheduled_at),
+    service: job.service,
+    duration_minutes: job.duration_minutes?.toString() || "",
+    price: job.price?.toString() || "",
+    notes: job.notes || "",
+  });
+
+  // Reset edit form whenever a new job is opened
+  useEffect(() => {
+    setEditing(false);
+    setEditForm({
+      scheduled_at: toLocalInput(job.scheduled_at),
+      service: job.service,
+      duration_minutes: job.duration_minutes?.toString() || "",
+      price: job.price?.toString() || "",
+      notes: job.notes || "",
+    });
+  }, [job.id]);
+
+  const SERVICES = serviceTemplates.length > 0
+    ? serviceTemplates.map(t => t.name.toLowerCase().replace(/\s+/g, "-"))
+    : fallbackServices;
+
+  const saveEdits = async () => {
+    setSavingEdit(true);
+    try {
+      await onUpdateFields(job.id, {
+        scheduled_at: new Date(editForm.scheduled_at).toISOString(),
+        service: editForm.service,
+        duration_minutes: editForm.duration_minutes ? parseInt(editForm.duration_minutes) : null,
+        price: editForm.price ? parseFloat(editForm.price) : null,
+        notes: editForm.notes || null,
+      });
+      setEditing(false);
+      setAuditTick((t) => t + 1);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div>
