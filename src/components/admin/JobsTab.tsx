@@ -4,6 +4,7 @@ import ActivityTimeline from "./ActivityTimeline";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -39,12 +40,15 @@ import {
   Send,
   Filter,
   Trash2,
+  Pencil,
+  Save,
 } from "lucide-react";
 const JobsMap = lazy(() => import("./jobs/JobsMap"));
 import JobPhotosGallery from "./JobPhotosGallery";
 import AttendanceVerification from "./AttendanceVerification";
 import JobsSectionTabs, { getSectionForJob, type JobSection } from "./jobs/JobsSectionTabs";
 import JobStatusActions from "./jobs/JobStatusActions";
+import JobAuditLog from "./jobs/JobAuditLog";
 
 interface Job {
   id: string;
