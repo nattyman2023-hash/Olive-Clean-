@@ -588,6 +588,16 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
   const getInitials = (name: string) =>
     name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
+  // Pagination — only Scheduled & Completed sections paginate
+  const isPaginated = section === "scheduled" || section === "completed";
+  const totalPages = isPaginated ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)) : 1;
+  const safePage = Math.min(page, totalPages);
+  const pagedJobs = isPaginated ? filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE) : filtered;
+
+  useEffect(() => {
+    setPage(1);
+  }, [section, search, sourceFilter, quickChip, dateFrom, dateTo, employeeFilter, serviceFilter, neighborhoodFilter]);
+
   return (
     <div>
       {/* Toolbar */}
