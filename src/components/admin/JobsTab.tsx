@@ -606,6 +606,43 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
         </div>
       </div>
 
+      {/* Section Tabs */}
+      <JobsSectionTabs active={section} counts={sectionCounts} onChange={(s) => { setSection(s); setSelectedJobs(new Set()); }} />
+
+      {/* Quick Chips */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {([
+          { key: "", label: "All in section" },
+          { key: "today", label: "Today" },
+          { key: "week", label: "This week" },
+          { key: "unassigned", label: "Unassigned" },
+          { key: "overdue", label: "Overdue" },
+        ] as const).map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setQuickChip(c.key as any)}
+            className={`px-2.5 py-1 rounded-full text-[0.7rem] font-medium border transition-colors ${
+              quickChip === c.key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:text-foreground"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value as any)}
+          className="ml-auto px-2 py-1 rounded-full text-[0.7rem] bg-card border border-border text-foreground"
+        >
+          <option value="all">All sources</option>
+          <option value="manual">Manual</option>
+          <option value="quote">From quote</option>
+          <option value="lead">From lead</option>
+          <option value="booking">From booking</option>
+        </select>
+      </div>
+
       {/* Filter Bar */}
       {showFilters && (
         <div className="bg-card rounded-xl border border-border shadow-sm p-4 mb-6">
