@@ -219,15 +219,43 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     fetchJobs();
   };
 
-  const updateJobStatus = async (id: string, status: string) => {
+  const updateJobStatus = async (id: string, status: string, reason?: string) => {
+    const job = jobs.find((j) => j.id === id);
+    const previousStatus = job?.status;
     const update: any = { status };
     if (status === "completed") update.completed_at = new Date().toISOString();
+    if (status === "cancelled") {
+      update.cancelled_at = new Date().toISOString();
+      if (reason) update.cancel_reason = reason;
+    }
+    if (status === "in_progress" && previousStatus === "completed") {
+      update.completed_at = null;
+    }
+    if (status === "scheduled" && previousStatus === "cancelled") {
+      update.cancelled_at = null;
+      update.cancel_reason = null;
+    }
     const { error } = await supabase.from("jobs").update(update).eq("id", id);
     if (error) {
       toast.error("Failed to update job.");
       return;
     }
     toast.success(`Job marked as ${status}.`);
+
+    // Audit trail
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const actor = user?.email || "admin";
+      let content = `Status: ${previousStatus || "?"} → ${status} (by ${actor})`;
+      if (reason) content += ` — Reason: ${reason}`;
+      await supabase.from("crm_notes").insert({
+        parent_type: "job",
+        parent_id: id,
+        author_id: user?.id || null,
+        content,
+        note_type: "status_change",
+      });
+    } catch (_) { /* non-blocking */ }
 
     // Auto-increment loyalty cleanings on completion
     if (status === "completed") {
