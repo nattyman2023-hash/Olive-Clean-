@@ -251,6 +251,16 @@ export default function NotificationBell() {
                         </Button>
                       )}
                     </div>
+                    {n.opened_at && (
+                      <div className="flex items-center gap-1 mt-1 text-[0.6rem] text-muted-foreground">
+                        <Eye className="h-2.5 w-2.5" />
+                        {n.opened_by && n.opened_by !== user?.id ? (
+                          <span>Seen by <span className="font-medium text-foreground">{openerProfiles[n.opened_by] || "Team member"}</span> · {format(new Date(n.opened_at), "MMM d, h:mm a")}</span>
+                        ) : (
+                          <span>Seen {format(new Date(n.opened_at), "MMM d, h:mm a")}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {!n.read && (
                     <button
