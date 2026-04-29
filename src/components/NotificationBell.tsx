@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, ArrowRightLeft, Package, Megaphone, Clock, CheckCircle2, AlertTriangle, Star, UserCheck } from "lucide-react";
+import { Bell, ArrowRightLeft, Package, Megaphone, Clock, CheckCircle2, AlertTriangle, Star, UserCheck, PlayCircle, XCircle, RotateCcw, Briefcase } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -31,6 +31,11 @@ const TYPE_CONFIG: Record<string, TypeCfg> = {
   clock_in:         { icon: UserCheck, color: "text-muted-foreground", priority: "low" },
   announcement:     { icon: Megaphone, color: "text-blue-600", priority: "medium" },
   reminder:         { icon: Clock, color: "text-amber-600", priority: "medium" },
+  job_in_progress:  { icon: PlayCircle, color: "text-primary", priority: "medium", actionLabel: "Open Job", actionTab: "jobs" },
+  job_completed:    { icon: CheckCircle2, color: "text-emerald-600", priority: "medium", actionLabel: "Open Job", actionTab: "jobs" },
+  job_cancelled:    { icon: XCircle, color: "text-destructive", priority: "high", actionLabel: "Open Job", actionTab: "jobs" },
+  job_scheduled:    { icon: RotateCcw, color: "text-olive-gold", priority: "medium", actionLabel: "Open Job", actionTab: "jobs" },
+  quote_converted:  { icon: Briefcase, color: "text-primary", priority: "medium", actionLabel: "Open Job", actionTab: "jobs" },
 };
 
 const BADGE_COLOR: Record<Priority, string> = {
@@ -105,6 +110,11 @@ export default function NotificationBell() {
   const handleAction = (n: any) => {
     const cfg = TYPE_CONFIG[n.type];
     if (!n.read) markReadMutation.mutate(n.id);
+    // Deep link: stash target job id so JobsTab opens the drawer
+    const jobId = n?.metadata?.job_id;
+    if (jobId) {
+      try { sessionStorage.setItem("openJobId", String(jobId)); } catch {}
+    }
     if (cfg?.actionTab) {
       // Navigate to admin tab by clicking the tab trigger
       setTimeout(() => {
@@ -113,6 +123,19 @@ export default function NotificationBell() {
       }, 100);
       setOpen(false);
     }
+  };
+
+  const STATUS_LABEL: Record<string, string> = {
+    scheduled: "Scheduled",
+    in_progress: "In Progress",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  };
+  const STATUS_PILL: Record<string, string> = {
+    scheduled: "bg-olive-gold/10 text-olive-gold",
+    in_progress: "bg-primary/10 text-primary",
+    completed: "bg-emerald-500/10 text-emerald-600",
+    cancelled: "bg-destructive/10 text-destructive",
   };
 
   return (
@@ -157,6 +180,20 @@ export default function NotificationBell() {
                   <div className="min-w-0 flex-1">
                     <p className={`text-xs ${!n.read ? "font-semibold text-foreground" : "text-foreground"}`}>{n.title}</p>
                     {n.body && <p className="text-[0.65rem] text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
+                    {n.type?.startsWith?.("job_") && n.metadata?.previous_status && n.metadata?.new_status && (
+                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                        <span className={`text-[0.55rem] font-semibold px-1.5 py-0.5 rounded ${STATUS_PILL[n.metadata.previous_status] || "bg-muted text-muted-foreground"}`}>
+                          {STATUS_LABEL[n.metadata.previous_status] || n.metadata.previous_status}
+                        </span>
+                        <span className="text-[0.6rem] text-muted-foreground">→</span>
+                        <span className={`text-[0.55rem] font-semibold px-1.5 py-0.5 rounded ${STATUS_PILL[n.metadata.new_status] || "bg-muted text-muted-foreground"}`}>
+                          {STATUS_LABEL[n.metadata.new_status] || n.metadata.new_status}
+                        </span>
+                      </div>
+                    )}
+                    {n.type?.startsWith?.("job_") && n.metadata?.reason && (
+                      <p className="text-[0.6rem] text-destructive/80 mt-1 italic line-clamp-2">Reason: {n.metadata.reason}</p>
+                    )}
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-[0.6rem] text-muted-foreground">{format(new Date(n.created_at), "MMM d, h:mm a")}</p>
                       {config.actionLabel && !n.read && (

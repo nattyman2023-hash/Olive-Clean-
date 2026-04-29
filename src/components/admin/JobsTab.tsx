@@ -162,6 +162,19 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       employees: j.assigned_to ? empByUserId.get(j.assigned_to) || null : null,
     })) as Job[];
     setJobs(normalized);
+
+    // Deep link: if a notification stashed a job id, open that drawer
+    try {
+      const targetId = sessionStorage.getItem("openJobId");
+      if (targetId) {
+        const target = normalized.find((j) => j.id === targetId);
+        if (target) {
+          setSection(getSectionForJob(target));
+          setSelected(target);
+        }
+        sessionStorage.removeItem("openJobId");
+      }
+    } catch { /* noop */ }
   };
 
   const fetchClients = async () => {
@@ -1182,7 +1195,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
       {/* Status actions */}
       <div className="border-t border-border pt-4">
         <p className="text-xs text-muted-foreground mb-2">Update Status</p>
-        <JobStatusActions status={job.status} onTransition={(next, reason) => onStatusChange(job.id, next, reason)} />
+        <JobStatusActions
+          status={job.status}
+          assignedTo={job.assigned_to}
+          createdAt={job.created_at}
+          onTransition={(next, reason) => onStatusChange(job.id, next, reason)}
+        />
         {job.status === "cancelled" && job.cancel_reason && (
           <p className="text-[0.7rem] text-destructive mt-2 italic">Reason: {job.cancel_reason}</p>
         )}
