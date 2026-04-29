@@ -795,6 +795,11 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
+                        {j.source && j.source !== "manual" && (
+                          <span className="inline-block mt-1 text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800 capitalize">
+                            From {j.source}
+                          </span>
+                        )}
                         {j.employees?.name && (
                           <div className="flex items-center gap-1.5 mt-1.5">
                             <Avatar className="h-4 w-4">
