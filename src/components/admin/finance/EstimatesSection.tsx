@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Loader2, FileText, ArrowRight, Pencil, Eye, Briefcase, PhoneCall } from "lucide-react";
+import { Plus, Loader2, FileText, ArrowRight, Pencil, Eye, PhoneCall, ExternalLink } from "lucide-react";
 import InvoiceForm from "./InvoiceForm";
 import InvoicePreview from "./InvoicePreview";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { convertQuoteToJob } from "@/lib/convertQuoteToJob";
 
 interface Estimate {
   id: string;
@@ -22,6 +20,7 @@ interface Estimate {
   notes: string | null;
   valid_until: string | null;
   converted_invoice_id: string | null;
+  converted_job_id?: string | null;
   created_at: string;
   clients?: { name: string } | null;
 }
@@ -34,6 +33,8 @@ const STATUS_STYLES: Record<string, string> = {
   converted: "bg-violet-100 text-violet-800",
 };
 
+const TERMINAL = new Set(["converted", "declined"]);
+
 export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,10 +42,7 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
   const [convertForm, setConvertForm] = useState<Estimate | null>(null);
   const [preview, setPreview] = useState<Estimate | null>(null);
   const [previewEditMode, setPreviewEditMode] = useState(false);
-  const [jobDialog, setJobDialog] = useState<Estimate | null>(null);
-  const [jobDate, setJobDate] = useState("");
-  const [jobNotes, setJobNotes] = useState("");
-  const [jobSaving, setJobSaving] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetch_ = async () => {
     setLoading(true);
