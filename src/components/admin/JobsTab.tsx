@@ -42,7 +42,15 @@ import {
   Trash2,
   Pencil,
   Save,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 const JobsMap = lazy(() => import("./jobs/JobsMap"));
 import JobPhotosGallery from "./JobPhotosGallery";
 import AttendanceVerification from "./AttendanceVerification";
