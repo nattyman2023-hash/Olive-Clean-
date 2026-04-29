@@ -257,6 +257,32 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
         content,
         note_type: "status_change",
       });
+
+      // Fan-out in-app notifications to admins (and assigned tech), suppress self
+      const titleMap: Record<string, string> = {
+        in_progress: "Job started",
+        completed: "Job completed",
+        cancelled: "Job cancelled",
+        scheduled: "Job restored",
+      };
+      const recipients = new Set<string>();
+      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+      admins?.forEach((a: any) => recipients.add(a.user_id));
+      if (job?.assigned_to) recipients.add(job.assigned_to);
+      if (user?.id) recipients.delete(user.id);
+      if (recipients.size > 0) {
+        const prettyService = job?.service?.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Job";
+        const prettyDate = job?.scheduled_at ? new Date(job.scheduled_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+        await supabase.from("notifications").insert(
+          Array.from(recipients).map((uid) => ({
+            user_id: uid,
+            type: `job_${status}`,
+            title: `${titleMap[status] || "Job updated"} — ${job?.clients?.name || "Client"}`,
+            body: `${prettyService}${prettyDate ? ` · ${prettyDate}` : ""}${reason ? ` · Reason: ${reason}` : ""}`,
+            metadata: { job_id: id, previous_status: previousStatus, new_status: status, reason: reason || null } as any,
+          }))
+        );
+      }
     } catch (_) { /* non-blocking */ }
 
     // Auto-increment loyalty cleanings on completion
