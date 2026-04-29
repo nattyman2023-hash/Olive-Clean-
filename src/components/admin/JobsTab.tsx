@@ -913,14 +913,28 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
               <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-12 text-center">
-              <p className="text-muted-foreground text-sm">No jobs found.</p>
+            <div className="bg-card rounded-xl border border-border p-12 text-center space-y-3">
+              <p className="text-muted-foreground text-sm">
+                No jobs in <span className="font-medium text-foreground capitalize">{section}</span>
+                {(activeFilterCount > 0 || search || quickChip || sourceFilter !== "all") && " match your filters"}.
+              </p>
+              {(activeFilterCount > 0 || search || quickChip || sourceFilter !== "all") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  onClick={() => { clearFilters(); setSearch(""); setQuickChip(""); setSourceFilter("all"); }}
+                >
+                  Clear filters
+                </Button>
+              )}
             </div>
           ) : (
             pagedJobs.map((j) => {
               const sc = jobStatusConfig[j.status] || jobStatusConfig.scheduled;
               const Icon = sc.icon;
               const isChecked = selectedJobs.has(j.id);
+              const sourceLabel = (j.source || "manual").replace(/^./, (c) => c.toUpperCase());
               return (
                 <div key={j.id} className="flex items-start gap-3">
                   <div className="pt-5">
@@ -929,23 +943,20 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                       onCheckedChange={() => toggleJobSelection(j.id)}
                     />
                   </div>
-                  <button
-                    onClick={() => setSelected(j)}
-                    className={`flex-1 text-left bg-card rounded-xl border p-5 transition-all hover:shadow-md active:scale-[0.99] ${
+                  <div
+                    className={`flex-1 bg-card rounded-xl border p-5 transition-all hover:shadow-md ${
                       selected?.id === j.id ? "border-primary shadow-md" : isChecked ? "border-primary/50 shadow-sm" : "border-border shadow-sm"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
+                      <button onClick={() => setSelected(j)} className="min-w-0 flex-1 text-left active:scale-[0.99]">
                         <p className="font-semibold text-foreground text-sm truncate">{j.clients?.name || "Unknown Client"}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
-                        {j.source && j.source !== "manual" && (
-                          <span className="inline-block mt-1 text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800 capitalize">
-                            From {j.source}
-                          </span>
-                        )}
+                        <span className="inline-block mt-1 text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          {(j.source || "manual") === "manual" ? "Manual" : `From ${sourceLabel.toLowerCase()}`}
+                        </span>
                         {j.employees?.name && (
                           <div className="flex items-center gap-1.5 mt-1.5">
                             <Avatar className="h-4 w-4">
@@ -955,13 +966,72 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                             <span className="text-[0.65rem] text-muted-foreground">{j.employees.name}</span>
                           </div>
                         )}
-                      </div>
-                      <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
-                        <Icon className="h-3 w-3" />
-                        {sc.label}
+                      </button>
+                      <div className="flex items-start gap-2 shrink-0">
+                        <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${sc.className}`}>
+                          <Icon className="h-3 w-3" />
+                          {sc.label}
+                        </div>
+                        {!readOnly && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                aria-label="Quick actions"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => setSelected(j)}>
+                                <Pencil className="h-3.5 w-3.5 mr-2" /> Open & Edit
+                              </DropdownMenuItem>
+                              {j.status === "scheduled" && !j.assigned_to && (
+                                <DropdownMenuItem onClick={() => setSelected(j)}>
+                                  <UserCircle className="h-3.5 w-3.5 mr-2" /> Assign Technician
+                                </DropdownMenuItem>
+                              )}
+                              {j.status === "scheduled" && j.assigned_to && (
+                                <DropdownMenuItem onClick={() => updateJobStatus(j.id, "in_progress")}>
+                                  <PlayCircle className="h-3.5 w-3.5 mr-2" /> Start Job
+                                </DropdownMenuItem>
+                              )}
+                              {j.status === "in_progress" && (
+                                <DropdownMenuItem onClick={() => updateJobStatus(j.id, "completed")}>
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Mark Complete
+                                </DropdownMenuItem>
+                              )}
+                              {j.status === "completed" && (
+                                <DropdownMenuItem onClick={() => updateJobStatus(j.id, "in_progress")}>
+                                  <PlayCircle className="h-3.5 w-3.5 mr-2" /> Reopen
+                                </DropdownMenuItem>
+                              )}
+                              {j.status === "cancelled" && (
+                                <DropdownMenuItem onClick={() => updateJobStatus(j.id, "scheduled")}>
+                                  <PlayCircle className="h-3.5 w-3.5 mr-2" /> Restore
+                                </DropdownMenuItem>
+                              )}
+                              {(j.status === "scheduled" || j.status === "in_progress") && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => {
+                                      const reason = window.prompt("Cancel reason (required):");
+                                      if (reason && reason.trim()) updateJobStatus(j.id, "cancelled", reason.trim());
+                                    }}
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 mr-2" /> Cancel Job
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
-                  </button>
+                  </div>
                 </div>
               );
             })
