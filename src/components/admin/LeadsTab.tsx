@@ -373,18 +373,6 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
             <div className="space-y-4 mt-4">
               {/* Quick Actions */}
               <div className="flex flex-wrap gap-2">
-                {selectedLead.status === "new" && onNavigate && (
-                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
-                    sessionStorage.setItem("prefill-quote", JSON.stringify({
-                      leadId: selectedLead.id, name: selectedLead.name, email: selectedLead.email,
-                      phone: selectedLead.phone, address: selectedLead.location,
-                    }));
-                    onNavigate("quotes");
-                    setSelectedLead(null);
-                  }}>
-                    <FileText className="h-3 w-3 mr-1" /> Create Quote
-                  </Button>
-                )}
                 <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => logCall.mutate(selectedLead)}>
                   <Phone className="h-3 w-3 mr-1" /> Log Call
                 </Button>
