@@ -130,6 +130,8 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          address_line1: string | null
+          city: string | null
           client_user_id: string | null
           created_at: string
           created_by: string | null
@@ -142,9 +144,13 @@ export type Database = {
           notes: string | null
           phone: string | null
           preferences: Json | null
+          state: string | null
+          zip: string | null
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
+          city?: string | null
           client_user_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -157,9 +163,13 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           preferences?: Json | null
+          state?: string | null
+          zip?: string | null
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
+          city?: string | null
           client_user_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -172,6 +182,8 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           preferences?: Json | null
+          state?: string | null
+          zip?: string | null
         }
         Relationships: []
       }
@@ -460,11 +472,14 @@ export type Database = {
       }
       estimates: {
         Row: {
+          accepted_via: string | null
           approval_token: string | null
           approved_at: string | null
           client_id: string
           converted_invoice_id: string | null
           created_at: string
+          decline_reason: string | null
+          declined_at: string | null
           estimate_number: string
           id: string
           items: Json
@@ -481,11 +496,14 @@ export type Database = {
           viewed_at: string | null
         }
         Insert: {
+          accepted_via?: string | null
           approval_token?: string | null
           approved_at?: string | null
           client_id: string
           converted_invoice_id?: string | null
           created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
           estimate_number: string
           id?: string
           items?: Json
@@ -502,11 +520,14 @@ export type Database = {
           viewed_at?: string | null
         }
         Update: {
+          accepted_via?: string | null
           approval_token?: string | null
           approved_at?: string | null
           client_id?: string
           converted_invoice_id?: string | null
           created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
           estimate_number?: string
           id?: string
           items?: Json
@@ -826,6 +847,8 @@ export type Database = {
         Row: {
           actual_duration_minutes: number | null
           assigned_to: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
           checklist_state: Json | null
           client_id: string
           completed_at: string | null
@@ -844,6 +867,8 @@ export type Database = {
         Insert: {
           actual_duration_minutes?: number | null
           assigned_to?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           checklist_state?: Json | null
           client_id: string
           completed_at?: string | null
@@ -862,6 +887,8 @@ export type Database = {
         Update: {
           actual_duration_minutes?: number | null
           assigned_to?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           checklist_state?: Json | null
           client_id?: string
           completed_at?: string | null
@@ -889,9 +916,11 @@ export type Database = {
       }
       leads: {
         Row: {
+          address_line1: string | null
           bathrooms: number | null
           bedrooms: number | null
           chat_transcript: Json | null
+          city: string | null
           converted_job_id: string | null
           created_at: string
           email: string | null
@@ -904,13 +933,17 @@ export type Database = {
           phone: string | null
           score: number
           source: string
+          state: string | null
           status: string
           urgency: string | null
+          zip: string | null
         }
         Insert: {
+          address_line1?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
           chat_transcript?: Json | null
+          city?: string | null
           converted_job_id?: string | null
           created_at?: string
           email?: string | null
@@ -923,13 +956,17 @@ export type Database = {
           phone?: string | null
           score?: number
           source?: string
+          state?: string | null
           status?: string
           urgency?: string | null
+          zip?: string | null
         }
         Update: {
+          address_line1?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
           chat_transcript?: Json | null
+          city?: string | null
           converted_job_id?: string | null
           created_at?: string
           email?: string | null
@@ -942,8 +979,10 @@ export type Database = {
           phone?: string | null
           score?: number
           source?: string
+          state?: string | null
           status?: string
           urgency?: string | null
+          zip?: string | null
         }
         Relationships: []
       }
