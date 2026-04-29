@@ -43,6 +43,8 @@ import {
 const JobsMap = lazy(() => import("./jobs/JobsMap"));
 import JobPhotosGallery from "./JobPhotosGallery";
 import AttendanceVerification from "./AttendanceVerification";
+import JobsSectionTabs, { getSectionForJob, type JobSection } from "./jobs/JobsSectionTabs";
+import JobStatusActions from "./jobs/JobStatusActions";
 
 interface Job {
   id: string;
@@ -57,6 +59,8 @@ interface Job {
   price: number | null;
   notes: string | null;
   created_at: string;
+  source?: string | null;
+  cancel_reason?: string | null;
   clients?: { name: string; neighborhood: string | null; lat: number | null; lng: number | null } | null;
   employees?: { name: string; photo_url: string | null } | null;
 }
@@ -89,7 +93,9 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [section, setSection] = useState<JobSection>("new");
+  const [quickChip, setQuickChip] = useState<"" | "today" | "week" | "unassigned" | "overdue">("");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "quote" | "lead" | "booking">("all");
   const [selected, setSelected] = useState<Job | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -213,15 +219,43 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
     fetchJobs();
   };
 
-  const updateJobStatus = async (id: string, status: string) => {
+  const updateJobStatus = async (id: string, status: string, reason?: string) => {
+    const job = jobs.find((j) => j.id === id);
+    const previousStatus = job?.status;
     const update: any = { status };
     if (status === "completed") update.completed_at = new Date().toISOString();
+    if (status === "cancelled") {
+      update.cancelled_at = new Date().toISOString();
+      if (reason) update.cancel_reason = reason;
+    }
+    if (status === "in_progress" && previousStatus === "completed") {
+      update.completed_at = null;
+    }
+    if (status === "scheduled" && previousStatus === "cancelled") {
+      update.cancelled_at = null;
+      update.cancel_reason = null;
+    }
     const { error } = await supabase.from("jobs").update(update).eq("id", id);
     if (error) {
       toast.error("Failed to update job.");
       return;
     }
     toast.success(`Job marked as ${status}.`);
+
+    // Audit trail
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const actor = user?.email || "admin";
+      let content = `Status: ${previousStatus || "?"} → ${status} (by ${actor})`;
+      if (reason) content += ` — Reason: ${reason}`;
+      await supabase.from("crm_notes").insert({
+        parent_type: "job",
+        parent_id: id,
+        author_id: user?.id || null,
+        content,
+        note_type: "status_change",
+      });
+    } catch (_) { /* non-blocking */ }
 
     // Auto-increment loyalty cleanings on completion
     if (status === "completed") {
@@ -495,6 +529,19 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
 
   const STATUS_PRIORITY: Record<string, number> = { scheduled: 0, in_progress: 1, completed: 2, cancelled: 3 };
 
+  const sectionCounts = jobs.reduce(
+    (acc, j) => {
+      const s = getSectionForJob(j);
+      acc[s] += 1;
+      return acc;
+    },
+    { new: 0, scheduled: 0, converted: 0, archived: 0 } as Record<JobSection, number>
+  );
+
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday); endOfToday.setDate(endOfToday.getDate() + 1);
+  const endOfWeek = new Date(startOfToday); endOfWeek.setDate(endOfWeek.getDate() + 7);
+
   const filtered = jobs.filter((j) => {
     const clientName = j.clients?.name || "";
     const empName = j.employees?.name || "";
@@ -503,13 +550,20 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
       clientName.toLowerCase().includes(search.toLowerCase()) ||
       empName.toLowerCase().includes(search.toLowerCase()) ||
       j.service.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || j.status === statusFilter;
+    const matchesSection = getSectionForJob(j) === section;
     const matchesDateFrom = !dateFrom || j.scheduled_at >= dateFrom;
     const matchesDateTo = !dateTo || j.scheduled_at.slice(0, 10) <= dateTo;
     const matchesEmployee = employeeFilter === "all" || j.assigned_to === employeeFilter;
     const matchesService = serviceFilter === "all" || j.service === serviceFilter;
     const matchesNeighborhood = neighborhoodFilter === "all" || j.clients?.neighborhood === neighborhoodFilter;
-    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesEmployee && matchesService && matchesNeighborhood;
+    const matchesSource = sourceFilter === "all" || (j.source || "manual") === sourceFilter;
+    const sched = new Date(j.scheduled_at);
+    let matchesChip = true;
+    if (quickChip === "today") matchesChip = sched >= startOfToday && sched < endOfToday;
+    else if (quickChip === "week") matchesChip = sched >= startOfToday && sched < endOfWeek;
+    else if (quickChip === "unassigned") matchesChip = !j.assigned_to;
+    else if (quickChip === "overdue") matchesChip = j.status === "scheduled" && sched < new Date();
+    return matchesSearch && matchesSection && matchesDateFrom && matchesDateTo && matchesEmployee && matchesService && matchesNeighborhood && matchesSource && matchesChip;
   }).sort((a, b) => {
     const pa = STATUS_PRIORITY[a.status] ?? 9;
     const pb = STATUS_PRIORITY[b.status] ?? 9;
@@ -529,17 +583,6 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by client, employee, or service..." className="pl-10 rounded-xl" />
         </div>
         <div className="flex gap-2 flex-wrap items-center">
-          {["all", "scheduled", "in_progress", "completed", "cancelled"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors active:scale-[0.97] ${
-                statusFilter === s ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {s === "all" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-            </button>
-          ))}
           <div className="flex bg-card border border-border rounded-lg p-0.5">
             <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><List className="h-4 w-4" /></button>
             <button onClick={() => setViewMode("map")} className={`p-1.5 rounded-md transition-colors ${viewMode === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><MapIcon className="h-4 w-4" /></button>
@@ -561,6 +604,43 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Section Tabs */}
+      <JobsSectionTabs active={section} counts={sectionCounts} onChange={(s) => { setSection(s); setSelectedJobs(new Set()); }} />
+
+      {/* Quick Chips */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {([
+          { key: "", label: "All in section" },
+          { key: "today", label: "Today" },
+          { key: "week", label: "This week" },
+          { key: "unassigned", label: "Unassigned" },
+          { key: "overdue", label: "Overdue" },
+        ] as const).map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setQuickChip(c.key as any)}
+            className={`px-2.5 py-1 rounded-full text-[0.7rem] font-medium border transition-colors ${
+              quickChip === c.key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:text-foreground"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value as any)}
+          className="ml-auto px-2 py-1 rounded-full text-[0.7rem] bg-card border border-border text-foreground"
+        >
+          <option value="all">All sources</option>
+          <option value="manual">Manual</option>
+          <option value="quote">From quote</option>
+          <option value="lead">From lead</option>
+          <option value="booking">From booking</option>
+        </select>
       </div>
 
       {/* Filter Bar */}
@@ -715,6 +795,11 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {j.service.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {new Date(j.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
+                        {j.source && j.source !== "manual" && (
+                          <span className="inline-block mt-1 text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800 capitalize">
+                            From {j.source}
+                          </span>
+                        )}
                         {j.employees?.name && (
                           <div className="flex items-center gap-1.5 mt-1.5">
                             <Avatar className="h-4 w-4">
@@ -826,7 +911,7 @@ export default function JobsTab({ readOnly, onNavigate }: { readOnly?: boolean; 
 interface DetailProps {
   job: Job;
   employees: EmployeeOption[];
-  onStatusChange: (id: string, status: string) => void;
+  onStatusChange: (id: string, status: string, reason?: string) => void;
   onReassign: (jobId: string, employeeId: string | null) => void;
   onLogDuration: (id: string, minutes: string) => void;
   getInitials: (name: string) => string;
@@ -989,21 +1074,10 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
       {/* Status actions */}
       <div className="border-t border-border pt-4">
         <p className="text-xs text-muted-foreground mb-2">Update Status</p>
-        <div className="grid grid-cols-2 gap-2">
-          {["scheduled", "in_progress", "completed", "cancelled"].map((s) => {
-            const sc = jobStatusConfig[s];
-            return (
-              <button
-                key={s}
-                onClick={() => onStatusChange(job.id, s)}
-                disabled={job.status === s}
-                className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-[0.97] disabled:opacity-40 ${sc.className}`}
-              >
-                {sc.label}
-              </button>
-            );
-          })}
-        </div>
+        <JobStatusActions status={job.status} onTransition={(next, reason) => onStatusChange(job.id, next, reason)} />
+        {job.status === "cancelled" && job.cancel_reason && (
+          <p className="text-[0.7rem] text-destructive mt-2 italic">Reason: {job.cancel_reason}</p>
+        )}
       </div>
     </div>
   );

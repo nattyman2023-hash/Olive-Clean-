@@ -477,6 +477,7 @@ export type Database = {
           approved_at: string | null
           client_id: string
           converted_invoice_id: string | null
+          converted_job_id: string | null
           created_at: string
           decline_reason: string | null
           declined_at: string | null
@@ -501,6 +502,7 @@ export type Database = {
           approved_at?: string | null
           client_id: string
           converted_invoice_id?: string | null
+          converted_job_id?: string | null
           created_at?: string
           decline_reason?: string | null
           declined_at?: string | null
@@ -525,6 +527,7 @@ export type Database = {
           approved_at?: string | null
           client_id?: string
           converted_invoice_id?: string | null
+          converted_job_id?: string | null
           created_at?: string
           decline_reason?: string | null
           declined_at?: string | null
@@ -861,6 +864,7 @@ export type Database = {
           price: number | null
           scheduled_at: string
           service: string
+          source: string
           status: string
           tip_amount: number | null
         }
@@ -881,6 +885,7 @@ export type Database = {
           price?: number | null
           scheduled_at: string
           service: string
+          source?: string
           status?: string
           tip_amount?: number | null
         }
@@ -901,6 +906,7 @@ export type Database = {
           price?: number | null
           scheduled_at?: string
           service?: string
+          source?: string
           status?: string
           tip_amount?: number | null
         }
