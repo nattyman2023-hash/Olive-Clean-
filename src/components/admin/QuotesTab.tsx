@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import InvoiceForm from "./finance/InvoiceForm";
 import InvoicePreview from "./finance/InvoicePreview";
+import QuickQuoteDrawer from "./finance/QuickQuoteDrawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -66,6 +67,7 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
   const [prefillLeadId, setPrefillLeadId] = useState<string | null>(null);
   const [showConverted, setShowConverted] = useState(false);
   const [resetTarget, setResetTarget] = useState<Estimate | null>(null);
+  const [showQuickQuote, setShowQuickQuote] = useState(false);
 
   // Check for lead-to-quote prefill on mount
   useEffect(() => {
@@ -306,9 +308,14 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
           Quote Engine
         </h3>
         {!readOnly && (
-          <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg">
-            <Plus className="h-4 w-4 mr-1" />New Quote
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowQuickQuote(true)} className="rounded-lg">
+              <PhoneCall className="h-4 w-4 mr-1" />Quick Quote
+            </Button>
+            <Button size="sm" onClick={() => setShowForm(true)} className="rounded-lg">
+              <Plus className="h-4 w-4 mr-1" />New Quote
+            </Button>
+          </div>
         )}
       </div>
 
@@ -488,6 +495,12 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <QuickQuoteDrawer
+        open={showQuickQuote}
+        onClose={() => setShowQuickQuote(false)}
+        onSaved={fetchQuotes}
+      />
     </div>
   );
 }

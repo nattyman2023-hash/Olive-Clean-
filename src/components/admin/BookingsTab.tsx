@@ -10,6 +10,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { AddressInput, formatAddress } from "@/components/ui/AddressInput";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -329,7 +331,7 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground">Phone *</label>
-                <Input value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} className="rounded-lg" />
+                <PhoneInput value={addForm.phone || undefined} onChange={(v) => setAddForm({ ...addForm, phone: v || "" })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Service</label>
@@ -372,7 +374,16 @@ export default function BookingsTab({ readOnly }: { readOnly?: boolean }) {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Address</label>
-                <Input value={addForm.address} onChange={(e) => setAddForm({ ...addForm, address: e.target.value })} className="rounded-lg" />
+                <AddressInput
+                  value={{
+                    address_line1: addForm.address,
+                    city: "",
+                    state: "",
+                    zip: "",
+                  }}
+                  onChange={(a) => setAddForm({ ...addForm, address: formatAddress(a) })}
+                  showLabels={false}
+                />
               </div>
             </div>
             <div>

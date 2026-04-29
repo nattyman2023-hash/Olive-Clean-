@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { PhoneInput, isPhoneValid } from "@/components/ui/PhoneInput";
+import { AddressInput, type StructuredAddress, formatAddress } from "@/components/ui/AddressInput";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,11 +130,12 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    phone: "",
+    phone: undefined as string | undefined,
     address: "",
     neighborhood: "",
     notes: "",
   });
+  const [addr, setAddr] = useState<Partial<StructuredAddress>>({});
   const [prefEntries, setPrefEntries] = useState<{ key: string; value: string }[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -189,7 +192,8 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ name: "", email: "", phone: "", address: "", neighborhood: "", notes: "" });
+    setForm({ name: "", email: "", phone: undefined, address: "", neighborhood: "", notes: "" });
+    setAddr({});
     setPrefEntries([]);
     setShowForm(true);
   };
@@ -199,10 +203,16 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
     setForm({
       name: c.name,
       email: c.email || "",
-      phone: c.phone || "",
+      phone: c.phone || undefined,
       address: c.address || "",
       neighborhood: c.neighborhood || "",
       notes: c.notes || "",
+    });
+    setAddr({
+      address_line1: (c as any).address_line1 || "",
+      city: (c as any).city || "",
+      state: (c as any).state || "",
+      zip: (c as any).zip || "",
     });
     setPrefEntries(Object.entries(c.preferences).map(([key, value]) => ({ key, value })));
     setShowForm(true);
@@ -213,22 +223,31 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
       toast.error("Name is required.");
       return;
     }
+    if (form.phone && !isPhoneValid(form.phone)) {
+      toast.error("Phone number isn't valid.");
+      return;
+    }
     setSaving(true);
     const preferences: Record<string, string> = {};
     prefEntries.forEach((e) => {
       if (e.key.trim()) preferences[e.key.trim()] = e.value;
     });
 
+    const formattedAddr = formatAddress(addr) || form.address || null;
     const payload = {
       name: form.name,
       email: form.email || null,
       phone: form.phone || null,
-      address: form.address || null,
+      address: formattedAddr,
+      address_line1: addr.address_line1 || null,
+      city: addr.city || null,
+      state: addr.state || null,
+      zip: addr.zip || null,
       neighborhood: form.neighborhood || null,
       notes: form.notes || null,
       preferences,
       ...(editingId ? {} : { created_by: user?.id }),
-    };
+    } as any;
 
     let error;
     if (editingId) {
@@ -322,8 +341,7 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
           <div className="grid sm:grid-cols-2 gap-3">
             <Input placeholder="Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-lg" />
             <Input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="rounded-lg" />
-            <Input placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="rounded-lg" />
-            <Input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="rounded-lg" />
+            <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
             <select
               value={form.neighborhood}
               onChange={(e) => setForm({ ...form, neighborhood: e.target.value })}
@@ -335,6 +353,12 @@ export default function ClientsTab({ readOnly }: { readOnly?: boolean }) {
               ))}
             </select>
             <Input placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-lg" />
+          </div>
+
+          {/* Structured address */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Address</p>
+            <AddressInput value={addr} onChange={setAddr} showLabels={false} />
           </div>
 
           {/* Preferences editor */}

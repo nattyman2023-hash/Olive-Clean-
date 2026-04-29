@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { AddressInput, type StructuredAddress, formatAddress } from "@/components/ui/AddressInput";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -267,12 +269,16 @@ export default function BookPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
-                  <Input type="tel" value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="(615) 555-0142" className="rounded-xl" />
+                  <PhoneInput value={form.phone || undefined} onChange={(v) => update("phone", v || "")} />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Address</label>
-                <Input value={form.address} onChange={(e) => update("address", e.target.value)} placeholder="123 Belle Meade Blvd" className="rounded-xl" />
+                <AddressInput
+                  value={{ address_line1: form.address, city: "", state: "", zip: "" }}
+                  onChange={(a: Partial<StructuredAddress>) => update("address", formatAddress(a))}
+                  showLabels={false}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Special Notes (optional)</label>
