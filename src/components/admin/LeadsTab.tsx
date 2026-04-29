@@ -16,6 +16,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, AlertCircle, User, Loader2, Pencil, Trash2, Clock } from "lucide-react";
 import ActivityTimeline from "./ActivityTimeline";
 import LeadsKanban from "./leads/LeadsKanban";
+import LeadQuoteDrawer from "./leads/LeadQuoteDrawer";
 import { LayoutGrid, List as ListIcon } from "lucide-react";
 
 const STATUS_ORDER = ["new", "quoted", "scheduled", "converted", "archived"] as const;
@@ -55,6 +56,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [editingLead, setEditingLead] = useState<any | null>(null);
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const [quoteLead, setQuoteLead] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"kanban" | "list">(() => {
     if (typeof window === "undefined") return "kanban";
     return (localStorage.getItem("leads-view-mode") as "kanban" | "list") || "kanban";
@@ -267,20 +269,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
           search={search}
           onSelectLead={(lead) => setSelectedLead(lead)}
           onConvertLead={(lead) => convertToJob.mutate(lead)}
-          onCreateQuote={(lead) => {
-            if (!onNavigate) return;
-            sessionStorage.setItem("prefill-quote", JSON.stringify({
-              leadId: lead.id,
-              name: lead.name,
-              email: lead.email,
-              phone: lead.phone,
-              address: lead.location,
-              service: lead.frequency === "one-time" ? "deep-clean" : "general",
-              bedrooms: lead.bedrooms,
-              bathrooms: lead.bathrooms,
-            }));
-            onNavigate("quotes");
-          }}
+          onCreateQuote={(lead) => setQuoteLead(lead)}
         />
       )}
 
@@ -334,19 +323,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
                         <>
                           {lead.status === "new" && (
                             <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
-                              if (onNavigate) {
-                                sessionStorage.setItem("prefill-quote", JSON.stringify({
-                                  leadId: lead.id,
-                                  name: lead.name,
-                                  email: lead.email,
-                                  phone: lead.phone,
-                                  address: lead.location,
-                                  service: lead.frequency === "one-time" ? "deep-clean" : "general",
-                                  bedrooms: lead.bedrooms,
-                                  bathrooms: lead.bathrooms,
-                                }));
-                                onNavigate("quotes");
-                              }
+                              setQuoteLead(lead);
                             }}>
                               <FileText className="h-3 w-3 mr-1" /> Create Quote
                             </Button>
