@@ -17,8 +17,9 @@ import { Search, MessageCircle, FileText, Phone, Mail, MapPin, ArrowRight, Alert
 import ActivityTimeline from "./ActivityTimeline";
 import LeadsKanban from "./leads/LeadsKanban";
 import LeadQuoteDrawer from "./leads/LeadQuoteDrawer";
+import AddLeadDrawer from "./leads/AddLeadDrawer";
 import { PhoneInput } from "@/components/ui/PhoneInput";
-import { LayoutGrid, List as ListIcon } from "lucide-react";
+import { LayoutGrid, List as ListIcon, Plus } from "lucide-react";
 
 const STATUS_ORDER = ["new", "quoted", "scheduled", "converted", "archived"] as const;
 const STATUS_LABELS: Record<string, string> = { new: "New", quoted: "Quoted", scheduled: "Scheduled", converted: "Converted", archived: "Archived" };
@@ -58,6 +59,7 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
   const [editingLead, setEditingLead] = useState<any | null>(null);
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
   const [quoteLead, setQuoteLead] = useState<any | null>(null);
+  const [showAddLead, setShowAddLead] = useState(false);
   const [viewMode, setViewMode] = useState<"kanban" | "list">(() => {
     if (typeof window === "undefined") return "kanban";
     return (localStorage.getItem("leads-view-mode") as "kanban" | "list") || "kanban";
@@ -244,6 +246,9 @@ export default function LeadsTab({ onNavigate }: { onNavigate?: (section: string
             <ListIcon className="h-3.5 w-3.5" /> List
           </Button>
         </div>
+        <Button size="sm" className="h-9 gap-1" onClick={() => setShowAddLead(true)}>
+          <Plus className="h-3.5 w-3.5" /> Add Lead
+        </Button>
       </div>
 
       {/* Pipeline summary (list view only) */}
