@@ -209,6 +209,11 @@ export default function EstimatesSection({ readOnly }: { readOnly?: boolean }) {
                     Converted → Job #{est.converted_job_id.slice(0, 8)}
                   </p>
                 )}
+                {est.status === "accepted" && !est.converted_job_id && (
+                  <p className="text-[0.65rem] font-medium text-amber-700 bg-amber-50 border border-amber-200 mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full">
+                    Needs conversion
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[est.status] || STATUS_STYLES.draft}`}>{est.status}</span>
