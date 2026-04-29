@@ -5,11 +5,17 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   Plus, Loader2, FileText, ArrowRight, Pencil, Eye, Send, Clock,
-  RefreshCw, Search, Filter, CalendarClock, ChevronDown, Check, PhoneCall
+  RefreshCw, Search, Filter, CalendarClock, ChevronDown, Check, PhoneCall, RotateCcw, X
 } from "lucide-react";
 import InvoiceForm from "./finance/InvoiceForm";
 import InvoicePreview from "./finance/InvoicePreview";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+
+const TERMINAL_STATUSES = new Set(["accepted", "converted", "converted_to_job"]);
 
 interface Estimate {
   id: string;
@@ -58,6 +64,8 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [prefillLeadId, setPrefillLeadId] = useState<string | null>(null);
+  const [showConverted, setShowConverted] = useState(false);
+  const [resetTarget, setResetTarget] = useState<Estimate | null>(null);
 
   // Check for lead-to-quote prefill on mount
   useEffect(() => {
@@ -174,6 +182,44 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
     toast.success("Quote resent.");
   };
 
+  const resetQuote = async (est: Estimate) => {
+    const newToken = crypto.randomUUID();
+    const { error } = await supabase.from("estimates").update({
+      status: "draft",
+      approval_token: newToken,
+      viewed_at: null,
+      view_count: 0,
+      approved_at: null,
+      sent_at: null,
+      declined_at: null,
+      decline_reason: null,
+    } as any).eq("id", est.id);
+    if (error) { toast.error("Reset failed."); return; }
+    toast.success("Quote reset to draft with a new link.");
+    setResetTarget(null);
+    fetchQuotes();
+  };
+
+  const acceptByPhone = async (est: Estimate) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("estimates").update({
+      status: "accepted",
+      approved_at: new Date().toISOString(),
+      accepted_via: "phone",
+    } as any).eq("id", est.id);
+    if (error) { toast.error("Failed to mark accepted."); return; }
+    await supabase.from("crm_notes").insert({
+      parent_type: "client",
+      parent_id: est.client_id,
+      author_id: user?.id || null,
+      content: `Quote ${est.estimate_number} accepted by phone`,
+      note_type: "system",
+    });
+    toast.success("Marked accepted on behalf of customer.");
+    await supabase.functions.invoke("quote-action", { body: { token: est.approval_token, action: "approve" } });
+    fetchQuotes();
+  };
+
   if (preview) {
     return (
       <InvoicePreview
@@ -223,6 +269,7 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
     const matchSearch = !search ||
       e.estimate_number.toLowerCase().includes(search.toLowerCase()) ||
       (e.clients?.name || "").toLowerCase().includes(search.toLowerCase());
+    if (!showConverted && TERMINAL_STATUSES.has(e.status) && statusFilter === "all") return false;
     return matchStatus && matchSearch;
   });
 
@@ -290,6 +337,9 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
           <option value="declined">Declined</option>
           <option value="converted">Converted</option>
         </select>
+        <Button variant="ghost" size="sm" className="text-xs h-9" onClick={() => setShowConverted(v => !v)}>
+          {showConverted ? "Hide" : "Show"} accepted/converted
+        </Button>
       </div>
 
       {showForm && (
@@ -414,6 +464,22 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!resetTarget} onOpenChange={(o) => { if (!o) setResetTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset this quote?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Generates a new approval link and clears any previous view/accept/decline.
+              The customer's old link will stop working.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetTarget && resetQuote(resetTarget)}>Reset</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
