@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, ArrowRightLeft, Package, Megaphone, Clock, CheckCircle2, AlertTriangle, Star, UserCheck, PlayCircle, XCircle, RotateCcw, Briefcase } from "lucide-react";
+import { Bell, ArrowRightLeft, Package, Megaphone, Clock, CheckCircle2, AlertTriangle, Star, UserCheck, PlayCircle, XCircle, RotateCcw, Briefcase, Eye } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -86,6 +86,19 @@ export default function NotificationBell() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
+  // Stamp opened_at on first view (separate from "read")
+  const stampOpenedMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) return;
+      await supabase
+        .from("notifications")
+        .update({ opened_at: new Date().toISOString(), opened_by: user.id } as any)
+        .eq("id", id)
+        .is("opened_at", null);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
       const unreadIds = notifications.filter((n: any) => !n.read).map((n: any) => n.id);
@@ -110,6 +123,7 @@ export default function NotificationBell() {
   const handleAction = (n: any) => {
     const cfg = TYPE_CONFIG[n.type];
     if (!n.read) markReadMutation.mutate(n.id);
+    if (!n.opened_at) stampOpenedMutation.mutate(n.id);
     // Deep link: stash target job id so JobsTab opens the drawer
     const jobId = n?.metadata?.job_id;
     if (jobId) {
@@ -124,6 +138,36 @@ export default function NotificationBell() {
       setOpen(false);
     }
   };
+
+  // Resolve display names for openers via the profiles table.
+  const openerIds = useMemo(() => {
+    const ids = new Set<string>();
+    notifications.forEach((n: any) => { if (n.opened_by && n.opened_by !== user?.id) ids.add(n.opened_by); });
+    return Array.from(ids);
+  }, [notifications, user?.id]);
+
+  const { data: openerProfiles = {} } = useQuery({
+    queryKey: ["notification-openers", openerIds.sort().join(",")],
+    enabled: openerIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .in("user_id", openerIds);
+      const map: Record<string, string> = {};
+      (data || []).forEach((p: any) => { map[p.user_id] = p.display_name || "Team member"; });
+      return map;
+    },
+  });
+
+  // Stamp first-view when the popover opens (passive view, no click required)
+  useEffect(() => {
+    if (!open || !user) return;
+    notifications
+      .filter((n: any) => n.user_id === user.id && !n.opened_at)
+      .forEach((n: any) => stampOpenedMutation.mutate(n.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const STATUS_LABEL: Record<string, string> = {
     scheduled: "Scheduled",
