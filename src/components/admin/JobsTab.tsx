@@ -1389,6 +1389,12 @@ function JobDetailPanel({ job, employees, onStatusChange, onReassign, onLogDurat
           <p className="text-[0.7rem] text-destructive mt-2 italic">Reason: {job.cancel_reason}</p>
         )}
       </div>
+
+      {/* Status History (audit log) */}
+      <div className="border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground mb-2">Status History</p>
+        <JobAuditLog jobId={job.id} refreshKey={auditTick} />
+      </div>
     </div>
   );
 }
