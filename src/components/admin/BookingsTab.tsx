@@ -10,8 +10,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { PhoneInput, isPhoneValid } from "@/components/ui/PhoneInput";
-import { AddressInput, type StructuredAddress, formatAddress } from "@/components/ui/AddressInput";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { AddressInput, formatAddress } from "@/components/ui/AddressInput";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
