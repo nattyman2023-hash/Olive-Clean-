@@ -440,9 +440,17 @@ export default function QuotesTab({ readOnly }: { readOnly?: boolean }) {
 
                 {/* Resend for sent/viewed quotes */}
                 {!readOnly && (est.status === "sent" || est.status === "viewed") && (
-                  <Button size="sm" variant="outline" onClick={() => resendQuote(est)} className="text-xs h-7 rounded-lg">
-                    <RefreshCw className="h-3 w-3 mr-1" />Resend
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => resendQuote(est)} className="text-xs h-7 rounded-lg">
+                      <RefreshCw className="h-3 w-3 mr-1" />Resend
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => acceptByPhone(est)} className="text-xs h-7 rounded-lg" title="Customer agreed by phone">
+                      <PhoneCall className="h-3 w-3 mr-1" />Accept (phone)
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setResetTarget(est)} className="text-xs h-7 rounded-lg" title="Reset to draft with a fresh link">
+                      <RotateCcw className="h-3 w-3 mr-1" />Reset
+                    </Button>
+                  </>
                 )}
 
                 {/* Convert to Invoice */}
