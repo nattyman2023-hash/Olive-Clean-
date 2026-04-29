@@ -202,16 +202,54 @@ export default function QuoteView() {
                 {quote.approved_at ? `Approved on ${new Date(quote.approved_at).toLocaleDateString()}` : "Thank you!"}
               </p>
             </div>
+          ) : declined ? (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+              <X className="h-6 w-6 text-red-600 mx-auto mb-2" />
+              <p className="font-semibold text-red-800">Quote Declined</p>
+              <p className="text-xs text-red-600 mt-1">
+                Thank you for letting us know. We'll be in touch.
+              </p>
+            </div>
+          ) : showDeclineForm ? (
+            <div className="space-y-3 border border-border rounded-xl p-4">
+              <p className="text-sm font-medium text-foreground">Decline this quote?</p>
+              <Textarea
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                placeholder="Optional: tell us why (price, timing, chose someone else…)"
+                rows={3}
+                className="rounded-lg text-sm"
+                maxLength={500}
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 rounded-lg" onClick={() => { setShowDeclineForm(false); setDeclineReason(""); }} disabled={declining}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" className="flex-1 rounded-lg" onClick={handleDecline} disabled={declining}>
+                  {declining ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Decline"}
+                </Button>
+              </div>
+            </div>
           ) : (
-            <Button
-              size="lg"
-              onClick={handleApprove}
-              disabled={approving}
-              className="w-full rounded-xl text-base py-6"
-            >
-              {approving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Check className="h-5 w-5 mr-2" />}
-              Approve This Quote
-            </Button>
+            <div className="space-y-2">
+              <Button
+                size="lg"
+                onClick={handleApprove}
+                disabled={approving}
+                className="w-full rounded-xl text-base py-6"
+              >
+                {approving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Check className="h-5 w-5 mr-2" />}
+                Approve This Quote
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                onClick={() => setShowDeclineForm(true)}
+                className="w-full rounded-xl text-sm text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-4 w-4 mr-1" /> Decline
+              </Button>
+            </div>
           )}
 
           {/* Footer */}
