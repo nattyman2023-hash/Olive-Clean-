@@ -1,36 +1,44 @@
-## Diagnosis
+## Problem
 
-Your live site at **oliveclean.co** (and www + olive-sanctuary-stack.lovable.app) is rendering completely blank — just an olive-tinted background with no content.
+The published site at `oliveclean.co` loads its HTML and assets correctly, but immediately crashes with:
 
-I confirmed the cause by fetching the production HTML directly. All three published URLs return this stripped HTML:
-
-```html
-<!DOCTYPE html><html lang="en">
-  <body>
-    <div id="root"></div>
-  </body>
-</html>
+```
+ReferenceError: Cannot access 'P' before initialization
+  at /assets/charts-vendor-Dn70FGEW.js
 ```
 
-There is **no `<head>`**, no meta tags, no title, and most importantly **no `<script src="/src/main.tsx">` tag**. Without the script tag, React never mounts into `#root`, so the page stays permanently empty. The olive tint you see is just the body's default background.
+This leaves `#root` empty — a fully blank page. The Lovable preview is unaffected because Vite dev mode does not apply production chunking. Republishing alone will not fix it; the bug is in the build config.
 
-The repo's `index.html` source is correct (head, meta, manifest, and the module script are all there). So this isn't a code bug — **the last publish/deploy produced a broken build artifact**. Likely the build crashed silently and shipped an empty index, or the deploy pipeline mangled the HTML.
+## Root cause
 
-The Lovable preview (`id-preview--…lovable.app`) is unaffected because it serves the dev source directly. That's why the admin dashboard you've been working in still renders — only the published site is dead.
+In `vite.config.ts`, `manualChunks` isolates `recharts` and `d3-*` into a `charts-vendor` chunk:
+
+```ts
+if (id.includes("recharts") || id.includes("d3-")) return "charts-vendor";
+```
+
+`recharts` and the `d3-*` packages have circular module dependencies. When Rollup splits them away from React and from each other's natural import graph, the resulting chunk references a hoisted binding before its initializer runs (TDZ). Any page that loads this chunk crashes the whole app.
+
+This is a known footgun with manual chunking + recharts/d3.
 
 ## Fix
 
-The fix is a single action: **re-publish the project** so a fresh build replaces the broken one.
+Remove the `charts-vendor` split so recharts/d3 bundle naturally with their importers. Same treatment for any other split that is risky for the same reason.
 
-Steps once you approve:
+Edit `vite.config.ts` `manualChunks`:
 
-1. Run a clean production build locally in the sandbox (`npm run build`) to verify the build itself works end-to-end with the latest code (recent JobsTab / JobStatusActions / JobsSectionTabs / JobAuditLog changes, etc.). If it fails, fix the build error first.
-2. If the build passes, **publish from the Lovable Publish panel**. That regenerates the deployed HTML with the correct `<head>` and `<script>` tags.
-3. After publish, re-fetch `https://oliveclean.co` and confirm the HTML now contains `<script type="module" src="/assets/index-…js">` and the page renders.
+- Delete the `charts-vendor` rule (recharts + d3).
+- Keep the safe splits: `react-vendor`, `radix-vendor`, `data-vendor`, `icons-vendor`, `dnd-vendor`, `map-vendor`, `markdown-vendor`, `date-vendor`.
+
+Result: recharts will be code-split per-route by Vite's automatic chunking, which respects the import graph and avoids the TDZ.
+
+## Verification
+
+1. Run `npm run build` in the sandbox and confirm it succeeds.
+2. Ask the user to click **Publish → Update** to redeploy.
+3. Re-fetch `https://oliveclean.co` and confirm the page renders (no `ReferenceError` in console).
 
 ## Notes
 
-- The console errors you saw earlier (`forwardRef` warning in `AddLeadDrawer`, `manifest.json` 401) are unrelated to this blank page and don't block rendering. I can clean them up in a follow-up if you want.
-- Nothing in the source code needs to change for this fix — it's purely a republish. If the `npm run build` step in step 1 surfaces a real compilation error, I'll patch that file before publishing.
-
-Approve and I'll run the build check and then trigger the republish.
+- No code changes outside `vite.config.ts`.
+- Bundle size impact is negligible; recharts will still be a separate async chunk wherever it's lazily imported.
