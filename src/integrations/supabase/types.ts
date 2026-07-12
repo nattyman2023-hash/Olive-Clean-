@@ -1784,6 +1784,47 @@ export type Database = {
           },
         ]
       }
+      time_logs: {
+        Row: {
+          id: string
+          employee_id: string
+          clock_in: string
+          clock_in_lat: number | null
+          clock_in_lng: number | null
+          clock_out: string | null
+          clock_out_lat: number | null
+          clock_out_lng: number | null
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          clock_in?: string
+          clock_in_lat?: number | null
+          clock_in_lng?: number | null
+          clock_out?: string | null
+          clock_out_lat?: number | null
+          clock_out_lng?: number | null
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          clock_in?: string
+          clock_in_lat?: number | null
+          clock_in_lng?: number | null
+          clock_out?: string | null
+          clock_out_lat?: number | null
+          clock_out_lng?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       user_roles: {
         Row: {
           id: string

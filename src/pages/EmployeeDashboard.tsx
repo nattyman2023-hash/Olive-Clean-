@@ -231,6 +231,8 @@ export default function EmployeeDashboard() {
       </header>
 
       <main className="container py-6 max-w-2xl space-y-4">
+        {employee && <TimeClock employeeId={employee.id} dayJobs={dayJobs} />}
+
         {/* Week-at-a-glance strip */}
         <div className="flex items-center gap-1 justify-between">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => subDays(d, 1))}>
@@ -1085,6 +1087,165 @@ function EmployeeExpenses({ employeeId }: { employeeId: string }) {
               </div>
             </div>
           ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TimeClock({ employeeId, dayJobs }: { employeeId: string; dayJobs?: any[] }) {
+  const [loadingLoc, setLoadingLoc] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: activeLog, isLoading } = useQuery({
+    queryKey: ["active_time_log", employeeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_logs")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .is("clock_out", null)
+        .order("clock_in", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return data?.[0] || null;
+    },
+  });
+
+  const getPosition = (): Promise<GeolocationPosition | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        (err) => {
+          console.warn("Geolocation error:", err);
+          resolve(null); // Fallback to null instead of failing
+        },
+        { timeout: 8000, maximumAge: 60000 }
+      );
+    });
+  };
+
+  const clockIn = async () => {
+    if (!selectedJobId && dayJobs && dayJobs.length > 0) {
+      toast.error("Please select a job to clock into.");
+      return;
+    }
+    setLoadingLoc(true);
+    try {
+      const pos = await getPosition();
+      let insertData: any = {
+        employee_id: employeeId,
+        clock_in_lat: pos?.coords.latitude || null,
+        clock_in_lng: pos?.coords.longitude || null,
+      };
+
+      try {
+        const { error } = await supabase.from("time_logs").insert({
+          ...insertData,
+          job_id: selectedJobId && selectedJobId !== "general" ? selectedJobId : null,
+        });
+        if (error) throw error;
+        toast.success("Clocked in successfully");
+      } catch (insertError: any) {
+        if (insertError.message?.includes("column \"job_id\"") || insertError.code === "42703") {
+          const { error: fallbackError } = await supabase.from("time_logs").insert(insertData);
+          if (fallbackError) throw fallbackError;
+          toast.warning("Clocked in! (Note: job_id column missing in DB, so job was not attached)");
+        } else {
+          throw insertError;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["active_time_log"] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to clock in");
+    } finally {
+      setLoadingLoc(false);
+    }
+  };
+
+  const clockOut = async () => {
+    if (!activeLog) return;
+    setLoadingLoc(true);
+    try {
+      const pos = await getPosition();
+      const { error } = await supabase.from("time_logs").update({
+        clock_out: new Date().toISOString(),
+        clock_out_lat: pos?.coords.latitude || null,
+        clock_out_lng: pos?.coords.longitude || null,
+      }).eq("id", activeLog.id);
+      if (error) throw error;
+      toast.success("Clocked out successfully");
+      queryClient.invalidateQueries({ queryKey: ["active_time_log"] });
+      setSelectedJobId("");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to clock out");
+    } finally {
+      setLoadingLoc(false);
+    }
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <Card className="bg-primary/5 border-primary/20">
+      <CardContent className="p-4 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Time & Location</h3>
+              <p className="text-xs text-muted-foreground">
+                {activeLog ? `Clocked in at ${format(new Date(activeLog.clock_in), "h:mm a")}` : "Not clocked in"}
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={activeLog ? clockOut : clockIn}
+            disabled={loadingLoc}
+            className="rounded-xl flex items-center gap-2"
+            variant={activeLog ? "destructive" : "default"}
+          >
+            {loadingLoc ? <Loader2 className="h-4 w-4 animate-spin" /> : activeLog ? <LogOut className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+            {activeLog ? "Clock Out" : "Clock In"}
+          </Button>
+        </div>
+
+        {!activeLog && dayJobs && dayJobs.length > 0 && (
+          <div className="pt-2 border-t border-primary/10 mt-1">
+            <p className="text-xs font-semibold mb-2">Select Assigned Job:</p>
+            <div className="space-y-2">
+              <Select value={selectedJobId} onValueChange={setSelectedJobId}>
+                <SelectTrigger className="w-full bg-background rounded-lg text-sm">
+                  <SelectValue placeholder="General / No specific job" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General / No specific job</SelectItem>
+                  {dayJobs.map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {format(new Date(j.scheduled_at), "h:mm a")} - {(j.clients as any)?.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {activeLog && (activeLog as any).job_id && (activeLog as any).job_id !== "general" && dayJobs && (
+          <div className="pt-2 border-t border-primary/10">
+            <p className="text-xs text-muted-foreground">
+              Clocked into: <span className="font-medium text-foreground">
+                {dayJobs.find(j => j.id === (activeLog as any).job_id)?.clients?.name || "Job"}
+              </span>
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

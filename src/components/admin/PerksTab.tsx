@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import PerkCatalogManager from "@/components/admin/PerkCatalogManager";
 import {
   Search,
   Plus,
@@ -118,6 +119,7 @@ export default function PerksTab() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PerksMember | null>(null);
   const queryClient = useQueryClient();
+  const [activeView, setActiveView] = useState<"members" | "catalog">("members");
 
   // Pending redemptions (redeemed = true, no job created yet)
   const [pendingRedemptions, setPendingRedemptions] = useState<(Milestone & { clientName: string; clientId: string; memberId: string })[]>([]);
@@ -448,6 +450,38 @@ export default function PerksTab() {
         </div>
       </div>
 
+      {/* ── Perk Catalog View ── */}
+      {activeView === "catalog" && (
+        <PerkCatalogManager />
+      )}
+
+      {activeView === "members" && (<>
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Perks members..." className="pl-10 rounded-xl" />
+          </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            {["all", "loyalty_club", "friends_family", "veterans", "retired"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setProgramFilter(p)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors active:scale-[0.97] ${
+                  programFilter === p ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {p === "all" ? "All" : PROGRAM_KEY_MAP[p] || p}
+              </button>
+            ))}
+            <Button variant="outline" size="sm" onClick={loadGapFiller} className="rounded-lg active:scale-[0.97]">
+              <Zap className="h-4 w-4 mr-1" /> Gap Filler
+            </Button>
+            <Button size="sm" onClick={() => setShowEnroll(true)} className="rounded-lg active:scale-[0.97]">
+              <Plus className="h-4 w-4 mr-1" /> Enroll
+            </Button>
+          </div>
+        </div>
+
       {/* Pending Redemptions */}
       {pendingRedemptions.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-6 mb-6 space-y-3">
@@ -616,10 +650,11 @@ export default function PerksTab() {
           )}
         </div>
 
-        {/* Detail Panel */}
-        <div className="lg:col-span-1">
-          {selected ? (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
+          {/* Detail Panel */}
+          <div className="lg:col-span-1 space-y-4">
+            {selected ? (
+              <>
+              <div className="bg-card rounded-xl border border-border shadow-sm p-6 sticky top-24 space-y-5">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">{selected.clients?.name || "Unknown"}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -720,13 +755,19 @@ export default function PerksTab() {
                   ))}
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
-              <Star className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Select a member to view details</p>
-            </div>
-          )}
+              </div>
+              {/* Assign Perk to member inline */}
+              <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+                <PerkCatalogManager memberId={selected.id} memberName={selected.clients?.name || "member"} />
+              </div>
+              </>
+            ) : (
+              <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
+                <Star className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Select a member to view details</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
